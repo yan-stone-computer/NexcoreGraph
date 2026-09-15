@@ -1,33 +1,30 @@
-/* 启核图策 · AI 工作台（补充方案 G4：AI 是入口）
-   结构：① AI 摘要条（数值全部代码计算）② 待确认动作队列（AI 已准备，点确认才生效）
-        ③ 图谱入口 ④ 快捷指令 ⑤ 对话入口（打开常驻 AI 面板）
-   红线：摘要数字来自 store/图谱统计；队列里的写操作一律"预览 → 用户点确认"才生效。 */
+/* 启核图策 · AI 工作台（首屏）
+   版式原则（ui-alchemy craft floor）：
+     · 每屏只有一个焦点：今天要处理（唯一卡片，其余全部退成细线行）
+     · 无渐变铺底、无三等分指标卡、无卡片套卡片；数字一律等宽（tnum）
+     · 间距走 8pt 网格，标题上方留白 > 下方；层级只靠字重与色阶，不靠装饰
+   红线不变：摘要数字由代码计算；队列里的写操作必须用户确认后才生效。 */
 
 import { store } from '../common/Store';
-import { T, R_L, R_M, R_S, S4 } from '../common/Tokens';
-import { Ico, TBtn, Card, Chip, CardHead, NumText } from '../components/Widgets';
-import { ChatMsg, Plan, Item, Library, ShoppingItem } from '../common/Db';
-import {
-  executePlan, setItemQtyByName, addShoppingByAI, runBusy, valueMetrics, ValueMetrics
-} from '../common/Api';
+import { T, S1, S2, S3, S4, S6 } from '../common/Tokens';
+import { TBtn, Card } from '../components/Widgets';
+import { ChatMsg, Plan, Item, Library } from '../common/Db';
+import { executePlan, setItemQtyByName, addShoppingByAI, runBusy, valueMetrics, ValueMetrics } from '../common/Api';
 import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { saveChat, saveFormSnapshot } from '../common/LocalStore';
 
 @ComponentV2
 export struct AiWorkbench {
   @Local graphSize: string = '';
-  @Local graphVer: string = '';
   @Local vm: ValueMetrics = new ValueMetrics();
 
   aboutToAppear(): void {
-    // currentGraphSize() 会触发"按需构图"（脏则重建），保证首屏拿到真实图规模
     this.graphSize = currentGraphSize();
-    this.graphVer = currentGraphVersion();
     this.vm = valueMetrics();
     saveFormSnapshot();
   }
 
-  /* ---------- 摘要条（代码计算，0 次模型） ---------- */
+  /* ---------- 事实（全部代码计算） ---------- */
 
   private expiringItems(): Item[] {
     const out: Item[] = [];
@@ -42,22 +39,21 @@ export struct AiWorkbench {
     return out;
   }
 
-  private summaryLine(): string {
-    const exp = this.expiringItems();
-    if (exp.length === 0) {
-      return `库存 ${this.totalItems()} 件，暂无临期；可以问我"今晚吃什么"。`;
-    }
-    const first = exp[0];
-    return `临期 ${exp.length} 项 · 建议先消耗「${first.name}」（${first.expDays} 天后到期）`;
-  }
-
-  private totalItems(): number {
+  private itemCount(): number {
     let n = 0;
     store.libraries.forEach((l: Library) => n += l.items.length);
     return n;
   }
 
-  /* ---------- 待确认动作队列（来自 AI 预览卡 + 待执行方案） ---------- */
+  private pendingPlans(): Plan[] {
+    const out: Plan[] = [];
+    store.plans.forEach((p: Plan) => {
+      if (p.status === 'pending') {
+        out.push(p);
+      }
+    });
+    return out;
+  }
 
   private pendingChat(): ChatMsg[] {
     const out: ChatMsg[] = [];
@@ -65,28 +61,27 @@ export struct AiWorkbench {
       if (m.who !== 'ai') {
         return;
       }
-      if (m.adjName !== '' && m.adjQty >= 0 && !m.adjDone) {
-        out.push(m);
-      } else if (m.shopName !== '' && !m.shopDone) {
+      if ((m.adjName !== '' && m.adjQty >= 0 && !m.adjDone) || (m.shopName !== '' && !m.shopDone)) {
         out.push(m);
       }
     });
     return out.slice(-3);
   }
 
-  private pendingPlans(): Plan[] {
-    const out: Plan[] = [];
-    store.plans.forEach((p: Plan) => {
-      if (p.status === 'pending' && out.length < 2) {
-        out.push(p);
-      }
-    });
-    return out;
-  }
-
-  private queueSize(): number {
+  private queueCount(): number {
     return this.pendingChat().length + this.pendingPlans().length;
   }
+
+  /** 今天要处理的一句话结论（代码计算，非模型生成） */
+  private todayLine(): string {
+    const exp = this.expiringItems();
+    if (exp.length === 0) {
+      return '没有临期，库存健康';
+    }
+    return `先消耗 ${exp[0].name}，还有 ${exp[0].expDays} 天`;
+  }
+
+  /* ---------- 动作（预览 → 确认才写） ---------- */
 
   private confirmAdjust(m: ChatMsg): void {
     runBusy('wb:adjust', (): Promise<void> => setItemQtyByName(m.adjName, m.adjQty).then((): void => {
@@ -94,7 +89,7 @@ export struct AiWorkbench {
       store.chat = store.chat.slice();
       saveChat();
     }), (): void => {
-      store.toast(`已应用调整：${m.adjName} → ${m.adjQty}`);
+      store.toast(`已应用：${m.adjName} → ${m.adjQty}`);
     });
   }
 
@@ -110,11 +105,9 @@ export struct AiWorkbench {
 
   private execPlan(p: Plan): void {
     runBusy('wb:plan', (): Promise<void> => executePlan(p.id, p.selected), (): void => {
-      store.toast(`已执行方案「${p.title}」，库存已扣减`);
+      store.toast(`已执行「${p.title}」，库存已扣减`);
     });
   }
-
-  /* ---------- 交互 ---------- */
 
   private ask(prompt: string): void {
     store.aiPrefill = prompt;
@@ -122,166 +115,135 @@ export struct AiWorkbench {
   }
 
   build() {
-    Column({ space: 12 }) {
-      /* ① AI 摘要条 */
-      Row({ space: 10 }) {
-        Ico({ name: 'sparkles', dim: 16, color: T.c('on-accent-container') })
-        Column({ space: 2 }) {
-          Text('AI 工作台').fontSize(15).fontWeight(800).fontColor(T.c('text-primary'))
-          Text(this.summaryLine()).fontSize(12).fontColor(T.c('text-secondary')).maxLines(2)
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        TBtn({ label: '简报', icon: 'sparkles', kind: 'soft', small: true, tap: (): void => {
-          this.ask('帮我总结这周的库存情况，给出 1 条行动建议');
-        } })
+    Column({ space: 0 }) {
+      /* 页头：标题自己承担层级，不加 eyebrow */
+      Text('AI 工作台').fontSize(24).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+      Row({ space: S2 }) {
+        Text(`${store.family.name}`).fontSize(12).fontColor(T.c('text-muted'))
+        Text('·').fontSize(12).fontColor(T.c('border-strong'))
+        Text(this.todayLine()).fontSize(12).fontColor(T.c('text-muted'))
+      }
+      .margin({ top: S1 })
+
+      /* 事实行：等宽数字，细线分隔，不用卡片 */
+      Row() {
+        this.Fact(`${this.expiringItems().length}`, '临期')
+        this.ThinDivider()
+        this.Fact(`${this.itemCount()}`, '在库')
+        this.ThinDivider()
+        this.Fact(`${this.pendingPlans().length}`, '待执行')
+        this.ThinDivider()
+        this.Fact(this.vm.expiringRate <= 0 ? '—' : `${this.vm.expiringRate}%`, '临期消耗率')
       }
       .width('100%')
-      .padding(R_M)
-      .borderRadius(R_L)
-      // 品牌三段渐变（绿→青→蓝）低透明度铺底，呼应官方徽标
-      .linearGradient({
-        angle: 135,
-        colors: [
-          ['rgba(140,211,91,0.26)', 0],      // 徽标 15% 绿
-          ['rgba(61,208,174,0.20)', 0.5],     // 徽标 45% 过渡青
-          ['rgba(39,173,215,0.18)', 1]        // 徽标 90% 信号蓝
-        ]
-      })
-      .alignItems(VerticalAlign.Center)
+      .margin({ top: S4 })
 
-      /* ①' 价值指标（M-11）：三栏小卡，紧跟摘要条，避免散落在页面底部 */
-      Row({ space: 8 }) {
-        this.MiniStat('临期消耗率', `${this.vm.expiringRate}%`)
-        this.MiniStat('避免重复购买', `${this.vm.blockedRepurchase} 次`)
-        this.MiniStat('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '—')
-      }
-      .width('100%')
-
-      /* ② 待确认动作队列 */
-      Card() {
-        Column({ space: 10 }) {
-          CardHead({
-            title: '待确认', sub: this.queueSize() === 0 ? 'AI 暂无待办' : `${this.queueSize()} 项等你确认`,
-            badgeText: '红线：先预览后生效', badgeTone: 'amber', badgeIcon: 'check'
-          })
-          if (this.queueSize() === 0) {
-            Text('问我"鸡蛋只剩 5 个"或"今晚吃什么"，我会把动作准备好放在这里。')
-              .fontSize(12).fontColor(T.c('text-muted'))
-          } else {
+      /* 焦点区：今天要处理（全页唯一卡片） */
+      Text('今天要处理').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+        .margin({ top: S6, bottom: S2 })
+      if (this.queueCount() === 0) {
+        Text('还没有待确认的动作。问我「鸡蛋只剩 5 个」或「今晚吃什么」，我会把动作准备好放在这里。')
+          .fontSize(13).lineHeight(20).fontColor(T.c('text-muted'))
+      } else {
+        Card() {
+          Column({ space: 0 }) {
             ForEach(this.pendingChat(), (m: ChatMsg, i: number) => {
-              Row({ space: 10 }) {
-                Column({ space: 2 }) {
-                  Text(m.adjName !== '' ? `调整：${m.adjName} → ${m.adjQty}` : `加入采购：${m.shopName} ${m.shopQty}`)
-                    .fontSize(13).fontWeight(700).fontColor(T.c('text-primary'))
-                  Text('来自 AI 对话预览卡 · 确认后才写入')
-                    .fontSize(11).fontColor(T.c('text-muted'))
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
-                TBtn({ label: '确认', icon: 'check', kind: 'primary', small: true, tap: (): void => {
+              this.QueueRow(
+                m.adjName !== '' ? `把 ${m.adjName} 改成 ${m.adjQty}` : `把 ${m.shopName} 加入采购清单`,
+                m.adjName !== '' ? '来自对话预览，确认后才会改库存' : '来自对话预览，确认后才会进清单',
+                '确认',
+                (): void => {
                   if (m.adjName !== '') {
                     this.confirmAdjust(m);
                   } else {
                     this.confirmShop(m);
                   }
-                } })
-              }
-              .width('100%')
-              .padding({ top: 6, bottom: 6 })
-              .border({ width: { bottom: 1 }, color: T.c('border') })
-            }, (m: ChatMsg, i: number) => `qc-${i}-${m.time}-${m.text.length}`)
-
+                },
+                i > 0
+              )
+            }, (m: ChatMsg, i: number) => `qc-${i}-${m.text.length}`)
             ForEach(this.pendingPlans(), (p: Plan, i: number) => {
-              Row({ space: 10 }) {
-                Column({ space: 2 }) {
-                  Text(`方案：${p.title}`).fontSize(13).fontWeight(700).fontColor(T.c('text-primary'))
-                  Text(`${p.reason} · ${p.time} · 消耗 ${p.used.length} 种食材`)
-                    .fontSize(11).fontColor(T.c('text-muted'))
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
-                TBtn({ label: '执行', icon: 'check', kind: 'soft', small: true, tap: (): void => {
-                  this.execPlan(p);
-                } })
-              }
-              .width('100%')
-              .padding({ top: 6, bottom: 6 })
+              this.QueueRow(
+                `执行方案 ${p.title}`,
+                `${p.reason} · ${p.time} · 消耗 ${p.used.length} 种食材`,
+                '执行',
+                (): void => this.execPlan(p),
+                this.pendingChat().length > 0 || i > 0
+              )
             }, (p: Plan, i: number) => `qp-${p.id}`)
           }
-        }
-        .alignItems(HorizontalAlign.Start)
-      }
-
-      /* ③ 图谱入口 */
-      Card() {
-        Row({ space: 10 }) {
-          Column({ space: 3 }) {
-            Text('库存知识图谱').fontSize(15).fontWeight(700).fontColor(T.c('text-primary'))
-            Text(`${this.graphSize}｜${this.graphVer}`).fontSize(12).fontColor(T.c('text-muted'))
-          }
           .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
-          TBtn({ label: '打开图谱', icon: 'listcheck', kind: 'ghost', small: true, tap: (): void => {
-            store.overlay = 'graph';
-          } })
         }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
       }
 
-      /* ④ 快捷指令 */
-      Row({ space: 8 }) {
-        Chip({ text: '今日吃什么', active: false, tap: (): void => this.ask('今晚吃什么') })
-        Chip({ text: '盘点', active: false, tap: (): void => {
-          store.overlay = 'intake';
-        } })
-        Chip({ text: '谁改了库存', active: false, tap: (): void => this.ask('最近谁改了库存') })
-      }
+      /* 概览：label-value 细线行，退回背景层 */
+      Text('概览').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+        .margin({ top: S6, bottom: S2 })
+      this.InfoRow('库存知识图谱', this.graphSize)
+      this.InfoRow('避免重复购买', `${this.vm.blockedRepurchase} 次`)
+      this.InfoRow('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '暂无记录')
 
-      /* ⑤ 对话入口（打开常驻 AI 面板） */
-      Row({ space: 10 }) {
-        Row({ space: 8 }) {
-          Ico({ name: 'sparkles', dim: 15, color: T.c('text-muted') })
-          Text('问 AI：今晚吃什么 / 牛奶还能放几天').fontSize(13).fontColor(T.c('text-muted'))
-        }
-        .layoutWeight(1)
-        .height(44)
-        .padding({ left: 12, right: 12 })
-        .borderRadius(22)
-        .backgroundColor(T.c('surface-raised'))
-        .border({ width: 1, color: T.c('border') })
-        .alignItems(VerticalAlign.Center)
-        .onClick((): void => {
-          this.ask('');
-        })
-        TBtn({ label: 'AI 对话', icon: 'sparkles', kind: 'primary', tap: (): void => {
-          this.ask('');
-        } })
+      /* 底部：单一对话入口（克制，不再并排两个入口） */
+      Row({ space: S3 }) {
+        Text('今晚吃什么').fontSize(13).fontColor(T.c('text-secondary'))
+          .onClick((): void => this.ask('今晚吃什么'))
+        Text('牛奶还能放几天').fontSize(13).fontColor(T.c('text-secondary'))
+          .onClick((): void => this.ask('牛奶还能放几天'))
+        Blank()
+        TBtn({ label: '问 AI', icon: 'sparkles', kind: 'primary', small: true, tap: (): void => this.ask('') })
       }
       .width('100%')
-      .alignItems(VerticalAlign.Center)
+      .margin({ top: S6 })
 
-      /* 底部留白：避开悬浮 AI 球（52vp 球 + 边距），避免遮挡最后一行内容 */
-      Row().width('100%').height(64)
+      /* 底部留白：避开悬浮 AI 球 */
+      Row().height(64)
     }
     .width('100%')
-    .padding({ left: R_S, right: R_S, top: R_S, bottom: S4 })
+    .padding({ left: S4, right: S4, top: S4, bottom: S4 })
     .alignItems(HorizontalAlign.Start)
   }
 
-  /** 三栏小卡（价值指标） */
   @Builder
-  MiniStat(label: string, value: string) {
+  Fact(value: string, label: string) {
     Column({ space: 2 }) {
-      Text(value).fontSize(15).fontWeight(800).fontColor(T.c('primary-ink'))
-      Text(label).fontSize(10).fontColor(T.c('text-muted')).maxLines(1)
+      Text(value).fontSize(20).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary')).fontFeature('tnum')
+      Text(label).fontSize(11).fontColor(T.c('text-muted'))
     }
     .layoutWeight(1)
-    .padding({ top: 8, bottom: 8 })
-    .borderRadius(R_M)
-    .backgroundColor(T.c('surface-raised'))
-    .border({ width: 1, color: T.c('border') })
     .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  ThinDivider() {
+    Row().width(1).height(28).backgroundColor(T.c('border'))
+  }
+
+  @Builder
+  QueueRow(title: string, note: string, action: string, tap: () => void, divider: boolean) {
+    Row({ space: S3 }) {
+      Column({ space: 3 }) {
+        Text(title).fontSize(15).fontWeight(FontWeight.Medium).fontColor(T.c('text-primary')).maxLines(1)
+        Text(note).fontSize(12).fontColor(T.c('text-muted')).maxLines(1)
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      TBtn({ label: action, kind: 'soft', small: true, tap: tap })
+    }
+    .width('100%')
+    .padding({ top: S3, bottom: S3 })
+    .border({ width: divider ? { top: 1 } : { top: 0 }, color: T.c('border') })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  InfoRow(label: string, value: string) {
+    Row() {
+      Text(label).fontSize(14).fontColor(T.c('text-secondary'))
+      Blank()
+      Text(value).fontSize(14).fontColor(T.c('text-primary')).fontFeature('tnum')
+    }
+    .width('100%')
+    .padding({ top: S3, bottom: S3 })
+    .border({ width: { top: 1 }, color: T.c('border') })
   }
 }
