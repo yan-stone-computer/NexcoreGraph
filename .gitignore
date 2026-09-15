@@ -1,0 +1,40 @@
+# ---------- 依赖 ----------
+node_modules/
+oh_modules/
+.pnpm-store/
+
+# ---------- 构建产物 ----------
+dist/
+build/
+output/
+.hvigor/
+.preview/
+.swc/
+*.hap
+*.har
+
+# ---------- 日志与临时文件 ----------
+*.log
+build-h5.log
+*.tmp
+$null
+
+# ---------- IDE / 本地配置 ----------
+.idea/
+.vscode/
+local.properties
+project.private.config.json
+*.iml
+*.suo
+
+# ---------- 系统文件 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 数据/密钥 ----------
+*.db
+*.db-shm
+*.db-wal
+.env
+*.env.local
