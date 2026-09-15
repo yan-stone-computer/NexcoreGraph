@@ -1788,7 +1788,7 @@ export struct SettingsView {
             }
             SwitchRow({
               title: '深色模式',
-              desc: '默认深色（贴合徽标深海军蓝底），可手动切换浅色',
+              desc: '默认浅色（冷白底 + 启核绿主色），可手动切换深色',
               on: T.dark,
               tap: (): void => {
                 T.setDark(!T.dark);

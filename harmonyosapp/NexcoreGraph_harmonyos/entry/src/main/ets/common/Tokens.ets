@@ -6,8 +6,8 @@
 
 @ObservedV2
 export class Theme {
-  /** 默认深色：贴合徽标本身的深海军蓝底（#13172B） */
-  @Trace dark: boolean = true;
+  /** 默认浅色：冷白底（#F5F9FB）+ 启核绿主色；深色可手动切换 */
+  @Trace dark: boolean = false;
   /** 默认色板：启核（绿→青→蓝） */
   @Trace palette: string = 'nexcore';
 
@@ -206,7 +206,7 @@ export class Theme {
   /** 恢复到品牌默认（启核色板 + 深色） */
   resetDefault(): void {
     this.palette = 'nexcore';
-    this.dark = true;
+    this.dark = false;
   }
 }
 
