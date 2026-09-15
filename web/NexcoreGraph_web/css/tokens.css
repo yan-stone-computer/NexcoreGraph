@@ -1,0 +1,159 @@
+/* 启核图策 · 设计令牌（Logo 品牌色：橙 × 深海军蓝 × 科技青） */
+/* 取色来源：品牌 logo（#FF8833 橙 · 白色电路 · 深海军蓝底建议 #1A1A2E · 青 #00D4FF） */
+
+:root,
+[data-theme="dark"] {
+  /* 表面：深海军蓝家族 */
+  --surface: #13172B;
+  --surface-raised: #1A1E35;
+  --surface-overlay: #232945;
+  --surface-sunken: #0E1122;
+  --border: rgba(150, 160, 210, 0.18);
+  --border-strong: rgba(150, 160, 210, 0.36);
+
+  /* 文字 */
+  --text-primary: #F2F4FA;
+  --text-secondary: #B9C0DA;
+  --text-muted: #7C84AA;
+
+  /* 主色：品牌橙（动作/品牌/数据主角） */
+  --primary: #FF8833;
+  --on-primary: #241000;
+  --primary-hover: #FF9E57;
+  --primary-container: rgba(255, 136, 51, 0.14);
+  --on-primary-container: #FFC79B;
+
+  /* 强调：科技青（状态/悬浮/通知） */
+  --accent: #00D4FF;
+  --on-accent: #001820;
+  --accent-container: rgba(0, 212, 255, 0.14);
+  --on-accent-container: #8DEBFF;
+
+  /* 语义状态 */
+  --success: #4ADE80;
+  --success-container: rgba(74, 222, 128, 0.14);
+  --warning: #FFB020;
+  --warning-container: rgba(255, 176, 32, 0.16);
+  --danger: #FF5D5D;
+  --danger-container: rgba(255, 93, 93, 0.16);
+  --info: #00D4FF;
+  --info-container: rgba(0, 212, 255, 0.14);
+
+  /* 焦点环 + 单点辉光（橙色，只给主角） */
+  --focus-ring: 0 0 0 3px rgba(255, 136, 51, 0.3);
+  --glow: 0 0 0 1px rgba(255, 136, 51, 0.24), 0 0 20px rgba(255, 136, 51, 0.22);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 12px 36px rgba(0, 0, 0, 0.5);
+
+  /* 圆角 */
+  --radius-s: 4px;
+  --radius-m: 8px;
+  --radius-l: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* 间距（8pt 网格） */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* 字体 */
+  --font-sans: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
+    "Segoe UI", system-ui, sans-serif;
+  --font-display: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
+    "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+
+  /* 动效 */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+
+  /* 库色调（橙青为主，低饱和扩展） */
+  --tone-teal: #00D4FF;
+  --tone-teal-bg: rgba(0, 212, 255, 0.14);
+  --tone-indigo: #7C9CFF;
+  --tone-indigo-bg: rgba(124, 156, 255, 0.14);
+  --tone-red: #FF6B6B;
+  --tone-red-bg: rgba(255, 107, 107, 0.14);
+  --tone-slate: #93A1B0;
+  --tone-slate-bg: rgba(147, 161, 176, 0.14);
+  --tone-lime: #A8E05F;
+  --tone-lime-bg: rgba(168, 224, 95, 0.14);
+  --tone-brown: #E0A45C;
+  --tone-brown-bg: rgba(224, 164, 92, 0.16);
+  --tone-orange: #FF8833;
+  --tone-orange-bg: rgba(255, 136, 51, 0.16);
+  --tone-violet: #B59CFF;
+  --tone-violet-bg: rgba(181, 156, 255, 0.14);
+  --tone-amber: #FFB020;
+  --tone-amber-bg: rgba(255, 176, 32, 0.16);
+}
+
+[data-theme="light"] {
+  /* 暖白浅色（可选模式） */
+  --surface: #FBF7F2;
+  --surface-raised: #FEFCF9;
+  --surface-overlay: #F1EAE1;
+  --surface-sunken: #F4EDE5;
+  --border: rgba(60, 45, 30, 0.14);
+  --border-strong: rgba(60, 45, 30, 0.3);
+
+  --text-primary: #221A12;
+  --text-secondary: #5A4B3B;
+  --text-muted: #8A7A68;
+
+  --primary: #E8701E;
+  --on-primary: #FFF8F0;
+  --primary-hover: #D26010;
+  --primary-container: #FCE6D2;
+  --on-primary-container: #6E3005;
+
+  --accent: #0096C4;
+  --on-accent: #F2FBFF;
+  --accent-container: #D8F2FA;
+  --on-accent-container: #024A60;
+
+  --success: #2F9E63;
+  --success-container: #DDF2E5;
+  --warning: #B87D16;
+  --warning-container: #F7EAD0;
+  --danger: #C53D3D;
+  --danger-container: #F7E0DE;
+  --info: #0096C4;
+  --info-container: #D8F2FA;
+
+  --focus-ring: 0 0 0 3px rgba(232, 112, 30, 0.26);
+  --glow: 0 0 0 1px rgba(232, 112, 30, 0.16), 0 0 14px rgba(232, 112, 30, 0.14);
+  --shadow-1: 0 1px 2px rgba(60, 40, 20, 0.06), 0 2px 8px rgba(60, 40, 20, 0.05);
+  --shadow-2: 0 12px 32px rgba(60, 40, 20, 0.12);
+
+  --tone-teal: #00849C;
+  --tone-teal-bg: #D9F1F6;
+  --tone-indigo: #5B6EC8;
+  --tone-indigo-bg: #E7EAF7;
+  --tone-red: #C24B4B;
+  --tone-red-bg: #F5E2E0;
+  --tone-slate: #5E6C78;
+  --tone-slate-bg: #E5E9EC;
+  --tone-lime: #6C8F3C;
+  --tone-lime-bg: #EAF0DC;
+  --tone-brown: #9A6B2F;
+  --tone-brown-bg: #F2E7D7;
+  --tone-orange: #E8701E;
+  --tone-orange-bg: #FBE3CE;
+  --tone-violet: #6F5FA8;
+  --tone-violet-bg: #EAE6F4;
+  --tone-amber: #B87D16;
+  --tone-amber-bg: #F7EAD0;
+}

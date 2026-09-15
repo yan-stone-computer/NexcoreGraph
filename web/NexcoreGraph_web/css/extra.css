@@ -1,0 +1,181 @@
+/* 启核图策 · Web 正式版增量样式（在 web-demo 基准 app.css 之上追加，不修改基准）
+   覆盖：拍照入库真实相机、对话预览卡片、打印排版、管理员端表格。 */
+
+/* ---------- 拍照入库：摄像头与连拍缩略图（F1） ---------- */
+.viewfinder-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+}
+.cam-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--surface-sunken);
+}
+.shot-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.shot-thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+.shot-thumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+}
+.shot-thumb .shot-del {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewfinder.drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+}
+
+/* ---------- AI 对话：写操作预览卡（P0-2 / F5.5） ---------- */
+.chat-card {
+  margin-top: 10px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: 12px;
+}
+.chat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.chat-card-row {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.chat-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---------- 管理员端（F10） ---------- */
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.tbl th,
+.tbl td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tbl th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tbl tbody tr:hover td {
+  background: var(--surface-raised);
+}
+.tbl .num {
+  font-variant-numeric: tabular-nums;
+}
+.tbl-wrap {
+  overflow-x: auto;
+}
+.admin-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.admin-kpi {
+  padding: 16px;
+}
+.admin-kpi .stat-value {
+  font-size: 24px;
+  font-weight: 800;
+}
+.usage-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.usage-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+/* ---------- 打印排版（采购清单 / 菜谱） ---------- */
+@media print {
+  body.printing {
+    background: #fff;
+  }
+  body.printing .sidebar,
+  body.printing .topbar,
+  body.printing .ai-ball,
+  body.printing .ai-panel,
+  body.printing .toast-wrap,
+  body.printing .overlay-backdrop,
+  body.printing .overlay-close,
+  body.printing .drawer-handle,
+  body.printing .demo-note {
+    display: none !important;
+  }
+  body.printing .overlay {
+    position: static !important;
+  }
+  body.printing .overlay-panel {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    animation: none !important;
+    overflow: visible !important;
+  }
+  body.printing .content {
+    padding: 0 !important;
+  }
+  body.printing .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd;
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,241 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  padding: $page-padding;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.header {
+  padding: $spacing-md 0 $spacing-sm;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.greet {
+  font-size: $font-size-xxl;
+  font-weight: $font-weight-bold;
+  color: $color-text-primary;
+}
+
+.sub {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-md;
+}
+
+.card {
+  padding: $spacing-lg;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardTitleText {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.cardMore {
+  font-size: $font-size-sm;
+  color: $color-primary-dark;
+}
+
+.healthValue {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-primary-dark;
+}
+
+.healthTrack {
+  height: 20rpx;
+  border-radius: $radius-round;
+  background: $color-bg-hover;
+  overflow: hidden;
+}
+
+.healthFill {
+  height: 100%;
+  border-radius: $radius-round;
+  transition: width 0.4s ease;
+}
+
+.healthMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+}
+
+.healthMetaItem {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.trendBars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $spacing-xs;
+  padding-top: $spacing-sm;
+}
+
+.trendCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-xs;
+  min-width: 0;
+}
+
+.bars {
+  height: 96rpx;
+  display: flex;
+  align-items: flex-end;
+  gap: 6rpx;
+}
+
+.barConsume {
+  width: 16rpx;
+  border-radius: $radius-xs 0 0 $radius-xs;
+  background: $color-primary;
+}
+
+.barPurchase {
+  width: 16rpx;
+  border-radius: 0 $radius-xs $radius-xs 0;
+  background: #D0C6B3;
+}
+
+.trendLabel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  @include text-ellipsis;
+  max-width: 72rpx;
+}
+
+.legend {
+  display: flex;
+  gap: $spacing-lg;
+  justify-content: flex-end;
+}
+
+.legendItem {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.dotConsume {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 4rpx;
+  background: $color-primary;
+  display: inline-block;
+}
+
+.dotPurchase {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 4rpx;
+  background: #D0C6B3;
+  display: inline-block;
+}
+
+.alertRow {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+}
+
+.alertDot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: $radius-round;
+  margin-top: 10rpx;
+  flex-shrink: 0;
+}
+
+.alertText {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  line-height: $line-height-normal;
+  word-break: break-all;
+}
+
+.briefBtn {
+  font-size: $font-size-sm;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.16);
+  padding: 8rpx 20rpx;
+  border-radius: $radius-button;
+}
+
+.dailyRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.checkbox {
+  font-size: $font-size-lg;
+  color: $color-primary-dark;
+}
+
+.dailyText {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.quickGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $spacing-md;
+}
+
+.quickItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-lg $spacing-xs;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+
+  &.quickHover {
+    opacity: 0.9;
+    transform: scale(0.97);
+  }
+}
+
+.quickEmoji {
+  font-size: 44rpx;
+}
+
+.quickLabel {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}

@@ -1,0 +1,51 @@
+{
+  "project": "启核图策 NexcoreGraph · Web 端（用户端 + 管理员端）",
+  "generated": "2026-08-27",
+  "updated": "2026-09-13（品牌更名 + 新 Logo 替换）",
+  "brand": {
+    "nameZh": "启核图策",
+    "nameEn": "NexcoreGraph",
+    "logomark": "圆形渐变徽标（绿→青→蓝）+ 顶部嫩芽 + 白色 N + 白色弧线",
+    "colors": {
+      "green": "#46B14C",
+      "sprout": "#B1EB59",
+      "teal": "#2FD4B2",
+      "cyan": "#19BDC9",
+      "blue": "#0CA8D6",
+      "surfaceDark": "#13172B",
+      "white": "#FDFFFE"
+    }
+  },
+  "assets": {
+    "brandFiles": [
+      "assets/img/logo.png（256px 透明底）",
+      "assets/img/favicon.ico（16/32/48）",
+      "assets/img/apple-touch-icon-180.png",
+      "assets/img/web-app-manifest-192.png",
+      "assets/img/web-app-manifest-512.png"
+    ],
+    "icons": {
+      "source": "内联 SVG（Lucide 风格 24px 圆头线条，统一 1.7 描边）",
+      "count": 44,
+      "license": "自绘，无外部依赖"
+    },
+    "images": {
+      "source": "Agnes AI 生成（agnes-image-2.1-flash，480px JPEG 压缩）",
+      "license": "为演示生成，未经商用授权确认",
+      "files": [
+        "assets/img/eggs.jpg",
+        "assets/img/tomato.jpg",
+        "assets/img/milk.jpg",
+        "assets/img/bokchoy.jpg",
+        "assets/img/pork.jpg",
+        "assets/img/fridge.jpg"
+      ]
+    },
+    "charts": {
+      "source": "内联 SVG（近 7 天趋势，标注演示数据）",
+      "license": "自绘"
+    },
+    "external": []
+  },
+  "notes": "演示数据来自 js/data.js，操作逻辑经 js/mockapi.js 伪实现（localStorage 持久化），未连接真实后端。食材保质期知识引用权威来源，见 js/mockapi.js 的 KNOWLEDGE。"
+}

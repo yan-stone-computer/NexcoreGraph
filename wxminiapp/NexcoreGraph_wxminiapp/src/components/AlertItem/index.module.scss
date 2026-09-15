@@ -1,0 +1,62 @@
+@use '@/styles/variables.scss' as *;
+
+.alertItem {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+}
+
+.dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: $radius-round;
+  margin-top: 12rpx;
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.text {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  line-height: $line-height-normal;
+  word-break: break-all;
+}
+
+.meta {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.resolve {
+  flex-shrink: 0;
+  height: 56rpx;
+  min-width: 104rpx;
+  padding: 0 $spacing-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $color-bg-hover;
+  border-radius: $radius-button;
+  border: 2rpx solid $color-border;
+
+  &.resolveHover {
+    opacity: 0.8;
+  }
+}
+
+.resolveText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  white-space: nowrap;
+}

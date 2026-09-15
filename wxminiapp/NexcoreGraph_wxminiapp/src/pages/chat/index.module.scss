@@ -1,0 +1,346 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: $color-bg-page;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md $page-padding;
+  background: $color-bg-card;
+}
+
+.headTitle {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.mascot {
+  font-size: 36rpx;
+}
+
+.headName {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.headBtns {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.headBtn {
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.16);
+  padding: 10rpx 20rpx;
+  border-radius: $radius-button;
+  white-space: nowrap;
+}
+
+.listWrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.list {
+  padding: $page-padding;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.msg {
+  display: flex;
+  gap: $spacing-sm;
+  max-width: 100%;
+}
+
+.msgMe {
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: $radius-round;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+}
+
+.avatarAi {
+  background: rgba(201, 168, 106, 0.18);
+  color: $color-primary-dark;
+  font-size: 32rpx;
+}
+
+.avatarMe {
+  background: rgba(165, 128, 60, 0.2);
+  color: #7A5B24;
+}
+
+.body {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  align-items: flex-start;
+}
+
+.bodyMe {
+  align-items: flex-end;
+}
+
+.bubble {
+  padding: $spacing-md $spacing-lg;
+  border-radius: $radius-lg;
+  font-size: $font-size-md;
+  line-height: $line-height-normal;
+  word-break: break-all;
+  color: $color-text-primary;
+}
+
+.bubbleAi {
+  background: $color-bg-card;
+  border-top-left-radius: 4rpx;
+  box-shadow: $shadow-card;
+}
+
+.bubbleMe {
+  background: $color-primary;
+  color: #FFFFFF;
+  border-top-right-radius: 4rpx;
+}
+
+.time {
+  font-size: $font-size-xs;
+  color: $color-text-disabled;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  margin-top: 6rpx;
+}
+
+.srcNote {
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.14);
+  padding: 2rpx 12rpx;
+  border-radius: $radius-xs;
+}
+
+.suggestions {
+  padding: 0 $page-padding $spacing-sm;
+  display: flex;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.sugChip {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  background: $color-bg-card;
+  border: 1rpx solid $color-border;
+  padding: 12rpx 24rpx;
+  border-radius: $radius-button;
+  white-space: nowrap;
+
+  &.sugHover {
+    opacity: 0.85;
+  }
+}
+
+/* 预览卡片（先预览后生效 F5.5） */
+.card {
+  width: 100%;
+  background: $color-bg-card;
+  border-radius: $radius-md;
+  box-shadow: $shadow-card;
+  padding: $spacing-md;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  font-weight: $font-weight-medium;
+}
+
+.cardRow {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  line-height: $line-height-normal;
+  word-break: break-all;
+}
+
+.cardNum {
+  color: $color-primary-dark;
+  font-weight: $font-weight-bold;
+}
+
+.cardReason {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.cardActions {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.confirmBtn {
+  @include button-reset;
+  height: 64rpx;
+  min-width: 168rpx;
+  padding: 0 $spacing-lg;
+  background: $color-primary;
+  border-radius: $radius-button;
+  color: #FFFFFF;
+  font-size: $font-size-xs;
+
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.cancelBtn {
+  @include button-reset;
+  height: 64rpx;
+  min-width: 140rpx;
+  padding: 0 $spacing-lg;
+  background: $color-bg-hover;
+  border-radius: $radius-button;
+  color: $color-text-secondary;
+  font-size: $font-size-xs;
+
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.doneBadge {
+  font-size: $font-size-xs;
+  color: $color-success;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.cancelledBadge {
+  font-size: $font-size-xs;
+  color: $color-text-disabled;
+}
+
+/* 方案快速入口 */
+.planChips {
+  display: flex;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.planChip {
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.14);
+  padding: 12rpx 24rpx;
+  border-radius: $radius-button;
+  white-space: nowrap;
+
+  &.planChipHover {
+    opacity: 0.85;
+  }
+}
+
+/* 输入区 */
+.inputBar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-md $page-padding;
+  padding-bottom: calc(#{$spacing-md} + env(safe-area-inset-bottom));
+  background: $color-bg-card;
+  border-top: 1rpx solid $color-divider;
+}
+
+.inputBox {
+  flex: 1;
+  min-width: 0;
+  background: $color-bg-hover;
+  border-radius: $radius-round;
+  padding: 0 $spacing-lg;
+  height: 76rpx;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+}
+
+.inputPlaceholder {
+  color: $color-text-disabled;
+}
+
+.sendBtn {
+  @include button-reset;
+  height: 76rpx;
+  min-width: 128rpx;
+  padding: 0 $spacing-lg;
+  background: $color-primary;
+  border-radius: $radius-button;
+  color: #FFFFFF;
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+
+  &:active {
+    opacity: 0.85;
+  }
+
+  &.sendDisabled {
+    background: $color-text-disabled;
+  }
+}
+
+/* 思考中 */
+.typingMsg {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.typingLabel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.typingDot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: $radius-round;
+  background: $color-primary;
+  animation: blink 1.2s infinite;
+
+  &:nth-child(2) { animation-delay: 0.2s; }
+  &:nth-child(3) { animation-delay: 0.4s; }
+}
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}

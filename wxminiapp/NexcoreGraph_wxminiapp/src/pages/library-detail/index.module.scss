@@ -1,0 +1,178 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  padding: $page-padding;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.libHead {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  padding: $spacing-lg;
+}
+
+.libIcon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: $radius-md;
+  background: rgba(201, 168, 106, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  flex-shrink: 0;
+}
+
+.libBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.libName {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  @include text-ellipsis;
+}
+
+.libMeta {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.headActions {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.headBtn {
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.16);
+  padding: 12rpx 20rpx;
+  border-radius: $radius-button;
+  white-space: nowrap;
+
+  &.headBtnHover {
+    opacity: 0.85;
+  }
+}
+
+/* 新增/编辑表单 */
+.formCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.formTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.formRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.formLabel {
+  width: 140rpx;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  flex-shrink: 0;
+}
+
+.formInput {
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  background: $color-bg-hover;
+  border-radius: $radius-sm;
+  padding: 0 $spacing-md;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+}
+
+.formPlaceholder {
+  color: $color-text-disabled;
+}
+
+.formActions {
+  display: flex;
+  gap: $spacing-md;
+  margin-top: $spacing-xs;
+}
+
+.formSubmit {
+  @include button-reset;
+  flex: 1;
+  height: 80rpx;
+  background: $color-primary;
+  border-radius: $radius-button;
+  color: #FFFFFF;
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+
+  &:active { opacity: 0.85; }
+}
+
+.formCancel {
+  @include button-reset;
+  height: 80rpx;
+  min-width: 160rpx;
+  padding: 0 $spacing-lg;
+  background: $color-bg-hover;
+  border-radius: $radius-button;
+  color: $color-text-secondary;
+  font-size: $font-size-md;
+
+  &:active { opacity: 0.85; }
+}
+
+.itemTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.itemTitleText {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.addItemBtn {
+  font-size: $font-size-sm;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.16);
+  padding: 12rpx 24rpx;
+  border-radius: $radius-button;
+  white-space: nowrap;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.tip {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  text-align: center;
+}

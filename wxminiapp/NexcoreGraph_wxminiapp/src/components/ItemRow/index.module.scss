@@ -1,0 +1,146 @@
+@use '@/styles/variables.scss' as *;
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+}
+
+.avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: $radius-md;
+  background: $color-bg-hover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.emoji {
+  font-size: 44rpx;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+.name {
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  @include text-ellipsis;
+  max-width: 300rpx;
+}
+
+.privateTag {
+  flex-shrink: 0;
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.18);
+  padding: 2rpx 12rpx;
+  border-radius: $radius-xs;
+}
+
+.pos {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  @include text-ellipsis;
+}
+
+.tags {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.expTag {
+  font-size: $font-size-xs;
+}
+
+.lowTag {
+  font-size: $font-size-xs;
+  color: #2F7D4F;
+  background: rgba(47, 125, 79, 0.12);
+  padding: 2rpx 12rpx;
+  border-radius: $radius-xs;
+}
+
+.price {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.ops {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: $spacing-xs;
+  flex-shrink: 0;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.stepBtn {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: $radius-sm;
+  background: $color-bg-hover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-lg;
+  color: $color-text-secondary;
+  border: 2rpx solid $color-border;
+
+  &.stepHover {
+    opacity: 0.75;
+  }
+}
+
+.qty {
+  min-width: 48rpx;
+  text-align: center;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.unitText {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.miniOps {
+  display: flex;
+  gap: $spacing-md;
+}
+
+.miniBtn {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.miniBtnDanger {
+  font-size: $font-size-xs;
+  color: $color-error;
+}

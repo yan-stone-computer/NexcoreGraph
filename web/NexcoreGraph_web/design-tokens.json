@@ -1,0 +1,140 @@
+{
+  "name": "Dark Champagne",
+  "usage": "60/30/10: surface 60, primary 30, accent 10. Tokens only, no raw hex in code.",
+  "brand": "#C9A86A",
+  "accent": "#8F6B3D",
+  "scale": {
+    "50": "#F8F8F7",
+    "100": "#EFEEEB",
+    "200": "#E1DDD6",
+    "300": "#D0C6B3",
+    "400": "#C5B18C",
+    "500": "#C9A86A",
+    "600": "#A5803C",
+    "700": "#7A602E",
+    "800": "#4F3F22",
+    "900": "#302817",
+    "950": "#1B160E"
+  },
+  "semantic": {
+    "light": {
+      "surface": "#F8F8F7",
+      "surface-raised": "#FCFCFB",
+      "surface-overlay": "#F5F3EF",
+      "border": "#E0DFDC",
+      "border-strong": "#BCBAB4",
+      "text-primary": "#302817",
+      "text-secondary": "#7A602E",
+      "text-muted": "#7C776C",
+      "primary": "#C9A86A",
+      "on-primary": "#111111",
+      "primary-container": "#EFEEEB",
+      "on-primary-container": "#302817",
+      "accent": "#8F6B3D",
+      "on-accent": "#FFFFFF",
+      "accent-container": "#EBE7E1",
+      "on-accent-container": "#775A34",
+      "success": "#2F7D4F",
+      "warning": "#B9791F",
+      "danger": "#C03A2B"
+    },
+    "dark": {
+      "surface": "#302817",
+      "surface-raised": "#4F3F22",
+      "surface-overlay": "#453A23",
+      "border": "#605A4D",
+      "border-strong": "#847F75",
+      "text-primary": "#F8F8F7",
+      "text-secondary": "#E1DDD6",
+      "text-muted": "#9E9A92",
+      "primary": "#D0C6B3",
+      "on-primary": "#111111",
+      "primary-container": "#4F3F22",
+      "on-primary-container": "#EFEEEB",
+      "accent": "#B98F5B",
+      "on-accent": "#111111",
+      "accent-container": "#4B3D25",
+      "on-accent-container": "#F8F8F7",
+      "success": "#7CC48A",
+      "warning": "#E0B06A",
+      "danger": "#E57A6E"
+    }
+  },
+  "contrast": {
+    "checks": [
+      {
+        "mode": "light",
+        "check": "text-secondary vs surface",
+        "a": "#7A602E",
+        "b": "#F8F8F7",
+        "ratio": 5.58,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "mode": "light",
+        "check": "on-primary vs primary",
+        "a": "#111111",
+        "b": "#C9A86A",
+        "ratio": 8.36,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "mode": "light",
+        "check": "on-accent vs accent",
+        "a": "#FFFFFF",
+        "b": "#8F6B3D",
+        "ratio": 4.84,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "mode": "light",
+        "check": "text-muted vs surface",
+        "a": "#7C776C",
+        "b": "#F8F8F7",
+        "ratio": 4.19,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "mode": "dark",
+        "check": "text-secondary vs surface",
+        "a": "#E1DDD6",
+        "b": "#302817",
+        "ratio": 10.76,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "mode": "dark",
+        "check": "on-primary vs primary",
+        "a": "#111111",
+        "b": "#D0C6B3",
+        "ratio": 11.16,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "mode": "dark",
+        "check": "on-accent vs accent",
+        "a": "#111111",
+        "b": "#B98F5B",
+        "ratio": 6.42,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "mode": "dark",
+        "check": "text-muted vs surface",
+        "a": "#9E9A92",
+        "b": "#302817",
+        "ratio": 5.2,
+        "min": 3.0,
+        "pass": true
+      }
+    ],
+    "all_pass": true
+  }
+}

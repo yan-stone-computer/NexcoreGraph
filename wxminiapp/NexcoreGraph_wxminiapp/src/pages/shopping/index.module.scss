@@ -1,0 +1,94 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  padding: $page-padding;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.headSub {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.refreshBtn {
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  background: rgba(201, 168, 106, 0.16);
+  padding: 12rpx 24rpx;
+  border-radius: $radius-button;
+  white-space: nowrap;
+
+  &.refreshBtnHover {
+    opacity: 0.85;
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  padding: $spacing-md $spacing-lg;
+}
+
+.rowEmoji {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: $radius-sm;
+  background: rgba(201, 168, 106, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  flex-shrink: 0;
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.rowName {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: $color-text-primary;
+  @include text-ellipsis;
+}
+
+.rowSrc {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  @include text-ellipsis;
+}
+
+.rowQty {
+  font-size: $font-size-md;
+  color: $color-primary-dark;
+  font-weight: $font-weight-medium;
+  flex-shrink: 0;
+}

@@ -1,0 +1,132 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  padding: 120rpx $page-padding 64rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(201, 168, 106, 0.18) 0%, $color-bg-page 100%);
+}
+
+.logo {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: $radius-xl;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: $spacing-lg;
+}
+
+.logoImg {
+  width: 160rpx;
+  height: 160rpx;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: $font-weight-bold;
+  color: $color-text-primary;
+}
+
+.enName {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+  letter-spacing: 4rpx;
+  margin-top: 6rpx;
+}
+
+.slogan {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  margin-top: $spacing-sm;
+  margin-bottom: $spacing-xl;
+}
+
+.formCard {
+  width: 100%;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  padding: $spacing-xl $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.label {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+}
+
+.input {
+  height: 88rpx;
+  background: $color-bg-hover;
+  border-radius: $radius-md;
+  padding: 0 $spacing-lg;
+  font-size: $font-size-lg;
+  color: $color-text-primary;
+}
+
+.inputPlaceholder {
+  color: $color-text-disabled;
+}
+
+.loginBtn {
+  @include button-reset;
+  height: 96rpx;
+  margin-top: $spacing-sm;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-dark 100%);
+  border-radius: $radius-button;
+  color: #FFFFFF;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+
+  &:active {
+    opacity: 0.9;
+    transform: scale(0.98);
+  }
+}
+
+.loginDisabled {
+  opacity: 0.6;
+}
+
+.hintCard {
+  width: 100%;
+  background: rgba(201, 168, 106, 0.1);
+  border-radius: $radius-md;
+  padding: $spacing-md $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.hintTitle {
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  font-weight: $font-weight-medium;
+}
+
+.hintLine {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  line-height: $line-height-normal;
+}
+
+.footer {
+  margin-top: auto;
+  padding-top: $spacing-xl;
+  font-size: $font-size-xs;
+  color: $color-text-disabled;
+  text-align: center;
+}

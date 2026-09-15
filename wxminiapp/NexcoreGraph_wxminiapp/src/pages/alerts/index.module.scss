@@ -1,0 +1,48 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  padding: $page-padding;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+}
+
+.statusCard {
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.statusDanger {
+  background: rgba(192, 58, 43, 0.08);
+  border: 1rpx solid rgba(192, 58, 43, 0.25);
+}
+
+.statusWarn {
+  background: rgba(185, 121, 31, 0.08);
+  border: 1rpx solid rgba(185, 121, 31, 0.25);
+}
+
+.statusOk {
+  background: rgba(47, 125, 79, 0.08);
+  border: 1rpx solid rgba(47, 125, 79, 0.25);
+}
+
+.statusTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.statusDesc {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}

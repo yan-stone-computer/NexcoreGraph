@@ -1,0 +1,60 @@
+@use '@/styles/variables.scss' as *;
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+
+  &.clickable {
+    &:active {
+      opacity: 0.92;
+      transform: scale(0.98);
+    }
+  }
+}
+
+.hover {
+  opacity: 0.92;
+  transform: scale(0.98);
+}
+
+.icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: $radius-round;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-xxl;
+  flex-shrink: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.value {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-text-primary;
+  line-height: 1.2;
+}
+
+.unit {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-normal;
+  color: $color-text-tertiary;
+}
+
+.label {
+  margin-top: 4rpx;
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  @include text-ellipsis;
+}
