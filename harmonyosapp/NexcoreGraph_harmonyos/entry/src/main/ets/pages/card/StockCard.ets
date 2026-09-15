@@ -1,5 +1,13 @@
-/* 启核图策 · 服务卡片「库存总览」（2x4）
-   品牌头部 + 真实库存数据（EntryFormAbility 注入），点击整卡直达资源库，按钮直达拍照入库。 */
+/* 启核图策 · 服务卡片「库存总览」（2x2 / 2*4 / 4*4）
+   设计规范：数据先行，无品牌头、无胶囊按钮；数字等宽；临期用语义色，其余保持中性。
+   整卡可点，直达资源库。 */
+
+const SC_SURFACE_TOP: string = '#171C33';
+const SC_SURFACE_BOTTOM: string = '#13172B';
+const SC_TEXT_STRONG: string = '#EDF1F9';
+const SC_TEXT_MUTED: string = '#8E9AB8';
+const SC_ACCENT: string = '#57D794';
+const SC_WARN: string = '#FFB020';
 
 @Entry
 @Component
@@ -17,17 +25,13 @@ struct StockCard {
   }
 
   build() {
-    Column({ space: 8 }) {
-      Row({ space: 6 }) {
-        Image($r('app.media.logo'))
-          .width(16)
-          .height(16)
-          .borderRadius(5)
-          .objectFit(ImageFit.Cover)
-        Text('启核图策 · 库存总览')
+    Column({ space: 0 }) {
+      Row() {
+        Text('库存')
           .fontSize(11)
-          .fontWeight(700)
-          .fontColor('#9FB0D8')
+          .fontWeight(600)
+          .fontColor(SC_TEXT_MUTED)
+          .letterSpacing(0.4)
         Blank()
         Image($r('app.media.ic_fridge'))
           .width(14)
@@ -37,66 +41,53 @@ struct StockCard {
       }
       .width('100%')
 
-      Row({ space: 14 }) {
-        Column({ space: 5 }) {
-          Text(`${this.total} 件 · ${this.libs} 库`)
-            .fontSize(17)
-            .fontWeight(800)
-            .fontColor('#FFFFFF')
-          Text(this.expiring > 0 ? `临期 ${this.expiring} 项，优先消耗` : '库存健康，暂无临期')
-            .fontSize(12)
-            .fontColor(this.expiring > 0 ? '#FFB37E' : '#7DE0C4')
-            .maxLines(1)
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-
-        Column({ space: 6 }) {
-          Row({ space: 5 }) {
-            Image($r('app.media.ic_camera'))
-              .width(13)
-              .height(13)
-              .objectFit(ImageFit.Contain)
-            Text('拍照入库')
-              .fontSize(11)
-              .fontWeight(700)
-              .fontColor('#0B2A1C')
-          }
-          .padding({ left: 11, right: 11, top: 6, bottom: 6 })
-          .borderRadius(999)
-          .backgroundColor('#57D794')
-          .onClick(() => {
-            this.go('intake');
-          })
-
-          Row({ space: 5 }) {
-            Image($r('app.media.ic_library'))
-              .width(13)
-              .height(13)
-              .objectFit(ImageFit.Contain)
-            Text('查看库存')
-              .fontSize(11)
-              .fontWeight(700)
-              .fontColor('#FFFFFF')
-          }
-          .padding({ left: 11, right: 11, top: 6, bottom: 6 })
-          .borderRadius(999)
-          .border({ width: 1, color: 'rgba(255,255,255,0.35)' })
-          .onClick(() => {
-            this.go('libs');
-          })
-        }
-        .alignItems(HorizontalAlign.End)
+      Row({ space: 4 }) {
+        Text(`${this.total}`)
+          .fontSize(30)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(SC_TEXT_STRONG)
+          .fontFeature('tnum')
+        Text('件')
+          .fontSize(12)
+          .fontColor(SC_TEXT_MUTED)
+          .margin({ bottom: 5 })
       }
-      .layoutWeight(1)
-      .alignItems(VerticalAlign.Center)
+      .alignItems(VerticalAlign.Bottom)
+      .margin({ top: 6 })
+
+      Text(`${this.libs} 个库`)
+        .fontSize(11)
+        .fontColor(SC_TEXT_MUTED)
+        .fontFeature('tnum')
+        .margin({ top: 2 })
+
+      Blank()
+
+      Row({ space: 6 }) {
+        Row()
+          .width(6)
+          .height(6)
+          .borderRadius(3)
+          .backgroundColor(this.expiring > 0 ? SC_WARN : SC_ACCENT)
+        Text(this.expiring > 0 ? `${this.expiring} 项临期待处理` : '近 7 天无临期')
+          .fontSize(12)
+          .fontWeight(600)
+          .fontColor(this.expiring > 0 ? SC_WARN : SC_ACCENT)
+          .fontFeature('tnum')
+          .maxLines(1)
+      }
+      .width('100%')
     }
-    .padding({ left: 13, right: 13, top: 10, bottom: 10 })
+    .padding(13)
     .width('100%')
     .height('100%')
+    .alignItems(HorizontalAlign.Start)
     .linearGradient({
       angle: 180,
-      colors: [['#1A2240', 0], ['#12162B', 1]]
+      colors: [[SC_SURFACE_TOP, 0], [SC_SURFACE_BOTTOM, 1]]
+    })
+    .onClick(() => {
+      this.go('libs');
     })
   }
 }

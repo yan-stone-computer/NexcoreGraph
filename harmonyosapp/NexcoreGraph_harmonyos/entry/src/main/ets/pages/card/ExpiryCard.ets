@@ -1,5 +1,14 @@
-/* 启核图策 · 服务卡片「临期提醒」（2x2）
-   品牌头部 + 临期数量与最近两项（EntryFormAbility 注入），点击直达预警中心。 */
+/* 启核图策 · 服务卡片「临期提醒」（2x2 / 2*4 / 4*4）
+   设计规范：数字先行（等宽），顶行只有一个标签与一个图标；列表最多两项；
+   状态色只表达状态（临期=琥珀，健康=启核绿）。整卡可点，直达预警中心。 */
+
+const EC_SURFACE_TOP: string = '#171C33';
+const EC_SURFACE_BOTTOM: string = '#13172B';
+const EC_TEXT_STRONG: string = '#EDF1F9';
+const EC_TEXT_MUTED: string = '#8E9AB8';
+const EC_TEXT_BODY: string = '#C3CDE6';
+const EC_ACCENT: string = '#57D794';
+const EC_WARN: string = '#FFB020';
 
 @Entry
 @Component
@@ -17,17 +26,13 @@ struct ExpiryCard {
   }
 
   build() {
-    Column({ space: 7 }) {
-      Row({ space: 6 }) {
-        Image($r('app.media.logo'))
-          .width(15)
-          .height(15)
-          .borderRadius(5)
-          .objectFit(ImageFit.Cover)
-        Text('启核图策')
+    Column({ space: 0 }) {
+      Row() {
+        Text('临期')
           .fontSize(11)
-          .fontWeight(700)
-          .fontColor('#9FB0D8')
+          .fontWeight(600)
+          .fontColor(EC_TEXT_MUTED)
+          .letterSpacing(0.4)
         Blank()
         Image($r('app.media.ic_clock'))
           .width(14)
@@ -37,42 +42,57 @@ struct ExpiryCard {
       }
       .width('100%')
 
-      Row({ space: 5 }) {
+      Row({ space: 4 }) {
         Text(`${this.expiring}`)
-          .fontSize(24)
-          .fontWeight(800)
-          .fontColor(this.expiring > 0 ? '#FFB37E' : '#7DE0C4')
-        Text(this.expiring > 0 ? '项临期' : '项 · 健康')
+          .fontSize(30)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.expiring > 0 ? EC_WARN : EC_ACCENT)
+          .fontFeature('tnum')
+        Text('项')
           .fontSize(12)
-          .fontColor('#B8C4E8')
+          .fontColor(EC_TEXT_MUTED)
+          .margin({ bottom: 5 })
       }
       .alignItems(VerticalAlign.Bottom)
+      .margin({ top: 6 })
 
-      if (this.expiring > 0 && this.exp1 !== '') {
-        Text(this.exp1)
+      if (this.expiring === 0) {
+        Text('近 7 天没有需要处理的临期')
           .fontSize(11)
-          .fontColor('#E8ECF8')
+          .fontColor(EC_ACCENT)
           .maxLines(1)
-      }
-      if (this.expiring > 0 && this.exp2 !== '') {
-        Text(this.exp2)
-          .fontSize(11)
-          .fontColor('#B8C4E8')
-          .maxLines(1)
+          .margin({ top: 4 })
+      } else {
+        if (this.exp1 !== '') {
+          Text(this.exp1)
+            .fontSize(11)
+            .fontColor(EC_TEXT_BODY)
+            .maxLines(1)
+            .margin({ top: 6 })
+        }
+        if (this.exp2 !== '') {
+          Text(this.exp2)
+            .fontSize(11)
+            .fontColor(EC_TEXT_MUTED)
+            .maxLines(1)
+            .margin({ top: 2 })
+        }
       }
 
       Blank()
-      Text('查看预警中心 →')
-        .fontSize(10)
-        .fontColor('#8FA0CC')
+
+      Text('查看全部')
+        .fontSize(11)
+        .fontWeight(600)
+        .fontColor(EC_ACCENT)
     }
-    .padding(12)
+    .padding(13)
     .width('100%')
     .height('100%')
     .alignItems(HorizontalAlign.Start)
     .linearGradient({
       angle: 180,
-      colors: [['#1A2240', 0], ['#12162B', 1]]
+      colors: [[EC_SURFACE_TOP, 0], [EC_SURFACE_BOTTOM, 1]]
     })
     .onClick(() => {
       this.go();
