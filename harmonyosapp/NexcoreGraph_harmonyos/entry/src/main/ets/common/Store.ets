@@ -76,6 +76,8 @@ export class Store {
   @Trace overlayArg: string = '';       // 库 id / 物品 id
   @Trace overlayArg2: string = '';
   @Trace aiOpen: boolean = false;
+  /** AI 面板预填提问（工作台/图谱点选后注入，AiPanel 打开时消费并清空） */
+  @Trace aiPrefill: string = '';
   @Trace chatTyping: boolean = false;
   @Trace busy: string = '';
   @Trace itemFilter: string = 'all';

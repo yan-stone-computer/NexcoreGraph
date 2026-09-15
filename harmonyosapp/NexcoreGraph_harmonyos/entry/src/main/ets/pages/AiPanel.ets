@@ -25,6 +25,14 @@ export struct AiPanel {
     this.tts.release();
   }
 
+  aboutToAppear(): void {
+    // 工作台 / 图谱面板注入的预填提问：打开对话即带入输入框（避免用户复述上下文）
+    if (store.aiPrefill !== '') {
+      this.input = store.aiPrefill;
+      store.aiPrefill = '';
+    }
+  }
+
   /** M-8 来源引用：点击复制知识库来源链接（不依赖外部浏览器权限） */
   private copySource(url: string): void {
     try {

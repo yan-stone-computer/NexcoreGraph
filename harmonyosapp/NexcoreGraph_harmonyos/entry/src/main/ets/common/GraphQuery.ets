@@ -344,6 +344,39 @@ export function ragEvidence(mode: string, question: string): RagEvidence {
         p.src = sourceOf(d, seedId);
         p.score = 1.5;
         ev.paths.push(p);
+      } else if (seed.type === 'Library' || seed.type === 'CategoryConcept') {
+        // 库 / 类别节点：给出社区统计（代码计算）+ 该社区最临期的物品，供图谱点选解释
+        const stats: string[] = [];
+        d.communities.forEach((c: GraphCommunity) => {
+          if (c.id === seedId) {
+            const items = numOf(c.stats, 'items', 0);
+            const expiring = numOf(c.stats, 'expiring', 0);
+            const value = numOf(c.stats, 'value', 0);
+            stats.push(`${c.label}：共 ${items} 件${expiring > 0 ? `，临期 ${expiring} 项` : ''}${value > 0 ? `，价值约 ¥${value}` : ''}`);
+          }
+        });
+        const inLib: GraphNode[] = [];
+        d.edges.forEach((e: GraphEdge) => {
+          if (e.type === 'contains' && e.from === seedId) {
+            const it = nodeById(d, e.to);
+            if (it !== null && numOf(it.props, 'expDays', 0) > 0 && numOf(it.props, 'expDays', 0) <= 7) {
+              inLib.push(it);
+            }
+          }
+        });
+        inLib.forEach((it: GraphNode, i: number) => {
+          if (i < 2) {
+            stats.push(`临期：${it.label} ${numOf(it.props, 'qty', 0)}${strOf(it.props, 'unit', '个')}（${numOf(it.props, 'expDays', 0)} 天）`);
+          }
+        });
+        stats.forEach((s: string) => pushLine(s));
+        const p = new RagPath();
+        p.nodes = [seedId];
+        p.edges = [];
+        p.facts = stats;
+        p.src = '社区统计（代码计算）';
+        p.score = 1;
+        ev.paths.push(p);
       } else {
         pushLine(seed.label);
         const p = new RagPath();

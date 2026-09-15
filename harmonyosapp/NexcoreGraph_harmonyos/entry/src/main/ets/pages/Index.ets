@@ -11,6 +11,7 @@ import { common } from '@kit.AbilityKit';
 import { initLocal, saveThemePrefs } from '../common/LocalStore';
 import { LoginView } from './LoginView';
 import { DashboardView } from './DashboardView';
+import { AiWorkbench } from './AiWorkbench';
 import { LibrariesView, LibraryDetailView } from './LibrariesView';
 import { WorkbenchView } from './WorkbenchView';
 import { SettingsView, SheetContent } from './Overlays';
@@ -82,7 +83,7 @@ struct Index {
           Row() {
             Tabs({ barPosition: BarPosition.End, index: this.curTab }) {
               TabContent() {
-                DashboardView()
+                AiWorkbench()
               }
               .tabBar(this.TabBarItem(0))
 
