@@ -11,7 +11,9 @@ export class Theme {
   /** 默认色板：启核（绿→青→蓝） */
   @Trace palette: string = 'nexcore';
 
-  /* ---------- 启核色板（默认）：品牌规范 v3 —— 启核绿/过渡青/科技青/信号蓝 ---------- */
+  /* ---------- 启核色板（默认）：严格取自官方徽标的绿→青→蓝三段渐变 ----------
+     分工：启核绿 = 主操作/生长；过渡青·科技青 = AI/强调；信号蓝 = 数据与辅助（图表/环形图）。
+     浅色态用加深版绿（#2F8F3A）保证白底对比度。 */
   private static NC_DK: Record<string, string> = {
     'surface': '#13172B',
     'surface-raised': '#1A2140',
@@ -22,26 +24,26 @@ export class Theme {
     'text-primary': '#F2F7FB',
     'text-secondary': '#B7C6D9',
     'text-muted': '#7C8CA6',
-    'primary': '#0CA8D6',
-    'on-primary': '#03202B',
-    'primary-hover': '#2FD4B2',
-    'primary-container': 'rgba(12,168,214,0.16)',
-    'on-primary-container': '#8FE3F8',
-    'accent': '#2FD4B2',
+    'primary': '#46B14C',                      // 启核绿（徽标顶部主色）
+    'on-primary': '#06210A',
+    'primary-hover': '#5ACB63',
+    'primary-container': 'rgba(70,177,76,0.18)',
+    'on-primary-container': '#A8E7AE',
+    'accent': '#2FD4B2',                       // 过渡青（徽标中段）
     'on-accent': '#04241D',
     'accent-container': 'rgba(47,212,178,0.16)',
     'on-accent-container': '#A8F0DC',
-    'success': '#46B14C',
-    'success-container': 'rgba(70,177,76,0.16)',
+    'success': '#B1EB59',                      // 嫩芽黄绿（徽标高光）
+    'success-container': 'rgba(177,235,89,0.16)',
     'warning': '#FFB020',
     'warning-container': 'rgba(255,176,32,0.16)',
     'danger': '#FF5D5D',
     'danger-container': 'rgba(255,93,93,0.16)',
-    'tone-teal': '#19BDC9', 'tone-teal-bg': 'rgba(25,189,201,0.16)',
-    'tone-indigo': '#7C9CFF', 'tone-indigo-bg': 'rgba(124,156,255,0.14)',
+    'tone-teal': '#19BDC9', 'tone-teal-bg': 'rgba(25,189,201,0.16)',   // 科技青
+    'tone-indigo': '#0CA8D6', 'tone-indigo-bg': 'rgba(12,168,214,0.16)', // 信号蓝（数据）
     'tone-red': '#FF6B6B', 'tone-red-bg': 'rgba(255,107,107,0.14)',
     'tone-slate': '#93A1B0', 'tone-slate-bg': 'rgba(147,161,176,0.14)',
-    'tone-lime': '#B1EB59', 'tone-lime-bg': 'rgba(177,235,89,0.16)',
+    'tone-lime': '#A8E05F', 'tone-lime-bg': 'rgba(168,224,95,0.16)',
     'tone-brown': '#E0A45C', 'tone-brown-bg': 'rgba(224,164,92,0.16)',
     'tone-orange': '#FFA45C', 'tone-orange-bg': 'rgba(255,164,92,0.16)',
     'tone-violet': '#B59CFF', 'tone-violet-bg': 'rgba(181,156,255,0.14)',
@@ -58,26 +60,26 @@ export class Theme {
     'text-primary': '#0E1424',
     'text-secondary': '#3C4C5C',
     'text-muted': '#6B7C8C',
-    'primary': '#029ED0',
-    'on-primary': '#F2FBFF',
-    'primary-hover': '#0CA8D6',
-    'primary-container': '#D6EFF8',
-    'on-primary-container': '#04475C',
-    'accent': '#19BDC9',
+    'primary': '#2F8F3A',                      // 启核绿（加深版，白底可读）
+    'on-primary': '#F2FBF3',
+    'primary-hover': '#46B14C',
+    'primary-container': '#DDF1DE',
+    'on-primary-container': '#14501C',
+    'accent': '#19BDC9',                       // 科技青
     'on-accent': '#FFFFFF',
     'accent-container': '#D6F4F6',
     'on-accent-container': '#03555C',
-    'success': '#2F8F3A',
-    'success-container': '#DFF2E0',
+    'success': '#5E8A2A',                      // 嫩芽黄绿（加深版）
+    'success-container': '#EAF3D6',
     'warning': '#B87D16',
     'warning-container': '#F7EAD0',
     'danger': '#C53D3D',
     'danger-container': '#F7E0DE',
-    'tone-teal': '#007C90', 'tone-teal-bg': '#D5EEF2',
-    'tone-indigo': '#4A63B8', 'tone-indigo-bg': '#E5E9F6',
+    'tone-teal': '#00808F', 'tone-teal-bg': '#D5EEF2',
+    'tone-indigo': '#0A7FA8', 'tone-indigo-bg': '#D8EDF5',
     'tone-red': '#C24B4B', 'tone-red-bg': '#F5E2E0',
     'tone-slate': '#566873', 'tone-slate-bg': '#E3E9ED',
-    'tone-lime': '#5E8A2A', 'tone-lime-bg': '#E8F2D8',
+    'tone-lime': '#6B9B2E', 'tone-lime-bg': '#EAF3D6',
     'tone-brown': '#8A5F28', 'tone-brown-bg': '#F1E6D6',
     'tone-orange': '#C2701F', 'tone-orange-bg': '#FAE4CE',
     'tone-violet': '#5F55A0', 'tone-violet-bg': '#E8E5F4',

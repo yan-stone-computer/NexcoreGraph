@@ -4,7 +4,7 @@
    红线：摘要数字来自 store/图谱统计；队列里的写操作一律"预览 → 用户点确认"才生效。 */
 
 import { store } from '../common/Store';
-import { T, R_L, R_M, R_S } from '../common/Tokens';
+import { T, R_L, R_M, R_S, S4 } from '../common/Tokens';
 import { Ico, TBtn, Card, Chip, CardHead, NumText } from '../components/Widgets';
 import { ChatMsg, Plan, Item, Library, ShoppingItem } from '../common/Db';
 import {
@@ -139,8 +139,24 @@ export struct AiWorkbench {
       .width('100%')
       .padding(R_M)
       .borderRadius(R_L)
-      .backgroundColor(T.c('accent-container'))
+      // 品牌三段渐变（绿→青→蓝）低透明度铺底，呼应官方徽标
+      .linearGradient({
+        angle: 135,
+        colors: [
+          ['rgba(70,177,76,0.24)', 0],
+          ['rgba(47,212,178,0.18)', 0.5],
+          ['rgba(12,168,214,0.16)', 1]
+        ]
+      })
       .alignItems(VerticalAlign.Center)
+
+      /* ①' 价值指标（M-11）：三栏小卡，紧跟摘要条，避免散落在页面底部 */
+      Row({ space: 8 }) {
+        this.MiniStat('临期消耗率', `${this.vm.expiringRate}%`)
+        this.MiniStat('避免重复购买', `${this.vm.blockedRepurchase} 次`)
+        this.MiniStat('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '—')
+      }
+      .width('100%')
 
       /* ② 待确认动作队列 */
       Card() {
@@ -246,17 +262,26 @@ export struct AiWorkbench {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      /* 价值指标（沿用 M-11，保留在看板折叠区之前的简要展示） */
-      Row({ space: 12 }) {
-        Text(`临期消耗率 ${this.vm.expiringRate}%`).fontSize(12).fontColor(T.c('text-secondary'))
-        Text(`拦截重复购买 ${this.vm.blockedRepurchase} 次`).fontSize(12).fontColor(T.c('text-secondary'))
-        Text(`盘点中位 ${this.vm.intakeMedianMs > 0 ? this.vm.intakeMedianMs + ' ms' : '—'}`)
-          .fontSize(12).fontColor(T.c('text-secondary'))
-      }
-      .width('100%')
+      /* 底部留白：避开悬浮 AI 球（52vp 球 + 边距），避免遮挡最后一行内容 */
+      Row().width('100%').height(64)
     }
     .width('100%')
-    .padding(R_S)
+    .padding({ left: R_S, right: R_S, top: R_S, bottom: S4 })
     .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 三栏小卡（价值指标） */
+  @Builder
+  MiniStat(label: string, value: string) {
+    Column({ space: 2 }) {
+      Text(value).fontSize(15).fontWeight(800).fontColor(T.c('primary'))
+      Text(label).fontSize(10).fontColor(T.c('text-muted')).maxLines(1)
+    }
+    .layoutWeight(1)
+    .padding({ top: 8, bottom: 8 })
+    .borderRadius(R_M)
+    .backgroundColor(T.c('surface-raised'))
+    .border({ width: 1, color: T.c('border') })
+    .alignItems(HorizontalAlign.Center)
   }
 }
