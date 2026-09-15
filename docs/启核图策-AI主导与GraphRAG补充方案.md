@@ -1392,3 +1392,32 @@ CREATE TABLE IF NOT EXISTS graph_versions (
 3. **端侧摘要触发**：工作台打开时若摘要过期 → 调 `POST /api/graph/summaries`（离线批量、独立限流）；
 4. **Web 阶段 1**：`js/graph.js` + 工作台（零依赖，可先演示）；
 5. 小程序/安卓/Qt 按第 9–11 章复制契约与引擎。
+
+## D.4 真机（模拟器）验证结果（2026-09-15）
+
+设备：HarmonyOS 模拟器 `emulator`，API 22（6.0.0.130）；安装方式：`hdc install`（该模拟器不校验签名，直接用 unsigned HAP）。
+
+| 验证项 | 方法 | 结果 |
+|---|---|---|
+| 端侧构图 | 进入「我的 → 设置」，读取图谱卡 | **62 节点 · 88 边 · 18 社区**（版本 `gv-…`，值只能来自真实构建） |
+| 构图时效性 | 修改算法版本号后重进设置 | 自动重建（17 → 18 社区，宠物食品正确归入"宠物"场景） |
+| GraphRAG 端到端 | AI 面板提问"今晚吃什么" | 回复下方显示 **`证据：库存图谱（multi-hop）｜已引用 3 条路径`** |
+| 网关侧证据 | 后端控制台 | **`[ai-chat] graph evidence: mode=multi-hop version=gv-… lines=7 paths=3`** |
+| 工具协议 | 同一回复解析 `[菜]` 行 | 自动生成方案卡「番茄炒蛋 · AI 创新菜谱（AI 生成）· 约 542 千卡/份 · 食材齐全」 |
+| 用量链路 | 端侧 → `/api/ai/usage` | 后端记录 `route=cook model=agnes-2.0-flash source=gateway` 与 `source=client` 各若干 |
+| 默认主题 | 截图像素统计（Pillow） | 深海军蓝底 (18,23,43)；启核蓝像素 ≈6000；**经典橙像素 = 0** |
+| 主题可切换 | 点击「经典橙」→ 截图 | 橙 3056 / 蓝 0；点回「启核绿青蓝」→ 蓝 3501 / 橙 0 |
+| AI 头像 | 面板布局树 + 头像区域像素 | 头像为 96×96 `Image` 节点；区域像素分布 白 6186 / 绿 2345 / 青蓝 3089（官方徽标） |
+| 未做 | — | UI 颜色的人工观感复核（自动化只能验证色值族）；`GraphView`/`AiWorkbench` 两个新页面（G4） |
+
+> 说明：`hdc shell uitest uiInput text` 仅支持 ASCII，中文提问需用 `uiInput text <中文>`（已在 D.4 验证可行）。
+
+## D.5 仓库与版本管理（2026-09-15）
+
+| 项 | 内容 |
+|---|---|
+| 远端 | `https://github.com/yan-stone-computer/NexcoreGraph`（**私有**） |
+| 首次推送 | 3 个提交：`chore: 初始化仓库与忽略规则` → `feat(harmonyos): 导入鸿蒙端工程…` → `docs: 补充方案与赛道整改文档` |
+| 说明 | 原工程无 git 历史（历史只在备份 zip 中），故"保留 git 记录"自本仓库建立之日起生效，后续按提交粒度延续 |
+| 未入库（下一轮） | `web/`、`wxminiapp/`、根 `tools/`（保持"先存鸿蒙"） |
+| 网络 | 本机 github.com:443 被重置（api.github.com 可达），首次推送经 `ssh.github.com:443` 完成；建议开启代理后 `git push` 走 HTTPS |

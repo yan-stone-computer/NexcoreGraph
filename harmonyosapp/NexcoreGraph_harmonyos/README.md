@@ -118,13 +118,20 @@ python tools/check_release.py
 覆盖：密钥明文（D6/M-7）、知识库随包（M-8）、卡片多端与定时刷新（M-5）、
 设备类型/权限声明（D1）、合规交付物（M-13）、AI 生成内容标识、AI 网关契约。
 
-## 六、合规与隐私
+## 六、主题与品牌资产
+
+- **默认主题 = 启核色板 + 深色**（信号蓝 `#0CA8D6` 主色、过渡青 `#2FD4B2` 强调、深海军蓝 `#13172B` 底），取自官方徽标的绿→青→蓝渐变；
+- 可在「设置 → 外观」切换为早期品牌橙（经典色板）或浅色，并提供"恢复品牌默认主题"；
+- 令牌唯一来源 `entry/src/main/ets/common/Tokens.ets`（两套色板 × 明暗两态），页面禁止写死颜色；映射表见 `docs/启核图策-NexcoreGraph-品牌规范.md` 第 6 节；
+- **AI 头像**使用官方徽标（`entry/.../media/ai_avatar.png`）。
+
+## 七、合规与隐私
 
 - 采集范围、权限用途、本地优先策略、AI 生成内容标识见 `docs/privacy.md`；
 - 权限仅 `ohos.permission.INTERNET`（system_grant）与 `ohos.permission.MICROPHONE`（user_grant，带 reason/usedScene）；
 - 聊天记录、偏好档案、AI 用量、价值指标**仅存本机**，不进入同步 payload。
 
-## 七、当前状态（对齐整改文档第 2/4 章）
+## 八、当前状态（对齐整改文档第 2/4 章）
 
 | 项 | 状态 |
 |---|---|
