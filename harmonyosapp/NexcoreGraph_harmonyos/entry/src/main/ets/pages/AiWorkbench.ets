@@ -143,9 +143,9 @@ export struct AiWorkbench {
       .linearGradient({
         angle: 135,
         colors: [
-          ['rgba(70,177,76,0.24)', 0],
-          ['rgba(47,212,178,0.18)', 0.5],
-          ['rgba(12,168,214,0.16)', 1]
+          ['rgba(140,211,91,0.26)', 0],      // 徽标 15% 绿
+          ['rgba(61,208,174,0.20)', 0.5],     // 徽标 45% 过渡青
+          ['rgba(39,173,215,0.18)', 1]        // 徽标 90% 信号蓝
         ]
       })
       .alignItems(VerticalAlign.Center)
@@ -274,7 +274,7 @@ export struct AiWorkbench {
   @Builder
   MiniStat(label: string, value: string) {
     Column({ space: 2 }) {
-      Text(value).fontSize(15).fontWeight(800).fontColor(T.c('primary'))
+      Text(value).fontSize(15).fontWeight(800).fontColor(T.c('primary-ink'))
       Text(label).fontSize(10).fontColor(T.c('text-muted')).maxLines(1)
     }
     .layoutWeight(1)

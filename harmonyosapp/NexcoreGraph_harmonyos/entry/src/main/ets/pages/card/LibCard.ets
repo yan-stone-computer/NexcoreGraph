@@ -29,7 +29,7 @@ struct LibCard {
       .borderRadius(20)
       .linearGradient({
         angle: 160,
-        colors: [['#46B14C', 0], ['#2FD4B2', 1]]
+        colors: [['#57D794', 0], ['#26C2BC', 1]]
       })
       .shadow({ radius: 14, color: 'rgba(255,136,51,0.45)', offsetY: 4 })
 

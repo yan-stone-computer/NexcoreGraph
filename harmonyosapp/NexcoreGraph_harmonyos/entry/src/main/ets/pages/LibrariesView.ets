@@ -104,7 +104,7 @@ export struct LibrariesView {
               GridCol({ span: { sm: 1, md: 1, lg: 1 } }) {
                 Column({ space: 8 }) {
                   Column() {
-                    Ico({ name: 'folder-plus', dim: 22, color: T.c('primary') })
+                    Ico({ name: 'folder-plus', dim: 22, color: T.c('primary-ink') })
                   }
                   .width(46)
                   .height(46)

@@ -292,7 +292,7 @@ export struct GraphPanel {
           if (this.selFacts.length > 0) {
             ForEach(this.selFacts, (f: string, i: number) => {
               Row({ space: 8 }) {
-                NumText({ value: String(i + 1), dim: 12, weight: FontWeight.Bold, color: T.c('primary') })
+                NumText({ value: String(i + 1), dim: 12, weight: FontWeight.Bold, color: T.c('primary-ink') })
                 Text(f).fontSize(12).fontColor(T.c('text-secondary')).layoutWeight(1)
               }
               .width('100%')

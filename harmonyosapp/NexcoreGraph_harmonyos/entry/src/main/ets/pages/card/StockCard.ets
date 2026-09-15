@@ -60,11 +60,11 @@ struct StockCard {
             Text('拍照入库')
               .fontSize(11)
               .fontWeight(700)
-              .fontColor('#06210A')
+              .fontColor('#0B2A1C')
           }
           .padding({ left: 11, right: 11, top: 6, bottom: 6 })
           .borderRadius(999)
-          .backgroundColor('#46B14C')
+          .backgroundColor('#57D794')
           .onClick(() => {
             this.go('intake');
           })

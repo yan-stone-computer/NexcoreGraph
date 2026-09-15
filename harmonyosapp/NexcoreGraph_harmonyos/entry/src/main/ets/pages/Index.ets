@@ -169,11 +169,11 @@ struct Index {
   @Builder
   TabBarItem(idx: number) {
     Column({ space: 3 }) {
-      Ico({ name: NAV[idx].icon, dim: 21, color: this.curTab === idx ? T.c('primary') : T.c('text-muted') })
+      Ico({ name: NAV[idx].icon, dim: 21, color: this.curTab === idx ? T.c('primary-ink') : T.c('text-muted') })
       Text(NAV[idx].label)
         .fontSize(10)
         .fontWeight(this.curTab === idx ? 700 : 500)
-        .fontColor(this.curTab === idx ? T.c('primary') : T.c('text-muted'))
+        .fontColor(this.curTab === idx ? T.c('primary-ink') : T.c('text-muted'))
     }
     .width('100%')
     .height('100%')
@@ -317,7 +317,7 @@ struct ToastView {
         Text(this.row.actionLabel)
           .fontSize(13)
           .fontWeight(700)
-          .fontColor(T.c('primary'))
+          .fontColor(T.c('primary-ink'))
           .onClick(() => {
             store.removeToast(this.row.id);
             if (this.row.action === 'lib:restore') {

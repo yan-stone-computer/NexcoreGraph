@@ -968,9 +968,9 @@ struct IntakePanel {
         if (store.intakeLoading) {
           Column({ space: 12 }) {
             Row({ space: 8 }) {
-              Ico({ name: 'scan', dim: 14, color: T.c('primary') })
+              Ico({ name: 'scan', dim: 14, color: T.c('primary-ink') })
               Text(this.batchMode ? '连拍识别中 · 多张合并去重中' : 'AI 识别中…')
-                .fontSize(13).fontWeight(600).fontColor(T.c('primary'))
+                .fontSize(13).fontWeight(600).fontColor(T.c('primary-ink'))
             }
             Row().height(14).borderRadius(999).backgroundColor(T.c('surface-overlay')).width('70%')
             Row().height(14).borderRadius(999).backgroundColor(T.c('surface-overlay')).width('40%')
@@ -1173,7 +1173,7 @@ struct IntakePanel {
     Row({ space: 8 }) {
       Row() {
         if (store.intakeStep > i) {
-          Ico({ name: 'check', dim: 12, color: T.c('primary') })
+          Ico({ name: 'check', dim: 12, color: T.c('primary-ink') })
         } else {
           NumText({ value: String(i + 1), dim: 12, weight: FontWeight.Bold,
             color: store.intakeStep === i ? T.c('on-primary') : T.c('text-muted') })
@@ -1209,7 +1209,7 @@ struct VfCorner {
         left: this.corner === 0 || this.corner === 2 ? 2 : 0,
         right: this.corner === 1 || this.corner === 3 ? 2 : 0
       },
-      color: T.c('primary')
+      color: T.c('primary-ink')
     })
   }
 }
@@ -1668,7 +1668,7 @@ export struct SettingsView {
 
             Row({ space: 12 }) {
               Column({ space: 4 }) {
-                Text(`${this.localFastShare()}%`).fontSize(20).fontWeight(800).fontColor(T.c('primary'))
+                Text(`${this.localFastShare()}%`).fontSize(20).fontWeight(800).fontColor(T.c('primary-ink'))
                 Text('快答占比（本机）').fontSize(11).fontColor(T.c('text-muted'))
               }
               .alignItems(HorizontalAlign.Start)

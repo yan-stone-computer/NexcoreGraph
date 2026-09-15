@@ -187,7 +187,7 @@ export struct AiPanel {
             Row({ space: 10 }) {
               this.AiAvatar()
               Row({ space: 8 }) {
-                Ico({ name: 'fridge', dim: 14, color: T.c('primary') })
+                Ico({ name: 'fridge', dim: 14, color: T.c('primary-ink') })
                 Text('正在翻冰箱找食材').fontSize(12).fontWeight(600).fontColor(T.c('text-muted'))
                 TypingDots()
               }

@@ -68,7 +68,7 @@ export struct WorkbenchView {
 
             // 池内容
             Column({ space: 6 }) {
-              Text('合作池').fontSize(15).fontWeight(800).fontColor(T.c('primary')).letterSpacing(2)
+              Text('合作池').fontSize(15).fontWeight(800).fontColor(T.c('primary-ink')).letterSpacing(2)
               Row({ space: -6 }) {
                 ForEach(this.poolCards(), (_: number, i: number) => {
                   Row()
@@ -76,11 +76,11 @@ export struct WorkbenchView {
                     .height(34)
                     .borderRadius(4)
                     .backgroundColor(T.c('primary-container'))
-                    .border({ width: 1, color: T.c('primary') })
+                    .border({ width: 1, color: T.c('primary-ink') })
                 }, (i: number) => `pool-${i}`)
                 if (store.workbench.history.length > 5) {
                   Text(`+${store.workbench.history.length - 5}`)
-                    .fontSize(11).fontWeight(700).fontColor(T.c('primary')).margin({ left: 8 })
+                    .fontSize(11).fontWeight(700).fontColor(T.c('primary-ink')).margin({ left: 8 })
                 }
                 if (store.workbench.history.length === 0) {
                   Text('还没有库传出去').fontSize(11).fontColor(T.c('text-muted')).margin({ left: 8 })
@@ -168,10 +168,10 @@ export struct WorkbenchView {
               Column({ space: 4 }) {
                 Text('限时邀请码').fontSize(13).fontColor(T.c('text-secondary'))
                 Text(store.workbench.code)
-                  .fontSize(26).fontWeight(FontWeight.Bold).fontColor(T.c('primary')).fontFeature('ss01').letterSpacing(6)
+                  .fontSize(26).fontWeight(FontWeight.Bold).fontColor(T.c('primary-ink')).fontFeature('ss01').letterSpacing(6)
                   .padding({ left: 20, right: 20, top: 12, bottom: 12 })
                   .margin({ top: 12, bottom: 12 })
-                  .border({ width: 1.5, color: T.c('primary'), style: BorderStyle.Dashed })
+                  .border({ width: 1.5, color: T.c('primary-ink'), style: BorderStyle.Dashed })
                   .borderRadius(R_M)
                   .backgroundColor(T.c('primary-container'))
                 Text('7 天后失效 · 已用 2 / 3 人').fontSize(12).fontColor(T.c('text-muted'))
@@ -192,7 +192,7 @@ export struct WorkbenchView {
               .padding(24)
               .borderRadius(R_L)
               .backgroundColor(T.c('primary-container'))
-              .border({ width: 1.5, color: T.c('primary'), style: BorderStyle.Dashed })
+              .border({ width: 1.5, color: T.c('primary-ink'), style: BorderStyle.Dashed })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')

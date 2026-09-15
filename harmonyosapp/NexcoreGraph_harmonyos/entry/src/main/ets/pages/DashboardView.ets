@@ -381,8 +381,8 @@ export struct DashboardView {
             Column({ space: 8 }) {
               Row() {
                 Row({ space: 8 }) {
-                  Ico({ name: 'sun', dim: 15, color: T.c('primary') })
-                  Text('今日摘要').fontSize(13).fontWeight(600).fontColor(T.c('primary'))
+                  Ico({ name: 'sun', dim: 15, color: T.c('primary-ink') })
+                  Text('今日摘要').fontSize(13).fontWeight(600).fontColor(T.c('primary-ink'))
                 }
                 Blank()
                 NumText({ value: this.nowClock, dim: 13, weight: FontWeight.Bold, color: T.c('text-secondary') })
@@ -616,7 +616,7 @@ export struct DashboardView {
                 Text('临期提醒').fontSize(20).fontWeight(800).fontColor(T.c('text-primary'))
                 Blank()
                 Text('查看全部 ›')
-                  .fontSize(13).fontWeight(600).fontColor(T.c('primary'))
+                  .fontSize(13).fontWeight(600).fontColor(T.c('primary-ink'))
                   .onClick(() => {
                     store.overlay = 'alerts';
                   })

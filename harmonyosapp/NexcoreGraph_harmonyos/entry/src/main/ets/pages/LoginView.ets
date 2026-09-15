@@ -70,7 +70,7 @@ export struct LoginView {
         .border({ width: 1, color: T.c('border') })
 
         Text('直接进入演示')
-          .fontSize(13).fontWeight(600).fontColor(T.c('primary'))
+          .fontSize(13).fontWeight(600).fontColor(T.c('primary-ink'))
           .onClick(() => {
             store.loggedIn = true;
             store.toast('已进入演示，数据来自本地模拟');
