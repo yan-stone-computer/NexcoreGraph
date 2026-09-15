@@ -1,13 +1,7 @@
 /* 启核图策 · 服务卡片「库存总览」（2x2 / 2*4 / 4*4）
-   设计规范：数据先行，无品牌头、无胶囊按钮；数字等宽；临期用语义色，其余保持中性。
-   整卡可点，直达资源库。 */
-
-const SC_SURFACE_TOP: string = '#171C33';
-const SC_SURFACE_BOTTOM: string = '#13172B';
-const SC_TEXT_STRONG: string = '#EDF1F9';
-const SC_TEXT_MUTED: string = '#8E9AB8';
-const SC_ACCENT: string = '#57D794';
-const SC_WARN: string = '#FFB020';
+   配色与软件一致：浅色底 + 徽标绿青蓝；颜色一律走 app.color.card_* 资源，
+   随系统明暗自动切换（form_config colorMode = auto）。
+   版式：顶部 3vp 品牌渐变条（唯一签名元素）→ 标签 → 30vp 等宽大数字 → 底部状态点。 */
 
 @Entry
 @Component
@@ -24,68 +18,66 @@ struct StockCard {
     });
   }
 
+  @Builder
+  BrandRule() {
+    Row()
+      .width('100%')
+      .height(3)
+      .borderRadius(2)
+      .linearGradient({
+        angle: 90,
+        colors: [
+          [$r('app.color.card_grad_a'), 0],
+          [$r('app.color.card_grad_b'), 0.5],
+          [$r('app.color.card_grad_c'), 1]
+        ]
+      })
+  }
+
   build() {
     Column({ space: 0 }) {
-      Row() {
-        Text('库存')
-          .fontSize(11)
-          .fontWeight(600)
-          .fontColor(SC_TEXT_MUTED)
-          .letterSpacing(0.4)
+      this.BrandRule()
+
+      Row({ space: 6 }) {
+        Image($r('app.media.logo')).width(14).height(14).objectFit(ImageFit.Contain)
+        Text('库存').fontSize(11).fontWeight(600).letterSpacing(0.4)
+          .fontColor($r('app.color.card_text_muted'))
         Blank()
-        Image($r('app.media.ic_fridge'))
-          .width(14)
-          .height(14)
-          .objectFit(ImageFit.Contain)
-          .opacity(0.7)
+        Image($r('app.media.ic_fridge')).width(14).height(14).objectFit(ImageFit.Contain)
+          .fillColor($r('app.color.card_accent_ink'))
       }
       .width('100%')
+      .margin({ top: 10 })
 
       Row({ space: 4 }) {
-        Text(`${this.total}`)
-          .fontSize(30)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(SC_TEXT_STRONG)
-          .fontFeature('tnum')
-        Text('件')
-          .fontSize(12)
-          .fontColor(SC_TEXT_MUTED)
-          .margin({ bottom: 5 })
+        Text(`${this.total}`).fontSize(30).fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.card_text_strong')).fontFeature('tnum')
+        Text('件').fontSize(12).fontColor($r('app.color.card_text_muted')).margin({ bottom: 5 })
       }
       .alignItems(VerticalAlign.Bottom)
-      .margin({ top: 6 })
+      .margin({ top: 4 })
 
-      Text(`${this.libs} 个库`)
-        .fontSize(11)
-        .fontColor(SC_TEXT_MUTED)
-        .fontFeature('tnum')
-        .margin({ top: 2 })
+      Text(`${this.libs} 个库`).fontSize(11).fontColor($r('app.color.card_text_muted'))
+        .fontFeature('tnum').margin({ top: 2 })
 
       Blank()
 
       Row({ space: 6 }) {
-        Row()
-          .width(6)
-          .height(6)
-          .borderRadius(3)
-          .backgroundColor(this.expiring > 0 ? SC_WARN : SC_ACCENT)
+        Row().width(6).height(6).borderRadius(3)
+          .backgroundColor(this.expiring > 0 ? $r('app.color.card_warn_ink') : $r('app.color.card_accent_ink'))
         Text(this.expiring > 0 ? `${this.expiring} 项临期待处理` : '近 7 天无临期')
-          .fontSize(12)
-          .fontWeight(600)
-          .fontColor(this.expiring > 0 ? SC_WARN : SC_ACCENT)
-          .fontFeature('tnum')
-          .maxLines(1)
+          .fontSize(12).fontWeight(600).fontFeature('tnum').maxLines(1)
+          .fontColor(this.expiring > 0 ? $r('app.color.card_warn_ink') : $r('app.color.card_accent_ink'))
       }
       .width('100%')
     }
-    .padding(13)
+    .padding({ left: 13, right: 13, top: 10, bottom: 12 })
     .width('100%')
     .height('100%')
     .alignItems(HorizontalAlign.Start)
-    .linearGradient({
-      angle: 180,
-      colors: [[SC_SURFACE_TOP, 0], [SC_SURFACE_BOTTOM, 1]]
-    })
+    .backgroundColor($r('app.color.card_surface'))
+    .borderRadius(16)
+    .border({ width: 1, color: $r('app.color.card_border') })
     .onClick(() => {
       this.go('libs');
     })

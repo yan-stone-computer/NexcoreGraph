@@ -1,16 +1,6 @@
-/* 启核图策 · 服务卡片「快捷入口」（2x2 / 2x4 / 4x4）
-   设计规范（.ui-alchemy/system.md）：
-     · 只有这一张卡保留品牌标记（其他卡直接给数据，避免四张卡重复 logo + 名称）
-     · 入口 = 中性描边方块（无渐变、无彩色阴影），图标与文字承担识别
-     · 唯一强调色为启核绿 #57D794，语义色只用于状态
-   卡片环境自包含，不 import 应用 Store。 */
-
-const FC_SURFACE_TOP: string = '#171C33';
-const FC_SURFACE_BOTTOM: string = '#13172B';
-const FC_TEXT_STRONG: string = '#EDF1F9';
-const FC_TEXT_MUTED: string = '#8E9AB8';
-const FC_TILE_BG: string = 'rgba(255,255,255,0.06)';
-const FC_TILE_BORDER: string = 'rgba(255,255,255,0.10)';
+/* 启核图策 · 服务卡片「快捷入口」（2x2 / 2*4 / 4*4）
+   与软件一致：浅色底 + 徽标色；入口用品牌浅绿底（card_tile_bg）+ 墨绿图标，
+   顶部 3vp 品牌渐变条作为唯一签名元素。 */
 
 @Entry
 @Component
@@ -24,19 +14,19 @@ struct FuncCard {
   }
 
   @Builder
-  BrandHead() {
-    Row({ space: 6 }) {
-      Image($r('app.media.logo'))
-        .width(15)
-        .height(15)
-        .objectFit(ImageFit.Contain)
-      Text('启核图策')
-        .fontSize(11)
-        .fontWeight(600)
-        .fontColor(FC_TEXT_MUTED)
-        .letterSpacing(0.4)
-    }
-    .width('100%')
+  BrandRule() {
+    Row()
+      .width('100%')
+      .height(3)
+      .borderRadius(2)
+      .linearGradient({
+        angle: 90,
+        colors: [
+          [$r('app.color.card_grad_a'), 0],
+          [$r('app.color.card_grad_b'), 0.5],
+          [$r('app.color.card_grad_c'), 1]
+        ]
+      })
   }
 
   @Builder
@@ -46,27 +36,40 @@ struct FuncCard {
         .width(20)
         .height(20)
         .objectFit(ImageFit.Contain)
-        .opacity(0.92)
+        .fillColor($r('app.color.card_accent_ink'))
       Text(label)
         .fontSize(11)
         .fontWeight(600)
-        .fontColor(FC_TEXT_STRONG)
+        .fontColor($r('app.color.card_text_strong'))
         .maxLines(1)
     }
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .borderRadius(12)
-    .backgroundColor(FC_TILE_BG)
-    .border({ width: 1, color: FC_TILE_BORDER })
+    .backgroundColor($r('app.color.card_tile_bg'))
     .onClick(() => {
       this.go(target);
     })
   }
 
   build() {
-    Column({ space: 8 }) {
-      this.BrandHead()
+    Column({ space: 0 }) {
+      this.BrandRule()
+
+      Row({ space: 6 }) {
+        Image($r('app.media.logo'))
+          .width(15)
+          .height(15)
+          .objectFit(ImageFit.Contain)
+        Text('启核图策')
+          .fontSize(11)
+          .fontWeight(600)
+          .fontColor($r('app.color.card_text_body'))
+          .letterSpacing(0.4)
+      }
+      .width('100%')
+      .margin({ top: 10, bottom: 8 })
 
       Row({ space: 8 }) {
         this.Entry($r('app.media.ic_camera'), '拍照入库', 'intake')
@@ -79,13 +82,13 @@ struct FuncCard {
         this.Entry($r('app.media.ic_cart'), '采购清单', 'shopping')
       }
       .layoutWeight(1)
+      .margin({ top: 8 })
     }
-    .padding(12)
+    .padding({ left: 12, right: 12, top: 10, bottom: 12 })
     .width('100%')
     .height('100%')
-    .linearGradient({
-      angle: 180,
-      colors: [[FC_SURFACE_TOP, 0], [FC_SURFACE_BOTTOM, 1]]
-    })
+    .backgroundColor($r('app.color.card_surface'))
+    .borderRadius(16)
+    .border({ width: 1, color: $r('app.color.card_border') })
   }
 }

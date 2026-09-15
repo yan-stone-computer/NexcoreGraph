@@ -1,14 +1,5 @@
 /* 启核图策 · 服务卡片「打开库存」（2x2 / 2*4 / 4*4）
-   设计规范：图标放在中性描边方块里（不再用彩色渐变块与彩色阴影，避免"彩色光晕"）；
-   规模用等宽数字，标题一句、说明一句。整卡可点，直达资源库。 */
-
-const LC_SURFACE_TOP: string = '#171C33';
-const LC_SURFACE_BOTTOM: string = '#13172B';
-const LC_TEXT_STRONG: string = '#EDF1F9';
-const LC_TEXT_MUTED: string = '#8E9AB8';
-const LC_TILE_BG: string = 'rgba(255,255,255,0.06)';
-const LC_TILE_BORDER: string = 'rgba(255,255,255,0.10)';
-const LC_ACCENT: string = '#57D794';
+   与软件一致：浅色底 + 徽标色；图标在品牌浅绿方块里，数字等宽。 */
 
 @Entry
 @Component
@@ -24,59 +15,55 @@ struct LibCard {
     });
   }
 
+  @Builder
+  BrandRule() {
+    Row()
+      .width('100%')
+      .height(3)
+      .borderRadius(2)
+      .linearGradient({
+        angle: 90,
+        colors: [
+          [$r('app.color.card_grad_a'), 0],
+          [$r('app.color.card_grad_b'), 0.5],
+          [$r('app.color.card_grad_c'), 1]
+        ]
+      })
+  }
+
   build() {
     Column({ space: 0 }) {
-      Row() {
-        Row() {
-          Image($r('app.media.ic_cabinet'))
-            .width(20)
-            .height(20)
-            .objectFit(ImageFit.Contain)
-            .opacity(0.92)
-        }
-        .width(38)
-        .height(38)
-        .borderRadius(12)
-        .backgroundColor(LC_TILE_BG)
-        .border({ width: 1, color: LC_TILE_BORDER })
-        .justifyContent(FlexAlign.Center)
+      this.BrandRule()
+
+      Row({ space: 6 }) {
+        Image($r('app.media.logo')).width(14).height(14).objectFit(ImageFit.Contain)
+        Text('打开库存').fontSize(11).fontWeight(600).letterSpacing(0.4)
+          .fontColor($r('app.color.card_text_muted'))
         Blank()
-        Text('查看全部')
-          .fontSize(11)
-          .fontWeight(600)
-          .fontColor(LC_ACCENT)
+        Text('查看全部').fontSize(11).fontWeight(600).fontColor($r('app.color.card_accent_ink'))
       }
       .width('100%')
+      .margin({ top: 10 })
 
       Blank()
 
       Row({ space: 4 }) {
-        Text(`${this.total}`)
-          .fontSize(26)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(LC_TEXT_STRONG)
-          .fontFeature('tnum')
-        Text('件')
-          .fontSize(12)
-          .fontColor(LC_TEXT_MUTED)
-          .margin({ bottom: 4 })
+        Text(`${this.total}`).fontSize(26).fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.card_text_strong')).fontFeature('tnum')
+        Text('件').fontSize(12).fontColor($r('app.color.card_text_muted')).margin({ bottom: 4 })
       }
       .alignItems(VerticalAlign.Bottom)
 
-      Text(`打开库存 · ${this.libs} 个库`)
-        .fontSize(11)
-        .fontColor(LC_TEXT_MUTED)
-        .fontFeature('tnum')
-        .margin({ top: 2 })
+      Text(`${this.libs} 个库`).fontSize(11).fontFeature('tnum')
+        .fontColor($r('app.color.card_text_muted')).margin({ top: 2 })
     }
-    .padding(13)
+    .padding({ left: 13, right: 13, top: 10, bottom: 12 })
     .width('100%')
     .height('100%')
     .alignItems(HorizontalAlign.Start)
-    .linearGradient({
-      angle: 180,
-      colors: [[LC_SURFACE_TOP, 0], [LC_SURFACE_BOTTOM, 1]]
-    })
+    .backgroundColor($r('app.color.card_surface'))
+    .borderRadius(16)
+    .border({ width: 1, color: $r('app.color.card_border') })
     .onClick(() => {
       this.go();
     })
