@@ -1421,3 +1421,17 @@ CREATE TABLE IF NOT EXISTS graph_versions (
 | 说明 | 原工程无 git 历史（历史只在备份 zip 中），故"保留 git 记录"自本仓库建立之日起生效，后续按提交粒度延续 |
 | 未入库（下一轮） | `web/`、`wxminiapp/`、根 `tools/`（保持"先存鸿蒙"） |
 | 网络 | 本机 github.com:443 被重置（api.github.com 可达），首次推送经 `ssh.github.com:443` 完成；建议开启代理后 `git push` 走 HTTPS |
+
+## D.6 G4 交付 + logo 统一（2026-09-15）
+
+| 项 | 内容 | 真机证据 |
+|---|---|---|
+| AI 工作台（G4） | 新增 `pages/AiWorkbench.ets`；`Index` 的 Tab0 由看板改为 AI 工作台：AI 摘要条（数值代码计算）+ 待确认队列 + 图谱入口 + 快捷指令 + 对话入口 | 首屏文本：`AI 工作台` / `临期 2 项 · 建议先消耗「鲜牛奶」（2 天后到期）` / `待确认` / `库存知识图谱` / `打开图谱` / `AI 对话` / `今日吃什么` |
+| 待确认动作队列 | 队列项来自 **AI 对话预览卡**（`[调整]`/`[购物]` 未确认项）与 **pending 方案**，点"确认/执行"才写入（红线 2） | 可见队列行 `清库存 · 20 分钟 · 消耗 1 种食材` + 执行按钮 |
+| 图谱面板（G4） | 新增 `pages/GraphPanel.ets`（`store.overlay='graph'`）：Canvas 分层布局（库→物品→概念）、临期高亮、"仅临期"筛选、社区着色、点节点出**路径证据**、一键"问 AI 关于它" | Canvas 命中（按布局密度 3.376 换算）点"冰箱"→ 证据卡 `冰箱：共 5 件，临期 4 项，价值约 ¥57.9` + `临期：鸡蛋 8个（3 天）` + `临期：鲜牛奶 1盒（2 天）` |
+| 页面级上下文 | `store.aiPrefill` → `AiPanel.aboutToAppear` 消费，打开对话即带入提问（免复述） | 代码路径 + 真机按钮 `问 AI 关于它` |
+| **logo 统一规则** | **应用图标保持不变**（`AppScope/media/{foreground,background}.png` + `entry/media/startIcon.png` + `layered_image.json`，git 无改动）；**其余 logo 位一律用官方徽标** | 登录页 logo 区域像素：亮色（绿青/蓝青/白）**91.5%**、深底仅 2 px → 已从 E3 图标切为官方徽标 |
+| 鸿蒙端替换点 | `entry/media/logo.png` 一处覆盖 **7 个引用**：顶栏、登录页、AI 面板（头部+介绍卡）、3 张服务卡片 | `rg app.media.logo` 引用清单 |
+| 小程序端 | 登录页 `src/assets/logo.png` 换为官方徽标；`logo-512.png`（小程序应用图标）按规则保持不变 | 源码引用核验（`logo-512` 未被代码引用） |
+| Web 端 | 页面内 `assets/img/logo.png`、`favicon-32.png`、`apple-touch-icon-180.png` 本已是官方徽标，无需变更 | 素材像素核验（中心 (43,206,180)，透明角） |
+| 待人工复核 | 各端 logo 位的观感（尺寸/留白）；应用图标在桌面/启动页的实际显示 | — |
