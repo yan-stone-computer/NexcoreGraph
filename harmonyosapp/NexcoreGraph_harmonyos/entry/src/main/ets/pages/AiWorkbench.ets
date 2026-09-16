@@ -12,6 +12,7 @@ import { ChatMsg, Plan, Item, Library } from '../common/Db';
 import { executePlan, setItemQtyByName, addShoppingByAI, runBusy, valueMetrics, ValueMetrics } from '../common/Api';
 import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { saveChat, saveFormSnapshot } from '../common/LocalStore';
+import { pageContentWidth, pageInset } from '../common/Breakpoints';
 
 @ComponentV2
 export struct AiWorkbench {
@@ -211,7 +212,10 @@ export struct AiWorkbench {
   }
 
   build() {
-    Column({ space: 0 }) {
+    /* 用 Scroll 包一层：一是内容更长时可滚动，二是「显式宽度+左边距」只有在
+       Scroll 子节点这一层才被 ArkUI 正确摆放（直接放 TabContent 里会整体右移并溢出右沿）。 */
+    Scroll() {
+      Column({ space: 0 }) {
       this.Head()
 
       if (store.isWide) {
@@ -243,18 +247,18 @@ export struct AiWorkbench {
 
       /* 底部留白：避开悬浮 AI 球 */
       Row().height(64)
+      }
+      // 显式宽度 + 左边距：靠内边距留白时 ArkUI 会吃掉右侧，内容顶到屏幕右沿
+      .width(pageContentWidth())
+      .margin({ left: pageInset() })
+      .padding({ top: S4, bottom: S4 })
+      .alignItems(HorizontalAlign.Start)
+      .justifyContent(FlexAlign.Start)
     }
     .width('100%')
-    /* 必须占满高度：否则内容比 TabContent 矮时会被整体垂直居中，页面顶部出现大片空白 */
     .height('100%')
-    .padding({
-      left: store.isWide ? S8 : S4,
-      right: store.isWide ? S8 : S4,
-      top: S4,
-      bottom: S4
-    })
-    .alignItems(HorizontalAlign.Start)
-    .justifyContent(FlexAlign.Start)
+    .align(Alignment.TopStart)
+    .scrollBar(BarState.Off)
   }
 
   @Builder

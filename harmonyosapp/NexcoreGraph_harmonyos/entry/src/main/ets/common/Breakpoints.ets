@@ -51,3 +51,25 @@ export function breakpointName(): string {
   const w = windowWidthVp();
   return `${deviceKind()} · ${Math.round(w)}vp · ${store.isCompact ? 'compact' : (store.isWide ? 'wide' : 'normal')}`;
 }
+
+/* ---------- 页面内容宽度（显式算，不用 padding/width('100%')） ----------
+   背景：ArkUI 在「Scroll 子节点」这一层只把左内边距算进布局，右侧内边距
+   会被吃掉 —— 结果就是内容左边缘被顶到侧边栏、或者右边缘顶到屏幕边
+   （两个方向都会被用户看成"被挡住"）。
+   所以页面内容一律用「显式 vp 宽度 + 左边距」，不再依赖内边距。 */
+
+/** 平板/2in1 左侧导航栏宽度（vp），与 Index.NavRail 保持一致 */
+export const RAIL_WIDTH_VP: number = 96;
+/** 页面左右留白（vp）：宽屏 32，手机 16 */
+export const PAGE_INSET_WIDE: number = 32;
+export const PAGE_INSET_PHONE: number = 16;
+
+export function pageInset(): number {
+  return store.isWide ? PAGE_INSET_WIDE : PAGE_INSET_PHONE;
+}
+
+/** 页面内容可用宽度（vp）：窗口宽 - 侧栏 - 左右留白 */
+export function pageContentWidth(): number {
+  const w = windowWidthVp() - (store.isWide ? RAIL_WIDTH_VP : 0) - pageInset() * 2;
+  return w > 240 ? w : 240;
+}

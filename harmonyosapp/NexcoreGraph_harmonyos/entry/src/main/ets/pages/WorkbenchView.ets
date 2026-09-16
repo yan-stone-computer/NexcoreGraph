@@ -5,6 +5,7 @@ import { T, R_M, R_L, R_XL, DUR_BASE, DUR_SLOW, S8 } from '../common/Tokens';
 import { Ico, TBtn, ToneBadge, Card, CardHead, NumText } from '../components/Widgets';
 import { Seat, SeatLib, WbHistory, Snap } from '../common/Db';
 import { runBusy, sendLibrary, endCoop, runWorkbench, revokeInvite, SendResult, syncMyHand } from '../common/Api';
+import { pageContentWidth, pageInset } from '../common/Breakpoints';
 
 @ComponentV2
 export struct WorkbenchView {
@@ -221,11 +222,12 @@ export struct WorkbenchView {
         }
       }
         .padding({
-          left: store.isWide ? S8 : 16,
-          right: store.isWide ? S8 : 16,
           top: 16,
           bottom: 96
         })
+        // 显式宽度 + 左边距（内边距在这层会被 ArkUI 吃掉右侧，右边缘顶屏）
+        .width(pageContentWidth())
+        .margin({ left: pageInset() })
       }
       .width('100%')
       .height('100%')

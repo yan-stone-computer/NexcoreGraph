@@ -19,6 +19,7 @@ import { tryUploadSync, forceUploadSync, downloadSync, SyncConflict } from '../c
 import { saveProfile, saveFormSnapshot, saveThemePrefs } from '../common/LocalStore';
 import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { rebuildGraph } from '../common/GraphBuild';
+import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { GraphBuildStat } from '../common/GraphModel';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { image } from '@kit.ImageKit';
@@ -1904,14 +1905,10 @@ export struct SettingsView {
           this.SettingsSlotC()
         }
       }
-      .width('100%')
-      .constraintSize({ maxWidth: store.isWide ? 1440 : 760 })
-      .padding({
-        left: store.isWide ? 24 : 16,
-        right: store.isWide ? 24 : 16,
-        top: 16,
-        bottom: 96
-      })
+      // 显式宽度 + 左边距：靠内边距留白时 ArkUI 会吃掉右侧，内容顶到屏幕右沿
+      .width(pageContentWidth())
+      .margin({ left: pageInset() })
+      .padding({ top: 16, bottom: 96 })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')

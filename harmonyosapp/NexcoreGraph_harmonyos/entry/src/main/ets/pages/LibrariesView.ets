@@ -5,6 +5,7 @@ import { T, R_M, R_L, R_XL, S3, S4, S8 } from '../common/Tokens';
 import { Ico, TBtn, ToneBadge, Chip, Card, CardHead, IconBtn, NumText, MiniSwitch } from '../components/Widgets';
 import { Library, Item, KNOWLEDGE } from '../common/Db';
 import { updateItemQty, runBusy, createLibrary, renameLibrary, deleteLibrary, restoreLibrary, moveLibrary } from '../common/Api';
+import { pageContentWidth, pageInset } from '../common/Breakpoints';
 
 const LIB_ICONS: string[] = ['package', 'fridge', 'shirt', 'pill', 'wrench', 'dumbbell', 'book', 'paw', 'plug'];
 const LIB_TONES: string[] = ['teal', 'indigo', 'red', 'slate', 'lime', 'brown', 'orange', 'violet'];
@@ -142,14 +143,12 @@ export struct LibrariesView {
           .width('100%')
         }
         .padding({
-          left: store.isWide ? S8 : 16,
-          right: store.isWide ? S8 : 16,
           top: 16,
           bottom: 96
         })
-        // ArkUI 在这个位置只认左内边距（右内边距会被吃掉、内容顶到屏幕右沿），
-        // 所以右侧留白用 margin 补一刀
-        .margin({ right: store.isWide ? S8 : 0 })
+        // 显式宽度 + 左边距：内边距在这个位置会被 ArkUI 吃掉右侧，导致右边缘顶屏
+        .width(pageContentWidth())
+        .margin({ left: pageInset() })
       }
       .width('100%')
       .height('100%')
@@ -390,11 +389,11 @@ export struct LibraryDetailView {
         }
       }
         .padding({
-          left: store.isWide ? S8 : 16,
-          right: store.isWide ? S8 : 16,
           top: 8,
           bottom: 96
         })
+        .width(pageContentWidth())
+        .margin({ left: pageInset() })
       }
       .width('100%')
       .height('100%')
