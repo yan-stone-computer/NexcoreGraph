@@ -102,7 +102,8 @@ export class Store {
   @Trace families: Family[] = [new Family('home', '幸福小家', 4), new Family('personal', '林夏 · 个人', 1)];
   @Trace settings: Record<string, boolean> = {
     'private': true, 'chat': true, 'expiry': true, 'digest': true, 'low': true,
-    'tts': false                 // M-9 AI 回复语音播报（默认关，设置页可开）
+    'tts': false,                // M-9 AI 回复语音播报（默认关，设置页可开）
+    'syncChat': true             // 自由流转：AI 对话随其他设备同步（默认开；关闭则仅存本机）
   };
   @Trace logs: LogRow[] = [];
   @Trace stats: Stats = new Stats();

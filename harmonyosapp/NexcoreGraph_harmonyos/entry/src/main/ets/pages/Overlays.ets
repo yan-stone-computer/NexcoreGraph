@@ -1711,9 +1711,15 @@ export struct SettingsView {
             })
               SwitchRow({
                 title: '聊天记录仅存本地',
-                desc: '已确认策略 · 不上云、跨端不同步',
+                desc: '聊天记录落本机存储，不上云（F9.11）',
                 on: store.settings['chat'],
                 tap: (): void => this.toggleSetting('chat')
+              })
+              SwitchRow({
+                title: 'AI 对话随设备同步',
+                desc: '自由流转：这边问 AI，另一台设备原样出现同一问答，并能接着问；关闭则跨端不同步（仅存本机）',
+                on: store.settings['syncChat'],
+                tap: (): void => this.toggleSetting('syncChat')
               })
             }
           }

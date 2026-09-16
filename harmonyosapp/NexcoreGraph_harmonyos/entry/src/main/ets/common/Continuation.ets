@@ -7,7 +7,7 @@
 
 import { AbilityConstant, Want } from '@kit.AbilityKit';
 import { store, LogRow } from './Store';
-import { Library, Item, Plan, AlertItem, ShoppingItem, Todo } from './Db';
+import { Library, Item, Plan, AlertItem, ShoppingItem, Todo, ChatMsg } from './Db';
 
 /** 快照键（wantParam 内） */
 const FLOW_KEY: string = 'nexcoreFlow';
@@ -112,6 +112,22 @@ class TodoDto {
   done: boolean = false;
 }
 
+/** AI 对话（自由流转要求"这边问一句、那边原样出现并且能接着问"） */
+class ChatDto {
+  who: string = '';
+  text: string = '';
+  time: string = '';
+  plans: number[] = [];
+  adjName: string = '';
+  adjQty: number = -1;
+  adjDone: boolean = false;
+  shopName: string = '';
+  shopQty: string = '';
+  shopDone: boolean = false;
+  srcNote: string = '';
+  srcUrl: string = '';
+}
+
 class DataPayload {
   v: number = FLOW_VERSION;
   libraries: LibDto[] = [];
@@ -122,6 +138,7 @@ class DataPayload {
   settings: Record<string, boolean> = {};
   profile: ProfileDto = new ProfileDto();
   daily: TodoDto[] = [];
+  chat: ChatDto[] = [];
   at: number = 0;
 }
 
@@ -213,6 +230,25 @@ export function buildDataSnapshot(): string {
     d.done = t.done;
     return d;
   });
+  /* AI 对话：受设置项「AI 对话随设备同步」控制（默认开；关闭则仅存本机，保留 F9.11 口径） */
+  if (store.settings['syncChat'] !== false) {
+    p.chat = store.chat.map((m: ChatMsg): ChatDto => {
+      const d = new ChatDto();
+      d.who = m.who;
+      d.text = m.text;
+      d.time = m.time;
+      d.plans = m.plans === undefined ? [] : m.plans;
+      d.adjName = m.adjName;
+      d.adjQty = m.adjQty;
+      d.adjDone = m.adjDone;
+      d.shopName = m.shopName;
+      d.shopQty = m.shopQty;
+      d.shopDone = m.shopDone;
+      d.srcNote = m.srcNote;
+      d.srcUrl = m.srcUrl;
+      return d;
+    });
+  }
   p.at = Date.now();
   return JSON.stringify(p);
 }
@@ -345,6 +381,28 @@ export function applyDataSnapshot(raw: string): number {
         daily.push(new Todo(t.id, t.text, t.done));
       });
       store.daily = daily;
+    }
+
+    if (p.chat !== undefined && p.chat.length > 0) {
+      const before = store.chat.length;
+      const chat: ChatMsg[] = [];
+      p.chat.forEach((c: ChatDto): void => {
+        const nm = new ChatMsg(c.who, c.text, c.time, c.plans === undefined ? [] : c.plans);
+        nm.adjName = c.adjName;
+        nm.adjQty = c.adjQty;
+        nm.adjDone = c.adjDone;
+        nm.shopName = c.shopName;
+        nm.shopQty = c.shopQty;
+        nm.shopDone = c.shopDone;
+        nm.srcNote = c.srcNote;
+        nm.srcUrl = c.srcUrl;
+        chat.push(nm);
+      });
+      store.chat = chat;
+      // 对端有新的 AI 问答：把助手面板打开，做到"原模原样出现在这边"
+      if (chat.length > before) {
+        store.aiOpen = true;
+      }
     }
     store.touch();
     let n = 0;

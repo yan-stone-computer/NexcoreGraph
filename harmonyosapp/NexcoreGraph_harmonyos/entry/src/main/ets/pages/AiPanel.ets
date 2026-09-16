@@ -8,6 +8,7 @@ import { ChatMsg, Plan } from '../common/Db';
 import { chatReply, generatePlans, setItemQtyByName, addAIPlan, addShoppingByAI } from '../common/Api';
 import { askAI } from '../common/AiGateway';
 import { saveChat, clearChatSaved } from '../common/LocalStore';
+import { scheduleLivePublish } from '../common/LiveSync';
 import { AsrSession } from '../common/Asr';
 import { TtsSession } from '../common/Tts';
 import { common } from '@kit.AbilityKit';
@@ -67,10 +68,12 @@ export struct AiPanel {
       return;
     }
     this.input = '';
-    const mine = new ChatMsg('me', v, '刚刚', []);
-    store.chat = store.chat.concat([mine]);
-    store.chatTyping = true;
-    this.scrollToBottom();
+      const mine = new ChatMsg('me', v, '刚刚', []);
+      store.chat = store.chat.concat([mine]);
+      store.chatTyping = true;
+      // 自由流转：这边刚问出去的问题要立刻同步到另一台设备
+      scheduleLivePublish();
+      this.scrollToBottom();
     askAI(v).then((reply): void => {
       store.chatTyping = false;
       const replyMsg = new ChatMsg('ai', reply.text, '刚刚', []);
@@ -80,8 +83,9 @@ export struct AiPanel {
       replyMsg.shopQty = reply.shopQty;
       replyMsg.srcNote = reply.srcNote;
       replyMsg.srcUrl = reply.srcUrl;
-      store.chat = store.chat.concat([replyMsg]);
-      // 创新菜谱 [菜] 行 → 回查库存落方案卡（M2.5 P0-3）
+        store.chat = store.chat.concat([replyMsg]);
+        scheduleLivePublish();
+        // 创新菜谱 [菜] 行 → 回查库存落方案卡（M2.5 P0-3）
       if (reply.dishTitle !== '') {
         addAIPlan(reply.dishTitle, reply.dishTime, reply.dishNote, reply.dishIngredients).then((pid: number): void => {
           replyMsg.plans = [pid];
@@ -99,9 +103,10 @@ export struct AiPanel {
       // 网络异常时回退到本地演示回复
       chatReply(v).then((reply): void => {
         store.chatTyping = false;
-        const replyMsg = new ChatMsg('ai', reply.text, '刚刚', reply.plans);
-        store.chat = store.chat.concat([replyMsg]);
-        store.toast('网络异常，当前为本地演示回复');
+          const replyMsg = new ChatMsg('ai', reply.text, '刚刚', reply.plans);
+          store.chat = store.chat.concat([replyMsg]);
+          scheduleLivePublish();
+          store.toast('网络异常，当前为本地演示回复');
         this.scrollToBottom();
       }).catch((): void => {
         store.chatTyping = false;
