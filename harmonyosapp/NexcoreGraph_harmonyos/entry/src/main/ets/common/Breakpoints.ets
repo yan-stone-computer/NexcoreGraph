@@ -60,6 +60,8 @@ export function breakpointName(): string {
 
 /** 平板/2in1 左侧导航栏宽度（vp），与 Index.NavRail 保持一致 */
 export const RAIL_WIDTH_VP: number = 96;
+/** 平板右侧停靠的 AI 助手面板宽度（vp），与 Index 里的 AiPanel 停靠列保持一致 */
+export const AI_PANEL_WIDTH_VP: number = 420;
 /** 页面左右留白（vp）：宽屏 32，手机 16 */
 export const PAGE_INSET_WIDE: number = 32;
 export const PAGE_INSET_PHONE: number = 16;
@@ -70,6 +72,10 @@ export function pageInset(): number {
 
 /** 页面内容可用宽度（vp）：窗口宽 - 侧栏 - 左右留白 */
 export function pageContentWidth(): number {
-  const w = windowWidthVp() - (store.isWide ? RAIL_WIDTH_VP : 0) - pageInset() * 2;
+  let w = windowWidthVp() - (store.isWide ? RAIL_WIDTH_VP : 0) - pageInset() * 2;
+  // AI 助手面板是右侧「停靠」而不是浮层，必须一起扣掉，否则页面内容会把面板挤出屏幕右侧
+  if (store.isWide && store.aiOpen) {
+    w -= AI_PANEL_WIDTH_VP;
+  }
   return w > 240 ? w : 240;
 }

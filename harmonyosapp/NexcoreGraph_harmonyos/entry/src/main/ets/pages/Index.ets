@@ -10,6 +10,8 @@ import { display } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { initLocal, saveThemePrefs } from '../common/LocalStore';
 import { applyBreakpoints } from '../common/Breakpoints';
+import { AI_PANEL_WIDTH_VP } from '../common/Breakpoints';
+import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { LoginView } from './LoginView';
 import { DashboardView } from './DashboardView';
 import { AiWorkbench } from './AiWorkbench';
@@ -271,14 +273,19 @@ struct Index {
               }
             })
             .barBackgroundBlurStyle(BlurStyle.Thin)
-            .layoutWeight(1)
+            // 宽度显式算：Tabs 用 layoutWeight 时会把右侧停靠的 AI 面板挤窄（面板内容被裁）
+            .width(store.isWide ? pageContentWidth() + pageInset() * 2 : '100%')
+            .layoutWeight(store.isWide ? 0 : 1)
 
-            // 平板/折叠屏展开态：AI 面板右侧停靠
+            // 平板/折叠屏展开态：AI 面板右侧停靠（宽度取常量，页面内容宽度会同步扣掉它）
             if (store.isWide && store.aiOpen) {
               Column() {
                 AiPanel()
               }
-              .width(420)
+              .width(AI_PANEL_WIDTH_VP)
+              // 同排的 Tabs 带 layoutWeight，会把固定宽度挤小；用 minWidth 锁住面板宽度，
+              // 否则面板内容会被压到屏幕外、显示不全
+              .constraintSize({ minWidth: AI_PANEL_WIDTH_VP })
               .height('100%')
               .backgroundColor(T.c('surface-raised'))
               .border({ width: { left: 1 }, color: T.c('border') })

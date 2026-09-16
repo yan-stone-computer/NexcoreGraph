@@ -113,6 +113,11 @@ export struct AnalyticsBoard {
     return `约 ${this.vm.intakeMedianMs} 毫秒`;
   }
 
+  /** 卡片宽度：平板一行三张；若右侧停靠了 AI 助手面板（内容变窄）则退回一行两张 */
+  private cardSpan(): number {
+    return store.isWide && store.aiOpen ? 6 : 4;
+  }
+
   @Builder
   KpiTile(icon: string, tone: string, value: string, label: string, delta: string, deltaColor: string) {
     Row({ space: 12 }) {
@@ -214,7 +219,7 @@ export struct AnalyticsBoard {
 
       /* 一行三张：库存构成 / 食材趋势 / 本周小结 */
       GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        GridCol({ span: { sm: 12, md: 6, lg: 4 } }) {
+        GridCol({ span: { sm: 12, md: 6, lg: this.cardSpan() } }) {
           Card() {
             Column({ space: 16 }) {
               CardHead({ title: '库存构成', sub: '按当前库存件数' })
@@ -230,7 +235,7 @@ export struct AnalyticsBoard {
           }
         }
 
-        GridCol({ span: { sm: 12, md: 6, lg: 4 } }) {
+        GridCol({ span: { sm: 12, md: 6, lg: this.cardSpan() } }) {
           Card() {
             Column({ space: 12 }) {
               Column({ space: 2 }) {
@@ -267,7 +272,7 @@ export struct AnalyticsBoard {
           }
         }
 
-        GridCol({ span: { sm: 12, md: 12, lg: 4 } }) {
+        GridCol({ span: { sm: 12, md: 6, lg: this.cardSpan() } }) {
           Card() {
             Column({ space: 16 }) {
               CardHead({
@@ -292,7 +297,7 @@ export struct AnalyticsBoard {
 
       /* 一行三张：落地价值 / 协作活跃度 / 临期提醒 */
       GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        GridCol({ span: { sm: 12, md: 12, lg: 4 } }) {
+        GridCol({ span: { sm: 12, md: 6, lg: this.cardSpan() } }) {
           Card() {
             Column({ space: 16 }) {
               CardHead({
@@ -315,7 +320,7 @@ export struct AnalyticsBoard {
           }
         }
 
-        GridCol({ span: { sm: 12, md: 6, lg: 4 } }) {
+        GridCol({ span: { sm: 12, md: 6, lg: this.cardSpan() } }) {
           Card() {
             Column({ space: 16 }) {
               CardHead({ title: '协作活跃度', sub: '工作台成员本周操作' })
@@ -347,7 +352,7 @@ export struct AnalyticsBoard {
           }
         }
 
-        GridCol({ span: { sm: 12, md: 6, lg: 4 } }) {
+        GridCol({ span: { sm: 12, md: 6, lg: this.cardSpan() } }) {
           Card() {
             Column({ space: 12 }) {
               CardHead({ title: '临期提醒', sub: '按剩余天数排序' })
