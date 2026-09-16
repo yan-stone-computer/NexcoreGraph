@@ -1456,12 +1456,16 @@ export struct SettingsView {
     }));
   }
 
-  build() {
-    Scroll() {
-      Column({ space: 20 }) {
-        Text('设置').fontSize(28).fontWeight(800).fontColor(T.c('text-primary'))
-        Text('账号 · 家庭 · 隐私与提醒').fontSize(14).fontColor(T.c('text-muted'))
+  /** 设置页头：标题 / 副标题（宽窄屏共用，间距沿用外层 20vp） */
+  @Builder
+  SettingsHead() {
+    Text('设置').fontSize(28).fontWeight(800).fontColor(T.c('text-primary'))
+    Text('账号 · 家庭 · 隐私与提醒').fontSize(14).fontColor(T.c('text-muted'))
+  }
 
+  /** 分组 A：账号 / 家庭空间 / 云端同步 / 隐私与数据（宽屏落在左列） */
+  @Builder
+  SettingsSlotA() {
         // 账号
         Row({ space: 16 }) {
           Column() {
@@ -1571,17 +1575,22 @@ export struct SettingsView {
               on: store.settings['private'],
               tap: (): void => this.toggleSetting('private')
             })
-            SwitchRow({
-              title: '聊天记录仅存本地',
-              desc: '已确认策略 · 不上云、跨端不同步',
-              on: store.settings['chat'],
-              tap: (): void => this.toggleSetting('chat')
-            })
+              SwitchRow({
+                title: '聊天记录仅存本地',
+                desc: '已确认策略 · 不上云、跨端不同步',
+                on: store.settings['chat'],
+                tap: (): void => this.toggleSetting('chat')
+              })
+            }
           }
-        }
 
-        // AI 助手偏好（M2.5 P0-4：仅本地、AI 只读，用户手填=显式确认）
-        Card() {
+  }
+
+  /** 分组 B：AI 助手偏好 / 库存知识图谱 / AI 用量 / 提醒（宽屏落在右列） */
+  @Builder
+  SettingsSlotB() {
+          // AI 助手偏好（M2.5 P0-4：仅本地、AI 只读，用户手填=显式确认）
+          Card() {
           Column({ space: 10 }) {
             Text('AI 助手偏好').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
             Text('仅存本机、不上云；只在菜谱 / 营养类问答中提供给 AI 参考（F5.4 同口径）')
@@ -1753,17 +1762,22 @@ export struct SettingsView {
               on: store.settings['low'],
               tap: (): void => this.toggleSetting('low')
             })
-            SwitchRow({
-              title: 'AI 回复语音播报',
-              desc: '用系统 TTS 朗读 AI 回复（≤120 字；无语音引擎时自动降级为纯文字，M-9）',
-              on: store.settings['tts'],
-              tap: (): void => this.toggleSetting('tts')
-            })
+              SwitchRow({
+                title: 'AI 回复语音播报',
+                desc: '用系统 TTS 朗读 AI 回复（≤120 字；无语音引擎时自动降级为纯文字，M-9）',
+                on: store.settings['tts'],
+                tap: (): void => this.toggleSetting('tts')
+              })
+            }
           }
-        }
 
-        // 外观
-        Card() {
+  }
+
+  /** 分组 C：外观 / 操作日志 / 演示数据（宽屏落在左列下半） */
+  @Builder
+  SettingsSlotC() {
+          // 外观
+          Card() {
           Column({ space: 8 }) {
             Text('外观').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).margin({ bottom: 8 })
             Text(`主题色板（默认：启核绿青蓝，取自官方徽标）· 当前 ${T.themeLabel()}`)
@@ -1850,17 +1864,54 @@ export struct SettingsView {
               store.toast('演示数据已重置');
             });
           } })
+          }
+          .width('100%')
+          .padding(24)
+          .borderRadius(R_L)
+          .backgroundColor(T.c('surface-raised'))
+          .border({ width: 1, color: T.c('border') })
+          .alignItems(VerticalAlign.Center)
+  }
+
+  build() {
+    Scroll() {
+      Column({ space: 20 }) {
+        this.SettingsHead()
+
+        if (store.isWide) {
+          /* 平板 / 2in1：左右两列铺满横向空间
+             （此前整页被 760vp 上限锁死，右半屏长期空白） */
+          Row({ space: 20 }) {
+            Column({ space: 20 }) {
+              this.SettingsSlotA()
+              this.SettingsSlotC()
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+
+            Column({ space: 20 }) {
+              this.SettingsSlotB()
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Top)
+        } else {
+          /* 手机：保持原来的单列顺序 A → B → C 不变 */
+          this.SettingsSlotA()
+          this.SettingsSlotB()
+          this.SettingsSlotC()
         }
-        .width('100%')
-        .padding(24)
-        .borderRadius(R_L)
-        .backgroundColor(T.c('surface-raised'))
-        .border({ width: 1, color: T.c('border') })
-        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .constraintSize({ maxWidth: 760 })
-      .padding({ left: 16, right: 16, top: 16, bottom: 96 })
+      .constraintSize({ maxWidth: store.isWide ? 1440 : 760 })
+      .padding({
+        left: store.isWide ? 24 : 16,
+        right: store.isWide ? 24 : 16,
+        top: 16,
+        bottom: 96
+      })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
