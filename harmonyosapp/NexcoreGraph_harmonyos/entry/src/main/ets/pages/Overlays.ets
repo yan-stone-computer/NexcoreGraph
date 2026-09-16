@@ -15,6 +15,8 @@ import {
 import { AiPanel } from './AiPanel';
 import { GraphPanel } from './GraphPanel';
 import { AnalyticsBoard } from './AnalyticsBoard';
+import { buildFlowState, applyFlowState } from '../common/Continuation';
+import { publishFlow, pullFlow, deviceLabel, FlowHandoff } from '../common/FlowBridge';
 import { recognizeImage, gatewayUsage, UsageSummary, UsageRow } from '../common/AiGateway';
 import { tryUploadSync, forceUploadSync, downloadSync, SyncConflict } from '../common/SyncApi';
 import { saveProfile, saveFormSnapshot, saveThemePrefs } from '../common/LocalStore';
@@ -63,6 +65,8 @@ export struct SheetContent {
               GraphPanel()
             } else if (store.overlay === 'analytics') {
               AnalyticsBoard()
+            } else if (store.overlay === 'flow') {
+              FlowPanel()
             } else if (store.aiOpen) {
             AiPanel()
           }
@@ -78,6 +82,95 @@ export struct SheetContent {
     }
     .width('100%')
     .height('100%')
+  }
+}
+
+/* ================= 跨设备流转（系统接续 + 中转通道） =================
+   真机同账号同网：系统「应用接续」自动完成（EntryAbility.onContinue / onCreate）。
+   模拟器或跨网段：用同一份快照经本地中转服务（backend/flow-bridge.js）手递手传过去。
+   演示脚本：A 机走到某页 → 发送流转；B 机点接收流转 → 同页面出现。 */
+@ComponentV2
+struct FlowPanel {
+  @Local note: string = '点「发送流转」把当前页面送到另一台设备；对方点「接收流转」即可接着做。';
+  @Local busy: boolean = false;
+
+  private send(): void {
+    if (this.busy) {
+      return;
+    }
+    this.busy = true;
+    const json = buildFlowState();
+    publishFlow(deviceLabel(), json).then((): void => {
+      this.busy = false;
+      this.note = `已发送（来自${deviceLabel()}，${json.length} 字节）· 请在另一台设备点「接收流转」`;
+      store.toast('已发送流转，请在另一台设备点「接收流转」');
+    }).catch((e: Error): void => {
+      this.busy = false;
+      this.note = '发送失败：' + e.message;
+      store.toast('流转发送失败');
+    });
+  }
+
+  private receive(): void {
+    if (this.busy) {
+      return;
+    }
+    this.busy = true;
+    pullFlow().then((h: FlowHandoff): void => {
+      this.busy = false;
+      if (!h.found || h.json === '') {
+        this.note = '中转里还没有流转记录：请先在另一台设备点「发送流转」';
+        return;
+      }
+      const ok = applyFlowState(h.json);
+      if (ok) {
+        this.note = `已接续来自「${h.from}」的进度`;
+        store.overlay = '';     // 关掉面板，露出还原后的页面
+      } else {
+        this.note = '快照版本不一致，已忽略这次流转';
+      }
+    }).catch((e: Error): void => {
+      this.busy = false;
+      this.note = '接收失败：' + e.message;
+    });
+  }
+
+  build() {
+    Column({ space: 16 }) {
+      Row({ space: 12 }) {
+        Column({ space: 8 }) {
+          Text('跨设备流转').fontSize(24).fontWeight(800).fontColor(T.c('text-primary'))
+          Text('手机 / 平板之间接着做：当前页面、打开的库、浮层、AI 面板状态一起带过去')
+            .fontSize(13).fontColor(T.c('text-muted'))
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        ToneBadge({ text: deviceLabel(), tone: 'teal', icon: 'share' })
+      }
+      .width('100%')
+
+      Row({ space: 12 }) {
+        TBtn({ label: '发送流转', icon: 'upload', kind: 'primary', tap: (): void => this.send() })
+        TBtn({ label: '接收流转', icon: 'download', kind: 'ghost', tap: (): void => this.receive() })
+      }
+      .width('100%')
+
+      Column({ space: 8 }) {
+        Text(this.note).fontSize(13).fontColor(T.c('text-secondary'))
+        Text('通道说明：真机同账号同网时由系统「应用接续」完成（无需点这里）；模拟器之间没有 dsoftbus、组不了网，' +
+          '就走本地中转服务 backend/flow-bridge.js —— 用的是与系统接续完全相同的一份快照（仅状态位：当前页 / 打开的库 / 浮层 / ' +
+          'AI 面板开关与草稿 / 库筛选 / 趋势区间），不含图片二进制与聊天正文。')
+          .fontSize(11).fontColor(T.c('text-muted'))
+      }
+      .width('100%')
+      .padding(16)
+      .borderRadius(R_M)
+      .backgroundColor(T.c('surface-overlay'))
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 }
 
@@ -1332,6 +1425,7 @@ struct RecogCard {
 export struct SettingsView {
   @Local syncNote: string = '';    // '' | conflict | err
   @Local syncDetail: string = '';
+  @Local flowNote: string = '';    // 跨设备流转状态
   /* M-10 用量看板：后端聚合（与管理员端同接口）+ 本地兜底口径 */
   @Local gwUsage: UsageSummary = new UsageSummary();
   @Local gwNote: string = '';
@@ -1458,6 +1552,31 @@ export struct SettingsView {
       this.syncNote = '';
       store.toast(msg);
     }));
+  }
+
+  /** 跨设备流转：把当前页面快照发到中转 */
+  private sendFlow(): void {
+    const json = buildFlowState();
+    publishFlow(deviceLabel(), json).then((): void => {
+      this.flowNote = `已发送（来自${deviceLabel()}，${json.length} 字节）· 在另一台设备点「接收流转」`;
+      store.toast('已发送流转，请在另一台设备点「接收流转」');
+    }).catch((e: Error): void => {
+      this.flowNote = '发送失败：' + e.message;
+    });
+  }
+
+  /** 跨设备流转：接收并还原 */
+  private pullFlowHere(): void {
+    pullFlow().then((h: FlowHandoff): void => {
+      if (!h.found || h.json === '') {
+        this.flowNote = '中转里还没有流转记录：请先在另一台设备点「发送流转」';
+        return;
+      }
+      const ok = applyFlowState(h.json);
+      this.flowNote = ok ? `已接续来自「${h.from}」的进度` : '快照版本不一致，已忽略';
+    }).catch((e: Error): void => {
+      this.flowNote = '接收失败：' + e.message;
+    });
   }
 
   /** 设置页头：标题 / 副标题（宽窄屏共用，间距沿用外层 20vp） */
@@ -1633,6 +1752,27 @@ export struct SettingsView {
                 saveProfile();
                 store.toast('AI 偏好已保存（仅本机）');
               } })
+            }
+          }
+          .alignItems(HorizontalAlign.Start)
+        }
+
+        // 跨设备流转（演示 / 兜底通道：模拟器与跨网段用）
+        Card() {
+          Column({ space: 12 }) {
+            CardHead({ title: '跨设备流转', sub: '手机 / 平板之间接着做' })
+            Text('把当前页面（当前 Tab、打开的库、浮层、AI 面板状态）送到另一台设备继续。' +
+              '真机同账号同网时由系统「应用接续」自动完成，这里不用管；模拟器之间没有 dsoftbus，' +
+              '可以走本地中转服务（backend/flow-bridge.js）演示，两端用的是同一份快照。')
+              .fontSize(12).fontColor(T.c('text-muted'))
+            Row({ space: 12 }) {
+              TBtn({ label: '发送流转', icon: 'upload', kind: 'primary', small: true,
+                tap: (): void => this.sendFlow() })
+              TBtn({ label: '接收流转', icon: 'download', kind: 'ghost', small: true,
+                tap: (): void => this.pullFlowHere() })
+            }
+            if (this.flowNote !== '') {
+              Text(this.flowNote).fontSize(12).fontColor(T.c('text-secondary'))
             }
           }
           .alignItems(HorizontalAlign.Start)

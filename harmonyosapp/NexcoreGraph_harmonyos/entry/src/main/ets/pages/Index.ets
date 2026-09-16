@@ -68,6 +68,7 @@ struct Index {
     }
     switch (store.overlay) {
       case 'analytics':
+      case 'flow':
       case 'newlib':
       case 'editlib':
       case 'itemadd':
@@ -458,6 +459,12 @@ struct TopBar {
           store.overlay = 'shopping';
         } })
       }
+
+      // 跨设备流转：把当前页面送到另一台设备 / 接收
+      IconBtn({ icon: 'share', tap: (): void => {
+        store.overlay = 'flow';
+        store.toast('跨设备流转：发送 / 接收');
+      } })
 
       IconBtn({ icon: T.dark ? 'sun' : 'moon', tap: (): void => {
         T.setDark(!T.dark);

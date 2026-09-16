@@ -33,7 +33,8 @@ export function buildFlowState(): string {
   const s = new FlowState();
   s.tab = store.tabIndex;
   s.libId = store.libId;
-  s.overlay = store.overlay;
+  // 「流转」面板本身不算流程状态：否则对端接续后又弹出面板，还要再关一次
+  s.overlay = store.overlay === 'flow' ? '' : store.overlay;
   s.overlayArg = store.overlayArg;
   s.overlayArg2 = store.overlayArg2;
   s.libMenuId = store.libMenuId;
@@ -69,8 +70,13 @@ export function restoreFlow(want: Want): boolean {
   if (raw === undefined || raw === null) {
     return false;
   }
+  return applyFlowState(String(raw));
+}
+
+/** 还原流程快照（系统接续与「流转中转」共用同一份实现，口径不会走偏） */
+export function applyFlowState(raw: string): boolean {
   try {
-    const s = JSON.parse(String(raw)) as FlowState;
+    const s = JSON.parse(raw) as FlowState;
     if (s.v !== FLOW_VERSION) {
       store.toast('设备版本不一致，已打开首页');
       return false;

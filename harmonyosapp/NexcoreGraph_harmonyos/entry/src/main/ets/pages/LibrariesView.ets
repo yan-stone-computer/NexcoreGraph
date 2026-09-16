@@ -38,6 +38,10 @@ export struct LibrariesView {
           .layoutWeight(1)
 
             TBtn({ label: this.doorOpen ? '关上柜门' : '打开柜门', icon: 'door', kind: 'ghost', tap: (): void => this.toggleDoor() })
+            // 跨设备流转：把当前页面（含已打开的库）送到另一台设备
+            TBtn({ label: '流转', icon: 'share', kind: 'ghost', tap: (): void => {
+              store.overlay = 'flow';
+            } })
             TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
               store.overlay = 'intake';
             } })
@@ -184,12 +188,16 @@ struct CabinetDoor {
           angle: 180,
           colors: [[T.c('surface-raised'), 0], [T.c('surface-overlay'), 1]]
         })
+        // 门开着时子节点也必须让开触摸：只给门本身设 None 不够，
+        // 子节点（面板/把手）仍会吃掉点击，柜格左右两半的库卡片就点不开了
+        .hitTestBehavior(this.open ? HitTestMode.None : HitTestMode.Default)
 
       // 把手（靠中缝一侧）
       Circle({ width: 14, height: 14 })
         .fill(T.c('primary'))
         .shadow({ radius: 8, color: 'rgba(0,0,0,0.18)', offsetY: 0 })
         .margin({ left: this.side === 0 ? 'auto' : '14vp', right: this.side === 0 ? '14vp' : 'auto' })
+        .hitTestBehavior(this.open ? HitTestMode.None : HitTestMode.Default)
     }
     .width('50%')
     .height('100%')
@@ -336,10 +344,13 @@ export struct LibraryDetailView {
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
 
-          TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
-            store.overlay = 'intake';
-          } })
-          TBtn({ label: '手动添加', icon: 'plus', kind: 'ghost', tap: (): void => {
+            TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
+              store.overlay = 'intake';
+            } })
+            TBtn({ label: '流转', icon: 'share', kind: 'ghost', tap: (): void => {
+              store.overlay = 'flow';
+            } })
+            TBtn({ label: '手动添加', icon: 'plus', kind: 'ghost', tap: (): void => {
             store.overlayArg = store.libId;
             store.overlay = 'itemadd';
           } })
