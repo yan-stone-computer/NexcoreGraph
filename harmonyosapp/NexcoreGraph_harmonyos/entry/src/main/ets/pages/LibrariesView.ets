@@ -135,6 +135,9 @@ export struct LibrariesView {
             .border({ width: 1, color: T.c('border') })
             // 宽屏把柜体拉长：柜门才有"长柜门"的观感（手机端保持自适应高度）
             .constraintSize({ minHeight: store.isWide ? 700 : 0 })
+            /* 关上门就不画柜内内容：柜格/文字一律不显示（留着占位是为了柜门还有正确尺寸），
+               否则透过门缝或门边露出来会显得很挡。 */
+            .visibility(this.doorOpen ? Visibility.Visible : Visibility.None)
 
             // 双开门
             CabinetDoor({ open: this.doorOpen, side: 0 })
