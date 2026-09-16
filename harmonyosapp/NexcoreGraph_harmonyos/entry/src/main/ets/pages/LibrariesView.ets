@@ -216,6 +216,8 @@ struct CabinetDoor {
       centerX: this.side === 0 ? '0%' : '100%',
       centerY: '50%'
     })
+    /* 开门后门板彻底消失：转开的同时淡出，不留任何门板/门边挡视线（平板手机一致） */
+    .opacity(this.open ? 0 : 1)
     .animation({ duration: 620, curve: Curve.EaseInOut })
     .hitTestBehavior(this.open ? HitTestMode.None : HitTestMode.Default)
   }
