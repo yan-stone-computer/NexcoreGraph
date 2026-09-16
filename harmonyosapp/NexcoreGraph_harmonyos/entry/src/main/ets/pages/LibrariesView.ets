@@ -12,11 +12,23 @@ const LIB_TONES: string[] = ['teal', 'indigo', 'red', 'slate', 'lime', 'brown', 
 @ComponentV2
 export struct LibrariesView {
   @Local newLibName: string = '';
+  @Local doorOpen: boolean = false;
+
+  aboutToAppear(): void {
+    // 入场：柜门缓缓打开
+    setTimeout((): void => {
+      this.doorOpen = true;
+    }, 400);
+  }
+
+  private toggleDoor(): void {
+    this.doorOpen = !this.doorOpen;
+  }
 
   build() {
     Scroll() {
-      Column({ space: 16 }) {
-        Row({ space: 12 }) {
+        Column({ space: 16 }) {
+         Row({ space: 12 }) {
           Column({ space: 8 }) {
             Text('资源库').fontSize(store.isWide ? 28 : 22).fontWeight(800).fontColor(T.c('text-primary'))
             Text(`${store.libraries.length} 个库，拍照自动归类，也可自建。`).fontSize(14).fontColor(T.c('text-muted'))
@@ -24,6 +36,7 @@ export struct LibrariesView {
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
 
+            TBtn({ label: this.doorOpen ? '关上柜门' : '打开柜门', icon: 'door', kind: 'ghost', tap: (): void => this.toggleDoor() })
             TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
               store.overlay = 'intake';
             } })
@@ -31,8 +44,11 @@ export struct LibrariesView {
         .width('100%')
         .alignItems(VerticalAlign.Bottom)
 
-          // 资源柜（柜格）：直接铺开，不再用会飞出柜体的 3D 柜门
-          Column({ space: 20 }) {
+          // 资源柜（双开门）：门绕柜体左右外沿的竖轴转，开启角固定 <90°，
+          // 门板投影永远落在柜体范围内 —— 既不飞出柜体，也不会盖住格子。
+          Stack({ alignContent: Alignment.TopStart }) {
+            // 柜内
+            Column({ space: 20 }) {
             Row() {
               Row({ space: 6 }) {
                 Ico({ name: 'library', dim: 14, color: T.c('text-muted') })
@@ -112,10 +128,18 @@ export struct LibrariesView {
             }
           }
             .width('100%')
-            .padding(24)
+            .padding(store.isWide ? 32 : 24)
             .borderRadius(R_XL)
             .backgroundColor(T.c('surface-sunken'))
             .border({ width: 1, color: T.c('border') })
+            // 宽屏把柜体拉长：柜门才有"长柜门"的观感（手机端保持自适应高度）
+            .constraintSize({ minHeight: store.isWide ? 700 : 0 })
+
+            // 双开门
+            CabinetDoor({ open: this.doorOpen, side: 0 })
+            CabinetDoor({ open: this.doorOpen, side: 1 })
+          }
+          .width('100%')
         }
         .padding({
           left: store.isWide ? S8 : 16,
@@ -123,19 +147,75 @@ export struct LibrariesView {
           top: 16,
           bottom: 96
         })
-        // 注意：这里曾经有 constraintSize({maxWidth})。宽度上限小于可视宽时，
-        // Scroll 会按「上限+左右内边距」居中对齐内容，左侧内边距被吃掉，
-        // 整页会贴到侧边栏上（就是"被侧边栏挡住"）。故只靠内边距控制留白。
-    }
-    .width('100%')
-    .height('100%')
-    .align(Alignment.TopStart)
-    .scrollBar(BarState.Off)
-    .onClick(() => {
+        // ArkUI 在这个位置只认左内边距（右内边距会被吃掉、内容顶到屏幕右沿），
+        // 所以右侧留白用 margin 补一刀
+        .margin({ right: store.isWide ? S8 : 0 })
+      }
+      .width('100%')
+      .height('100%')
+      .align(Alignment.TopStart)
+      .scrollBar(BarState.Off)
+      .onClick(() => {
       if (store.libMenuId !== '') {
         store.libMenuId = '';
       }
     })
+  }
+}
+
+/* 柜门（3D 开合）
+   绕柜体左右外沿的竖轴旋转（y:1）。开启角必须 < 90°：
+   超过 90° 门会"翻"到柜体另一侧（旧版 105° 时左门扫到侧边栏底下被裁成一块大白板）。
+   89° 时门几乎侧对镜头，投影宽度 ≈ 门宽(50%)×cos89° ≈ 24px，
+   落在柜内 32vp(64px) 留白里，不会压住任何格子（78° 时投影约 286px，会压住第一列）。 */
+@ComponentV2
+struct CabinetDoor {
+  @Param open: boolean = false;
+  @Param side: number = 0;   // 0 左门 1 右门
+
+  build() {
+    Stack() {
+      Column()
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          angle: 180,
+          colors: [[T.c('surface-raised'), 0], [T.c('surface-overlay'), 1]]
+        })
+
+      // 把手（靠中缝一侧）
+      Circle({ width: 14, height: 14 })
+        .fill(T.c('primary'))
+        .shadow({ radius: 8, color: 'rgba(0,0,0,0.18)', offsetY: 0 })
+        .margin({ left: this.side === 0 ? 'auto' : '14vp', right: this.side === 0 ? '14vp' : 'auto' })
+    }
+    .width('50%')
+    .height('100%')
+    .position({
+      x: this.side === 0 ? 0 : '50%',
+      y: 0
+    })
+    .border({
+      width: 1,
+      color: T.c('border-strong')
+    })
+    .borderRadius({
+      topLeft: this.side === 0 ? R_XL : 0,
+      bottomLeft: this.side === 0 ? R_XL : 0,
+      topRight: this.side === 1 ? R_XL : 0,
+      bottomRight: this.side === 1 ? R_XL : 0
+    })
+    .shadow({ radius: 6, color: 'rgba(0,0,0,0.14)', offsetY: 2 })
+    .rotate({
+      x: 0,
+      y: 1,
+      z: 0,
+      angle: this.open ? (this.side === 0 ? -89 : 89) : 0,
+      centerX: this.side === 0 ? '0%' : '100%',
+      centerY: '50%'
+    })
+    .animation({ duration: 620, curve: Curve.EaseInOut })
+    .hitTestBehavior(this.open ? HitTestMode.None : HitTestMode.Default)
   }
 }
 
@@ -315,11 +395,11 @@ export struct LibraryDetailView {
           top: 8,
           bottom: 96
         })
-    }
-    .width('100%')
-    .height('100%')
-    .align(Alignment.TopStart)
-    .scrollBar(BarState.Off)
+      }
+      .width('100%')
+      .height('100%')
+      .align(Alignment.TopStart)
+      .scrollBar(BarState.Off)
   }
 }
 

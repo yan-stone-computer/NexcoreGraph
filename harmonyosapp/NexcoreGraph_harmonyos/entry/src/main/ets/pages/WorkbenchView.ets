@@ -226,13 +226,11 @@ export struct WorkbenchView {
           top: 16,
           bottom: 96
         })
-        // 不要在这里加 constraintSize({maxWidth})：小于可视宽时 Scroll 会居中内容，
-        // 左侧内边距被抵消，整页贴住侧边栏（用户看到的"被侧边栏挡住"）。
-    }
-    .width('100%')
-    .height('100%')
-    .align(Alignment.TopStart)
-    .scrollBar(BarState.Off)
+      }
+      .width('100%')
+      .height('100%')
+      .align(Alignment.TopStart)
+      .scrollBar(BarState.Off)
   }
 
   @Builder
