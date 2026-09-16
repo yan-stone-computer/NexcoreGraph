@@ -197,12 +197,14 @@ struct Index {
       } else if (store.isCompact) {
         this.WatchShell()
       } else {
-        Column() {
-          TopBar()
-          Row() {
-            if (store.isWide) {
-              this.NavRail()
-            }
+        /* 平板/2in1：导航栏通高占左侧一条，顶栏与内容整体在右侧（不再与内容同层，杜绝压住组件） */
+        Row() {
+          if (store.isWide) {
+            this.NavRail()
+          }
+          Column() {
+            TopBar()
+            Row() {
             Tabs({ barPosition: BarPosition.End, index: this.curTab }) {
               TabContent() {
                 AiWorkbench()
@@ -265,6 +267,9 @@ struct Index {
           backgroundColor: T.c('surface'),
           onDisappear: (): void => this.closeSheet()
         })
+        }
+        .layoutWeight(1)
+        .height('100%')
 
         // AI 悬浮球（可拖动，点击展开）
         if (!store.aiOpen) {
