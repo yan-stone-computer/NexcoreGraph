@@ -132,8 +132,26 @@ export struct AiWorkbench {
 
   @Builder
   Facts() {
-    /* 事实行：等宽数字，细线分隔，不用卡片 */
-    Row() {
+    /* 平板：2×2 收窄成一小块，避免整行拉得又扁又长；手机：一行四格细线行 */
+    if (store.isWide) {
+      GridRow({ columns: 12, gutter: { x: 8, y: 8 } }) {
+        GridCol({ span: 6 }) {
+          this.Fact(`${this.expiringItems().length}`, '临期')
+        }
+        GridCol({ span: 6 }) {
+          this.Fact(`${this.itemCount()}`, '在库')
+        }
+        GridCol({ span: 6 }) {
+          this.Fact(`${this.pendingPlans().length}`, '待执行')
+        }
+        GridCol({ span: 6 }) {
+          this.Fact(this.vm.expiringRate <= 0 ? '—' : `${this.vm.expiringRate}%`, '临期消耗率')
+        }
+      }
+      .width('100%')
+      .margin({ top: S4 })
+    } else {
+      Row() {
         this.Fact(`${this.expiringItems().length}`, '临期')
         this.ThinDivider()
         this.Fact(`${this.itemCount()}`, '在库')
@@ -141,9 +159,29 @@ export struct AiWorkbench {
         this.Fact(`${this.pendingPlans().length}`, '待执行')
         this.ThinDivider()
         this.Fact(this.vm.expiringRate <= 0 ? '—' : `${this.vm.expiringRate}%`, '临期消耗率')
+      }
+      .width('100%')
+      .margin({ top: S4 })
+    }
+  }
+
+  /** 平板右列：快捷提问（竖排，窄列不拉长） */
+  @Builder
+  AskPanel() {
+    Column({ space: S2 }) {
+      Text('快捷提问').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+        .margin({ top: S4, bottom: S2 })
+      Text('今晚吃什么').fontSize(13).fontColor(T.c('text-secondary'))
+        .padding({ top: S2, bottom: S2 })
+        .onClick((): void => this.ask('今晚吃什么'))
+      Text('牛奶还能放几天').fontSize(13).fontColor(T.c('text-secondary'))
+        .padding({ top: S2, bottom: S2 })
+        .onClick((): void => this.ask('牛奶还能放几天'))
+      TBtn({ label: '问 AI', icon: 'sparkles', kind: 'primary', small: true, tap: (): void => this.ask('') })
+        .margin({ top: S2 })
     }
     .width('100%')
-    .margin({ top: S4 })
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -233,23 +271,28 @@ export struct AiWorkbench {
       Column({ space: 0 }) {
       this.Head()
 
-      if (store.isWide) {
-        /* 平板 / 2in1：左列＝事实 + 今天要处理（唯一焦点），右列＝概览 + 对话入口
-           不再是「把手机单列放大」，两列都吃满横向空间 */
-        Row({ space: S8 }) {
-          Column({ space: 0 }) {
-            this.Facts()
-            this.Focus()
-          }
-          .layoutWeight(11)
-          .alignItems(HorizontalAlign.Start)
+        if (store.isWide) {
+          /* 平板 / 2in1：三列。每块更短更方，一屏能放下更多组件
+             （此前是两列超宽列，卡片被拉得很扁很长） */
+          Row({ space: S6 }) {
+            Column({ space: 0 }) {
+              this.Facts()
+              this.Overview()
+            }
+            .layoutWeight(4)
+            .alignItems(HorizontalAlign.Start)
 
-          Column({ space: 0 }) {
-            this.Overview()
-            this.AskBar()
-          }
-          .layoutWeight(9)
-          .alignItems(HorizontalAlign.Start)
+            Column({ space: 0 }) {
+              this.Focus()
+            }
+            .layoutWeight(5)
+            .alignItems(HorizontalAlign.Start)
+
+            Column({ space: 0 }) {
+              this.AskPanel()
+            }
+            .layoutWeight(3)
+            .alignItems(HorizontalAlign.Start)
           }
           .width('100%')
           .alignItems(VerticalAlign.Top)
