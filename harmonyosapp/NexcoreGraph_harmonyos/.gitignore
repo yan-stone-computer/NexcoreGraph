@@ -10,3 +10,5 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+# 流转中转服务的运行时快照（每次演示都会变，不入库）
+backend/flow-bridge.json
