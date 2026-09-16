@@ -7,7 +7,7 @@
 
 import { AbilityConstant, Want } from '@kit.AbilityKit';
 import { store, LogRow } from './Store';
-import { Library, Item, Plan, AlertItem, ShoppingItem } from './Db';
+import { Library, Item, Plan, AlertItem, ShoppingItem, Todo } from './Db';
 
 /** 快照键（wantParam 内） */
 const FLOW_KEY: string = 'nexcoreFlow';
@@ -76,10 +76,52 @@ class PlanDto {
   kcal: number = 0;
 }
 
+class AlertDto {
+  id: number = 0;
+  type: string = 'expiring';
+  icon: string = 'clock';
+  tone: string = 'amber';
+  text: string = '';
+  meta: string = '';
+}
+
+class ShoppingDto {
+  name: string = '';
+  qty: string = '';
+  src: string = '';
+  checked: boolean = false;
+}
+
+class LogDto {
+  action: string = '';
+  detail: string = '';
+  at: string = '';
+  day: string = '';
+}
+
+class ProfileDto {
+  people: number = 4;
+  dislike: string = '';
+  goal: string = '均衡';
+  inject: boolean = true;
+}
+
+class TodoDto {
+  id: number = 0;
+  text: string = '';
+  done: boolean = false;
+}
+
 class DataPayload {
   v: number = FLOW_VERSION;
   libraries: LibDto[] = [];
   plans: PlanDto[] = [];
+  alerts: AlertDto[] = [];
+  shopping: ShoppingDto[] = [];
+  logs: LogDto[] = [];
+  settings: Record<string, boolean> = {};
+  profile: ProfileDto = new ProfileDto();
+  daily: TodoDto[] = [];
   at: number = 0;
 }
 
@@ -131,6 +173,46 @@ export function buildDataSnapshot(): string {
     d.kcal = pl.kcal;
     return d;
   });
+  p.alerts = store.alerts.map((a: AlertItem): AlertDto => {
+    const d = new AlertDto();
+    d.id = a.id;
+    d.type = a.type;
+    d.icon = a.icon;
+    d.tone = a.tone;
+    d.text = a.text;
+    d.meta = a.meta;
+    return d;
+  });
+  p.shopping = store.shopping.map((s: ShoppingItem): ShoppingDto => {
+    const d = new ShoppingDto();
+    d.name = s.name;
+    d.qty = s.qty;
+    d.src = s.src;
+    d.checked = s.checked;
+    return d;
+  });
+  p.logs = store.logs.slice(0, 30).map((g: LogRow): LogDto => {
+    const d = new LogDto();
+    d.action = g.action;
+    d.detail = g.detail;
+    d.at = g.at;
+    d.day = g.day;
+    return d;
+  });
+  p.settings = store.settings;
+  const pf = new ProfileDto();
+  pf.people = store.profile.people;
+  pf.dislike = store.profile.dislike;
+  pf.goal = store.profile.goal;
+  pf.inject = store.profile.inject;
+  p.profile = pf;
+  p.daily = store.daily.map((t: Todo): TodoDto => {
+    const d = new TodoDto();
+    d.id = t.id;
+    d.text = t.text;
+    d.done = t.done;
+    return d;
+  });
   p.at = Date.now();
   return JSON.stringify(p);
 }
@@ -176,6 +258,51 @@ export function applyDataSnapshot(raw: string): number {
         plans.push(np);
       });
       store.plans = plans;
+    }
+
+    const alerts: AlertItem[] = [];
+    if (p.alerts !== undefined) {
+      p.alerts.forEach((a: AlertDto): void => {
+        alerts.push(new AlertItem(a.id, a.type, a.icon, a.tone, a.text, a.meta));
+      });
+      store.alerts = alerts;
+    }
+
+    const shopping: ShoppingItem[] = [];
+    if (p.shopping !== undefined) {
+      p.shopping.forEach((s: ShoppingDto): void => {
+        const ns = new ShoppingItem(s.name, s.qty, s.src);
+        ns.checked = s.checked;
+        shopping.push(ns);
+      });
+      store.shopping = shopping;
+    }
+
+    const logs: LogRow[] = [];
+    if (p.logs !== undefined) {
+      p.logs.forEach((g: LogDto): void => {
+        logs.push(new LogRow(g.action, g.detail, g.at, g.day));
+      });
+      store.logs = logs;
+    }
+
+    if (p.settings !== undefined) {
+      store.settings = p.settings;
+    }
+    if (p.profile !== undefined) {
+      // 偏好是"仅本机"数据，接续时按用户显式操作一并带过去（口径见 docs/privacy.md）
+      store.profile.people = p.profile.people;
+      store.profile.dislike = p.profile.dislike;
+      store.profile.goal = p.profile.goal;
+      store.profile.inject = p.profile.inject;
+    }
+
+    const daily: Todo[] = [];
+    if (p.daily !== undefined) {
+      p.daily.forEach((t: TodoDto): void => {
+        daily.push(new Todo(t.id, t.text, t.done));
+      });
+      store.daily = daily;
     }
     store.touch();
     let n = 0;

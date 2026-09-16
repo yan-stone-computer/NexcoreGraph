@@ -1769,9 +1769,11 @@ export struct SettingsView {
         Card() {
           Column({ space: 12 }) {
             CardHead({ title: '跨设备流转', sub: '手机 / 平板之间接着做' })
-            Text('把当前页面（当前 Tab、打开的库、浮层、AI 面板状态）送到另一台设备继续。' +
+            Text('把当前页面 + 本机数据一起送到另一台设备继续：库与物品、方案、临期预警、采购清单、' +
+              '操作日志、提醒与外观设置、AI 偏好、每日待办。' +
               '真机同账号同网时由系统「应用接续」自动完成，这里不用管；模拟器之间没有 dsoftbus，' +
-              '可以走本地中转服务（backend/flow-bridge.js）演示，两端用的是同一份快照。')
+              '可以走本地中转服务（backend/flow-bridge.js）演示，两端用的是同一份快照。' +
+              '按既定隐私策略，聊天正文与图片二进制不随流转同步。')
               .fontSize(12).fontColor(T.c('text-muted'))
             Row({ space: 12 }) {
               TBtn({ label: '发送流转', icon: 'upload', kind: 'primary', small: true,
