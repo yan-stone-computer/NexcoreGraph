@@ -90,7 +90,7 @@ struct Index {
             .fontWeight(this.curTab === i ? 600 : 400)
             .fontColor(this.curTab === i ? T.c('primary-ink') : T.c('text-muted'))
         }
-        .width('100%')
+        .width(80)
         .height(60)
         .justifyContent(FlexAlign.Center)
         .borderRadius(R_M)
@@ -104,14 +104,13 @@ struct Index {
         })
       }, (item: NavItem, i: number) => `rail-${i}`)
     }
-    .width(88)
+    .width(96)
     .height('100%')
-    .padding({ left: 6, right: 6, top: 12, bottom: 12 })
+    .padding({ top: 12, bottom: 12 })
     .justifyContent(FlexAlign.Start)
     .alignItems(HorizontalAlign.Center)
     .backgroundColor(T.c('surface-raised'))
     .border({ width: { right: 1 }, color: T.c('border') })
-    .clip(true)
   }
 
   private expiringCount(): number {

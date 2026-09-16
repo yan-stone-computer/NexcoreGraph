@@ -141,15 +141,11 @@ export struct AiWorkbench {
       /* 焦点区：今天要处理（全页唯一卡片） */
       Text('今天要处理').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
         .margin({ top: S6, bottom: S2 })
-      // 宽屏（平板/2in1）两栏：直接读 store.isWide（GridRow 断点在此设备上未命中 lg）
-      Row({ space: S6 }) {
-        Column().layoutWeight(store.isWide ? 7 : 0) {
-          Column({ space: 0 }) {
-            if (this.queueCount() === 0) {
+      if (this.queueCount() === 0) {
         Text('还没有待确认的动作。问我「鸡蛋只剩 5 个」或「今晚吃什么」，我会把动作准备好放在这里。')
           .fontSize(13).lineHeight(20).fontColor(T.c('text-muted'))
-            } else {
-              Card() {
+      } else {
+        Card() {
           Column({ space: 0 }) {
             ForEach(this.pendingChat(), (m: ChatMsg, i: number) => {
               this.QueueRow(
@@ -177,39 +173,27 @@ export struct AiWorkbench {
             }, (p: Plan, i: number) => `qp-${p.id}`)
           }
           .alignItems(HorizontalAlign.Start)
-              }
-            }
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-
-        Column().layoutWeight(store.isWide ? 5 : 0) {
-          Column({ space: 0 }) {
-            /* 概览：label-value 细线行，退回背景层 */
-            Text('概览').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
-              .margin({ top: 0, bottom: S2 })
-            this.InfoRow('库存知识图谱', this.graphSize)
-            this.InfoRow('避免重复购买', `${this.vm.blockedRepurchase} 次`)
-            this.InfoRow('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '暂无记录')
-
-            /* 单一对话入口（克制，不再并排两个入口） */
-            Row({ space: S3 }) {
-              Text('今晚吃什么').fontSize(13).fontColor(T.c('text-secondary'))
-                .onClick((): void => this.ask('今晚吃什么'))
-              Text('牛奶还能放几天').fontSize(13).fontColor(T.c('text-secondary'))
-                .onClick((): void => this.ask('牛奶还能放几天'))
-              Blank()
-              TBtn({ label: '问 AI', icon: 'sparkles', kind: 'primary', small: true, tap: (): void => this.ask('') })
-            }
-            .width('100%')
-            .margin({ top: S6 })
-          }
-          .alignItems(HorizontalAlign.Start)
         }
       }
+
+      /* 概览：label-value 细线行，退回背景层 */
+      Text('概览').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+        .margin({ top: S6, bottom: S2 })
+      this.InfoRow('库存知识图谱', this.graphSize)
+      this.InfoRow('避免重复购买', `${this.vm.blockedRepurchase} 次`)
+      this.InfoRow('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '暂无记录')
+
+      /* 底部：单一对话入口（克制，不再并排两个入口） */
+      Row({ space: S3 }) {
+        Text('今晚吃什么').fontSize(13).fontColor(T.c('text-secondary'))
+          .onClick((): void => this.ask('今晚吃什么'))
+        Text('牛奶还能放几天').fontSize(13).fontColor(T.c('text-secondary'))
+          .onClick((): void => this.ask('牛奶还能放几天'))
+        Blank()
+        TBtn({ label: '问 AI', icon: 'sparkles', kind: 'primary', small: true, tap: (): void => this.ask('') })
+      }
       .width('100%')
-      .alignItems(store.isWide ? VerticalAlign.Top : VerticalAlign.Top)
-      .margin({ top: S2 })
+      .margin({ top: S6 })
 
       /* 底部留白：避开悬浮 AI 球 */
       Row().height(64)
