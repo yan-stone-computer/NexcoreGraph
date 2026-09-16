@@ -138,7 +138,7 @@ export struct LibrariesView {
         }
         .width('100%')
       }
-      .padding({ left: 16, right: 16, top: 16, bottom: 32 })
+      .padding({ left: 16, right: 16, top: 16, bottom: 96 })
       .constraintSize({ maxWidth: 1180 })
     }
     .width('100%')
@@ -375,7 +375,7 @@ export struct LibraryDetailView {
           }
         }
       }
-      .padding({ left: 16, right: 16, top: 8, bottom: 32 })
+      .padding({ left: 16, right: 16, top: 8, bottom: 96 })
       .constraintSize({ maxWidth: 1180 })
     }
     .width('100%')

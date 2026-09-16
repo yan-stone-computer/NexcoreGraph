@@ -220,7 +220,7 @@ export struct WorkbenchView {
           }
         }
       }
-      .padding({ left: 16, right: 16, top: 16, bottom: 32 })
+      .padding({ left: 16, right: 16, top: 16, bottom: 96 })
       .constraintSize({ maxWidth: 1180 })
     }
     .width('100%')
