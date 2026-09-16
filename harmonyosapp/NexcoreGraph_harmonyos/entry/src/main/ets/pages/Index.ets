@@ -78,6 +78,41 @@ struct Index {
   }
 
   /** 手表档（<400vp）：单列大数字 + 两个动作，砍掉图表、图谱与底部 Tab */
+  /** 平板 / 2in1（≥840vp）：左侧导航栏替代底部 Tab */
+  @Builder
+  NavRail() {
+    Column({ space: 4 }) {
+      ForEach(NAV, (item: NavItem, i: number) => {
+        Column({ space: 4 }) {
+          Ico({ name: item.icon, dim: 22, color: this.curTab === i ? T.c('primary-ink') : T.c('text-muted') })
+          Text(item.label)
+            .fontSize(11)
+            .fontWeight(this.curTab === i ? 600 : 400)
+            .fontColor(this.curTab === i ? T.c('primary-ink') : T.c('text-muted'))
+        }
+        .width(80)
+        .height(60)
+        .justifyContent(FlexAlign.Center)
+        .borderRadius(R_M)
+        .backgroundColor(this.curTab === i ? T.c('primary-container') : Color.Transparent)
+        .onClick(() => {
+          this.curTab = i;
+          store.tabIndex = i;
+          if (i !== 1) {
+            store.libId = '';
+          }
+        })
+      }, (item: NavItem, i: number) => `rail-${i}`)
+    }
+    .width(96)
+    .height('100%')
+    .padding({ top: 12, bottom: 12 })
+    .justifyContent(FlexAlign.Start)
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor(T.c('surface-raised'))
+    .border({ width: { right: 1 }, color: T.c('border') })
+  }
+
   private expiringCount(): number {
     let n = 0;
     store.libraries.forEach((l: Library) => {
@@ -164,6 +199,9 @@ struct Index {
         Column() {
           TopBar()
           Row() {
+            if (store.isWide) {
+              this.NavRail()
+            }
             Tabs({ barPosition: BarPosition.End, index: this.curTab }) {
               TabContent() {
                 AiWorkbench()
@@ -190,7 +228,7 @@ struct Index {
               .tabBar(this.TabBarItem(3))
             }
             .scrollable(false)
-            .barHeight(60)
+            .barHeight(store.isWide ? 2 : 60)
             .onChange((i: number) => {
               this.curTab = i;
               store.tabIndex = i;
