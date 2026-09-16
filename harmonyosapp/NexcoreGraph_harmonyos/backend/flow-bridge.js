@@ -58,13 +58,19 @@ const server = http.createServer((req, res) => {
       try {
         const b = JSON.parse(body || '{}');
         const json = String(b.json || '');
+        const data = String(b.data || '');
         if (json === '' || json.length > 4096) {
           send(res, 400, { ok: false, error: 'snapshot empty or too large' });
           return;
         }
-        latest = { from: String(b.from || '未知设备'), at: Date.now(), json: json };
+        if (data.length > 512 * 1024) {
+          send(res, 400, { ok: false, error: 'data snapshot too large' });
+          return;
+        }
+        latest = { from: String(b.from || '未知设备'), at: Date.now(), json: json, data: data };
         persist();
-        console.log('[flow-bridge] published from=' + latest.from + ' bytes=' + json.length);
+        console.log('[flow-bridge] published from=' + latest.from + ' state=' + json.length +
+          'B data=' + data.length + 'B');
         send(res, 200, { ok: true, at: latest.at });
       } catch (e) {
         send(res, 400, { ok: false, error: 'bad json' });
@@ -83,7 +89,9 @@ const server = http.createServer((req, res) => {
       send(res, 200, { found: false });
       return;
     }
-    send(res, 200, { found: true, from: latest.from, at: latest.at, json: latest.json });
+    send(res, 200, {
+      found: true, from: latest.from, at: latest.at, json: latest.json, data: latest.data || ''
+    });
     return;
   }
 

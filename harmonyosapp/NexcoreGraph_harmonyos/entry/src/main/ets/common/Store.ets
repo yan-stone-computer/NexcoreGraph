@@ -147,6 +147,20 @@ export class Store {
     this.logs = arr;
   }
 
+  /** 写操作后手动触发 UI 刷新
+      背景：Api 里的写操作大多是「直接改嵌套对象」（item.qty = x、lib.items.push(...)），
+      而 V2 只观察 @Trace 属性 —— 不 reassign 顶层数组就不会重绘，
+      表现就是「数据确实改了，但界面没变化」。所有写操作收尾统一调这个。 */
+  touch(): void {
+    this.libraries = this.libraries.slice();
+    this.plans = this.plans.slice();
+    this.alerts = this.alerts.slice();
+    this.shopping = this.shopping.slice();
+    this.daily = this.daily.slice();
+    this.logs = this.logs.slice();
+    this.aiUsage = this.aiUsage.slice();
+  }
+
   findItem(idOrName: string): Library | null {
     const hit = this.findItemHit(idOrName);
     return hit === null ? null : hit[0];

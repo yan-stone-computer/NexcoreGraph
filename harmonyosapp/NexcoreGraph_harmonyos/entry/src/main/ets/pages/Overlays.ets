@@ -15,7 +15,7 @@ import {
 import { AiPanel } from './AiPanel';
 import { GraphPanel } from './GraphPanel';
 import { AnalyticsBoard } from './AnalyticsBoard';
-import { buildFlowState, applyFlowState } from '../common/Continuation';
+import { buildFlowState, applyFlowState, buildDataSnapshot, applyDataSnapshot } from '../common/Continuation';
 import { publishFlow, pullFlow, deviceLabel, FlowHandoff } from '../common/FlowBridge';
 import { recognizeImage, gatewayUsage, UsageSummary, UsageRow } from '../common/AiGateway';
 import { tryUploadSync, forceUploadSync, downloadSync, SyncConflict } from '../common/SyncApi';
@@ -100,9 +100,10 @@ struct FlowPanel {
     }
     this.busy = true;
     const json = buildFlowState();
-    publishFlow(deviceLabel(), json).then((): void => {
+    const data = buildDataSnapshot();
+    publishFlow(deviceLabel(), json, data).then((): void => {
       this.busy = false;
-      this.note = `已发送（来自${deviceLabel()}，${json.length} 字节）· 请在另一台设备点「接收流转」`;
+      this.note = `已发送（来自${deviceLabel()}，页面状态 ${json.length} 字节 + 数据 ${Math.round(data.length / 1024)}KB）· 请在另一台设备点「接收流转」`;
       store.toast('已发送流转，请在另一台设备点「接收流转」');
     }).catch((e: Error): void => {
       this.busy = false;
@@ -123,8 +124,11 @@ struct FlowPanel {
         return;
       }
       const ok = applyFlowState(h.json);
+      const items = h.data === '' ? 0 : applyDataSnapshot(h.data);
       if (ok) {
-        this.note = `已接续来自「${h.from}」的进度`;
+        this.note = items >= 0
+          ? `已接续来自「${h.from}」的进度 · 同时同步 ${items} 件物品数据`
+          : `已接续来自「${h.from}」的进度`;
         store.overlay = '';     // 关掉面板，露出还原后的页面
       } else {
         this.note = '快照版本不一致，已忽略这次流转';
@@ -1557,8 +1561,9 @@ export struct SettingsView {
   /** 跨设备流转：把当前页面快照发到中转 */
   private sendFlow(): void {
     const json = buildFlowState();
-    publishFlow(deviceLabel(), json).then((): void => {
-      this.flowNote = `已发送（来自${deviceLabel()}，${json.length} 字节）· 在另一台设备点「接收流转」`;
+    const data = buildDataSnapshot();
+    publishFlow(deviceLabel(), json, data).then((): void => {
+      this.flowNote = `已发送（来自${deviceLabel()}，页面状态 ${json.length} 字节 + 数据 ${Math.round(data.length / 1024)}KB）· 在另一台设备点「接收流转」`;
       store.toast('已发送流转，请在另一台设备点「接收流转」');
     }).catch((e: Error): void => {
       this.flowNote = '发送失败：' + e.message;
@@ -1573,7 +1578,10 @@ export struct SettingsView {
         return;
       }
       const ok = applyFlowState(h.json);
-      this.flowNote = ok ? `已接续来自「${h.from}」的进度` : '快照版本不一致，已忽略';
+      const items = h.data === '' ? 0 : applyDataSnapshot(h.data);
+      this.flowNote = ok
+        ? (items >= 0 ? `已接续来自「${h.from}」的进度 · 同步 ${items} 件物品数据` : `已接续来自「${h.from}」的进度`)
+        : '快照版本不一致，已忽略';
     }).catch((e: Error): void => {
       this.flowNote = '接收失败：' + e.message;
     });

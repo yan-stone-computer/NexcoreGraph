@@ -25,21 +25,24 @@ export const KNOWLEDGE: Record<string, KbEntry> = {
   'pork': new KbEntry('生肉（冷藏）', 3, '冷藏不超 3-5 天；擦干水分分装冷冻', '黑龙江省人民政府', 'https://www.hlj.gov.cn/hljapp/c116063/202603/c00_31923320.shtml')
 };
 
+/* 数据类必须 @ObservedV2 + @Trace：写操作大量是「直接改对象字段」（item.qty = x），
+   不深度观察的话界面不会重绘 —— 表现就是"数据确实改了但界面没变"。 */
+@ObservedV2
 export class Item {
-  id: string = '';
-  no: string = '';
-  name: string = '';
-  emoji: string = '📦';
-  img: ResourceStr = '';
-  kbKey: string = '';
-  qty: number = 1;
-  unit: string = '个';
-  price: number = 0;
-  priceSrc: string = '手动';
-  expDays: number = 7;
-  pos: string = '未设置';
-  isPrivate: boolean = false;
-  expiring: boolean = false;
+  @Trace id: string = '';
+  @Trace no: string = '';
+  @Trace name: string = '';
+  @Trace emoji: string = '📦';
+  @Trace img: ResourceStr = '';
+  @Trace kbKey: string = '';
+  @Trace qty: number = 1;
+  @Trace unit: string = '个';
+  @Trace price: number = 0;
+  @Trace priceSrc: string = '手动';
+  @Trace expDays: number = 7;
+  @Trace pos: string = '未设置';
+  @Trace isPrivate: boolean = false;
+  @Trace expiring: boolean = false;
 
   constructor(id: string, name: string, emoji: string, img: ResourceStr, kbKey: string,
     qty: number, unit: string, price: number, priceSrc: string, expDays: number, pos: string, expiring: boolean) {
@@ -58,19 +61,20 @@ export class Item {
   }
 }
 
+@ObservedV2
 export class Library {
-  id: string = '';
-  name: string = '';
-  icon: string = 'package';
-  tone: string = 'teal';
-  count: number = 0;
-  desc: string = '';
-  items: Item[] = [];
-  coop: boolean = false;
-  coopFrom: string = '';
-  coopAddOnly: boolean = false;
-  of: string = '';
-  tag: string = '';
+  @Trace id: string = '';
+  @Trace name: string = '';
+  @Trace icon: string = 'package';
+  @Trace tone: string = 'teal';
+  @Trace count: number = 0;
+  @Trace desc: string = '';
+  @Trace items: Item[] = [];
+  @Trace coop: boolean = false;
+  @Trace coopFrom: string = '';
+  @Trace coopAddOnly: boolean = false;
+  @Trace of: string = '';
+  @Trace tag: string = '';
 
   constructor(id: string, name: string, icon: string, tone: string, count: number, desc: string, items: Item[]) {
     this.id = id;
@@ -107,19 +111,20 @@ export class Snap {
   }
 }
 
+@ObservedV2
 export class Plan {
-  id: number = 0;
-  title: string = '';
-  priority: string = '中';
-  reason: string = '';
-  time: string = '';
-  source: string = '知识库';
-  used: Consume[] = [];
-  missing: Consume[] = [];
-  status: string = 'pending';
-  selected: string[] = [];
-  snapshot: Snap[] | null = null;
-  kcal: number = 0;   // 营养速览：每份估算热量（0=未标注，展示"约 N 千卡"，F3.4/M2.5 P0-3）
+  @Trace id: number = 0;
+  @Trace title: string = '';
+  @Trace priority: string = '中';
+  @Trace reason: string = '';
+  @Trace time: string = '';
+  @Trace source: string = '知识库';
+  @Trace used: Consume[] = [];
+  @Trace missing: Consume[] = [];
+  @Trace status: string = 'pending';
+  @Trace selected: string[] = [];
+  @Trace snapshot: Snap[] | null = null;
+  @Trace kcal: number = 0;   // 营养速览：每份估算热量（0=未标注，展示"约 N 千卡"，F3.4/M2.5 P0-3）
 
   constructor(id: number, title: string, priority: string, reason: string, time: string, source: string,
     used: Consume[], missing: Consume[], status: string) {
@@ -136,13 +141,14 @@ export class Plan {
   }
 }
 
+@ObservedV2
 export class AlertItem {
-  id: number = 0;
-  type: string = 'expiring';
-  icon: string = 'clock';
-  tone: string = 'amber';
-  text: string = '';
-  meta: string = '';
+  @Trace id: number = 0;
+  @Trace type: string = 'expiring';
+  @Trace icon: string = 'clock';
+  @Trace tone: string = 'amber';
+  @Trace text: string = '';
+  @Trace meta: string = '';
 
   constructor(id: number, type: string, icon: string, tone: string, text: string, meta: string) {
     this.id = id;
@@ -154,11 +160,12 @@ export class AlertItem {
   }
 }
 
+@ObservedV2
 export class ShoppingItem {
-  name: string = '';
-  qty: string = '';
-  src: string = '';
-  checked: boolean = false;
+  @Trace name: string = '';
+  @Trace qty: string = '';
+  @Trace src: string = '';
+  @Trace checked: boolean = false;
 
   constructor(name: string, qty: string, src: string) {
     this.name = name;
@@ -190,10 +197,11 @@ export class ChatMsg {
   }
 }
 
+@ObservedV2
 export class Todo {
-  id: number = 0;
-  text: string = '';
-  done: boolean = false;
+  @Trace id: number = 0;
+  @Trace text: string = '';
+  @Trace done: boolean = false;
 
   constructor(id: number, text: string, done: boolean) {
     this.id = id;

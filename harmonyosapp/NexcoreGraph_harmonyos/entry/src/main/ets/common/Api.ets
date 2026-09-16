@@ -48,6 +48,8 @@ export function runBusy(key: string, fn: () => Promise<void>, onDone?: () => voi
   store.busy = key;
   fn().then((): void => {
     store.busy = '';
+    // 写操作收尾统一触发一次刷新：Api 内部多为直接改嵌套对象，不 reassign 界面不会重绘
+    store.touch();
     if (onDone) {
       onDone();
     }

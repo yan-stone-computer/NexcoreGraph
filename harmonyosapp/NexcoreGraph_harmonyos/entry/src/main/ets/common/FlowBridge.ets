@@ -22,6 +22,7 @@ export class FlowHandoff {
   from: string = '';
   at: number = 0;
   json: string = '';
+  data: string = '';
 }
 
 /** 本机设备名（演示时显示"来自 手机/平板"） */
@@ -63,9 +64,9 @@ function tryAt(idx: number, path: string, method: http.RequestMethod,
     .catch((_e: Error): Promise<HttpResult> => tryAt(idx + 1, path, method, body));
 }
 
-/** 源端：把当前流程快照发到中转 */
-export function publishFlow(from: string, json: string): Promise<void> {
-  const payload = JSON.stringify({ from: from, json: json });
+/** 源端：把当前流程快照 + 数据快照一起发到中转 */
+export function publishFlow(from: string, json: string, data: string = ''): Promise<void> {
+  const payload = JSON.stringify({ from: from, json: json, data: data });
   return tryAt(0, '/api/flow/publish', http.RequestMethod.POST, payload)
     .then((r: HttpResult): void => {
       if (r.code !== 200) {
@@ -91,6 +92,7 @@ export function pullFlow(): Promise<FlowHandoff> {
       out.from = j['from'] === undefined ? '' : String(j['from']);
       out.at = j['at'] === undefined ? 0 : Number(j['at']);
       out.json = j['json'] === undefined ? '' : String(j['json']);
+      out.data = j['data'] === undefined || j['data'] === null ? '' : String(j['data']);
       return out;
     });
 }
