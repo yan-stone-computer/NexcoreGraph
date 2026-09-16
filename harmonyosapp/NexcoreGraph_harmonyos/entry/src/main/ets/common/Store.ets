@@ -81,6 +81,8 @@ export class Store {
   @Trace aiPrefill: string = '';
   /** 是否允许跨设备接续（登录页等敏感页置 false） */
   @Trace continueEnabled: boolean = true;
+  /** 多端活同步：最近一次同步状态（只在「我的 → 跨设备流转」里显示，不弹 Toast） */
+  @Trace lastSyncNote: string = '';
   @Trace chatTyping: boolean = false;
   @Trace busy: string = '';
   @Trace itemFilter: string = 'all';

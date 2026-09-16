@@ -1789,6 +1789,9 @@ export struct SettingsView {
             if (this.flowNote !== '') {
               Text(this.flowNote).fontSize(12).fontColor(T.c('text-secondary'))
             }
+            if (store.lastSyncNote !== '') {
+              Text(`自动同步状态：${store.lastSyncNote}`).fontSize(12).fontColor(T.c('text-muted'))
+            }
           }
           .alignItems(HorizontalAlign.Start)
         }

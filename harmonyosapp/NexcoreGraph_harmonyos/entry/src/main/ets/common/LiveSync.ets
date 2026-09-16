@@ -112,7 +112,11 @@ function pollOnce(): void {
     const n = applyDataSnapshot(h.data);
     applying = false;
     if (n >= 0) {
-      store.toast(`已同步${h.from}的数据（${n} 件物品）`);
+      // 不弹 Toast（活同步很频繁，弹窗会打扰）：只记一行状态，在「我的 → 跨设备流转」里看
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      store.lastSyncNote = `${hh}:${mm} 已同步${h.from}的数据 · ${n} 件物品`;
     }
   }).catch((_e: Error): void => {
     // 中转不可用：静默
