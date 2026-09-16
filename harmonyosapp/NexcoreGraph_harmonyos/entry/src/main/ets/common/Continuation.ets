@@ -7,7 +7,10 @@
 
 import { AbilityConstant, Want } from '@kit.AbilityKit';
 import { store, LogRow } from './Store';
-import { Library, Item, Plan, AlertItem, ShoppingItem, Todo, ChatMsg } from './Db';
+import {
+  Library, Item, Plan, AlertItem, ShoppingItem, Todo, ChatMsg,
+  Workbench, Seat, SeatLib, SeatItem, WbMsg, WbMember, WbHistory, WorkbenchPlan
+} from './Db';
 
 /** 快照键（wantParam 内） */
 const FLOW_KEY: string = 'nexcoreFlow';
@@ -139,6 +142,7 @@ class DataPayload {
   profile: ProfileDto = new ProfileDto();
   daily: TodoDto[] = [];
   chat: ChatDto[] = [];
+  workbench: Workbench | null = null;
   at: number = 0;
 }
 
@@ -249,6 +253,9 @@ export function buildDataSnapshot(): string {
       return d;
     });
   }
+  /* 协作工作台（牌桌）：手牌、座位、合作池记录、组内对话、结算历史一起走
+     —— 工作台类都是普通类（非 @ObservedV2），可以直接序列化 */
+  p.workbench = store.workbench;
   p.at = Date.now();
   return JSON.stringify(p);
 }
@@ -403,6 +410,64 @@ export function applyDataSnapshot(raw: string): number {
       if (chat.length > before) {
         store.aiOpen = true;
       }
+    }
+
+    if (p.workbench !== undefined && p.workbench !== null) {
+      const wb = p.workbench;
+      const seats: Seat[] = [];
+      if (wb.seats !== undefined) {
+        wb.seats.forEach((s: Seat): void => {
+          const libs: SeatLib[] = [];
+          if (s.libs !== undefined) {
+            s.libs.forEach((l: SeatLib): void => {
+              const items: SeatItem[] = [];
+              if (l.items !== undefined) {
+                l.items.forEach((it: SeatItem): void => {
+                  items.push(new SeatItem(it.name, it.qty, it.unit, it.no));
+                });
+              }
+              const nl = new SeatLib(l.id, l.name, l.icon, l.count, items);
+              nl.tag = l.tag;
+              nl.of = l.of;
+              libs.push(nl);
+            });
+          }
+          seats.push(new Seat(s.id, s.name, s.color, libs));
+        });
+      }
+      const chat: WbMsg[] = [];
+      if (wb.chat !== undefined) {
+        wb.chat.forEach((m: WbMsg): void => {
+          chat.push(new WbMsg(m.sys, m.from, m.text, m.time));
+        });
+      }
+      const nwb = new Workbench(seats, chat);
+      nwb.name = wb.name;
+      nwb.expires = wb.expires;
+      nwb.code = wb.code;
+      nwb.myDeck = wb.myDeck === undefined ? [] : wb.myDeck;
+      const members: WbMember[] = [];
+      if (wb.members !== undefined) {
+        wb.members.forEach((m: WbMember): void => {
+          members.push(new WbMember(m.name, m.color, m.count, m.items === undefined ? [] : m.items));
+        });
+      }
+      nwb.members = members;
+      const plan = new WorkbenchPlan();
+      if (wb.plan !== undefined) {
+        plan.title = wb.plan.title;
+        plan.consume = wb.plan.consume;
+        plan.note = wb.plan.note;
+      }
+      nwb.plan = plan;
+      const his: WbHistory[] = [];
+      if (wb.history !== undefined) {
+        wb.history.forEach((h: WbHistory): void => {
+          his.push(new WbHistory(h.from, h.to, h.lib, h.time));
+        });
+      }
+      nwb.history = his;
+      store.workbench = nwb;
     }
     store.touch();
     let n = 0;
