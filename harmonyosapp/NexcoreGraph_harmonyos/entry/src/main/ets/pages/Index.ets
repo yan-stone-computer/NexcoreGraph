@@ -40,7 +40,12 @@ const NAV: NavItem[] = [
 @Entry
 @ComponentV2
 struct Index {
-  @Local curTab: number = 0;
+  /* 当前 Tab 的唯一真源放在 store：跨设备自由流转（onCreate / onNewWant 里的 restoreFlow）
+     会直接改 store.tabIndex，UI 必须跟着走；之前它是 @Local，接续过来仍停在首页。 */
+  @Computed
+  get curTab(): number {
+    return store.tabIndex;
+  }
 
   aboutToAppear(): void {
     // M2.5 P0-5/P0-4：启动即加载本地对话 / 偏好 / AI 用量（失败静默降级为内存）
@@ -124,10 +129,9 @@ struct Index {
           .height(60)
           .justifyContent(FlexAlign.Center)
           .borderRadius(R_M)
-          .backgroundColor(this.curTab === i ? T.c('primary-container') : Color.Transparent)
-          .onClick(() => {
-            this.curTab = i;
-            store.tabIndex = i;
+            .backgroundColor(this.curTab === i ? T.c('primary-container') : Color.Transparent)
+            .onClick(() => {
+              store.tabIndex = i;
             if (i !== 1) {
               store.libId = '';
             }
@@ -264,10 +268,9 @@ struct Index {
               .tabBar(this.TabBarItem(3))
             }
             .scrollable(false)
-            .barHeight(store.isWide ? 2 : 60)
-            .onChange((i: number) => {
-              this.curTab = i;
-              store.tabIndex = i;
+              .barHeight(store.isWide ? 2 : 60)
+              .onChange((i: number) => {
+                store.tabIndex = i;
               if (i !== 1) {
                 store.libId = '';
               }
