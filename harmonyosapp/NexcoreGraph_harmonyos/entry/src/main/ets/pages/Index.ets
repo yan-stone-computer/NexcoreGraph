@@ -4,11 +4,12 @@
 import { store, ToastMsg } from '../common/Store';
 import { T, R_M, R_L, DUR_BASE } from '../common/Tokens';
 import { Ico, IconBtn, NumText } from '../components/Widgets';
-import { Family } from '../common/Db';
+import { Family, Library, Item } from '../common/Db';
 import { restoreLibrary, restoreItem } from '../common/Api';
 import { display } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { initLocal, saveThemePrefs } from '../common/LocalStore';
+import { applyBreakpoints } from '../common/Breakpoints';
 import { LoginView } from './LoginView';
 import { DashboardView } from './DashboardView';
 import { AiWorkbench } from './AiWorkbench';
@@ -43,6 +44,8 @@ struct Index {
     // M2.5 P0-5/P0-4：启动即加载本地对话 / 偏好 / AI 用量（失败静默降级为内存）
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     initLocal(ctx);
+    // 响应式断点：手表(compact) / 手机(normal) / 平板·2in1(wide)
+    applyBreakpoints();
   }
 
   @Computed
@@ -52,6 +55,7 @@ struct Index {
   }
 
   private sheetHeight(): SheetSize | number {
+    // 占位说明：手表档走 WatchShell，不使用半模态（见 build()）
     if (store.aiOpen) {
       return SheetSize.LARGE;
     }
@@ -73,10 +77,89 @@ struct Index {
     store.aiOpen = false;
   }
 
+  /** 手表档（<400vp）：单列大数字 + 两个动作，砍掉图表、图谱与底部 Tab */
+  private expiringCount(): number {
+    let n = 0;
+    store.libraries.forEach((l: Library) => {
+      l.items.forEach((it: Item) => {
+        if (it.expDays > 0 && it.expDays <= 7) {
+          n += 1;
+        }
+      });
+    });
+    return n;
+  }
+
+  private firstExpiring(): string {
+    let best = '';
+    let days = 9999;
+    store.libraries.forEach((l: Library) => {
+      l.items.forEach((it: Item) => {
+        if (it.expDays > 0 && it.expDays < days) {
+          days = it.expDays;
+          best = `${it.name} · ${it.expDays} 天`;
+        }
+      });
+    });
+    return best;
+  }
+
+  @Builder
+  WatchShell() {
+    Column({ space: 10 }) {
+      Text('启核图策').fontSize(13).fontWeight(600).fontColor(T.c('text-muted'))
+
+      Text(`${this.expiringCount()}`)
+        .fontSize(44)
+        .fontWeight(FontWeight.Bold)
+        .fontFeature('tnum')
+        .fontColor(this.expiringCount() > 0 ? T.c('warning') : T.c('primary-ink'))
+
+      Text('项临期')
+        .fontSize(12)
+        .fontColor(T.c('text-muted'))
+
+      if (this.firstExpiring() !== '') {
+        Text(this.firstExpiring())
+          .fontSize(12)
+          .fontColor(T.c('text-secondary'))
+          .maxLines(1)
+      }
+
+      Button('查看临期')
+        .fontSize(14)
+        .height(44)
+        .width('100%')
+        .backgroundColor(T.c('primary'))
+        .fontColor(T.c('on-primary'))
+        .onClick(() => {
+          store.overlay = 'alerts';
+        })
+
+      Button('问 AI')
+        .fontSize(14)
+        .height(44)
+        .width('100%')
+        .backgroundColor(T.c('surface-overlay'))
+        .fontColor(T.c('text-primary'))
+        .onClick(() => {
+          store.aiOpen = true;
+        })
+    }
+    .width('100%')
+    .height('100%')
+    .padding(12)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor(T.c('surface'))
+  }
+
   build() {
     Stack() {
       if (!store.loggedIn) {
         LoginView()
+      } else if (store.isCompact) {
+        this.WatchShell()
       } else {
         Column() {
           TopBar()

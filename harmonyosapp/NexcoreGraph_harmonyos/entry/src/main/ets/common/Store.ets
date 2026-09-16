@@ -68,6 +68,7 @@ export class Store {
   @Trace loggedIn: boolean = false;
   @Trace tabIndex: number = 0;          // 0 首页看板 1 资源库 2 协作工作台 3 我的
   @Trace isWide: boolean = false;       // 平板/折叠屏展开档
+  @Trace isCompact: boolean = false;    // 手表档（<400vp）：单列精简界面
   @Trace toasts: ToastMsg[] = [];
 
   /* UI 状态（对应 web-demo S） */
