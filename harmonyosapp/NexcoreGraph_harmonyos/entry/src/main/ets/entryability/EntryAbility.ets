@@ -4,6 +4,7 @@ import { window } from '@kit.ArkUI';
 import { store } from '../common/Store';
 import { initKnowledge } from '../common/KnowledgeIndex';
 import { saveFormSnapshot } from '../common/LocalStore';
+import { onContinueSave, restoreFlow, isContinuation, allowContinue } from '../common/Continuation';
 
 const DOMAIN = 0x0000;
 
@@ -15,11 +16,28 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     this.handleCardWant(want);
+    // 跨设备自由流转：由其他设备接续过来时还原现场
+    if (isContinuation(launchParam)) {
+      restoreFlow(want);
+    }
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+  }
+
+  /* 自由流转：源端把当前流程写进 wantParam，交给目标设备 */
+  onContinue(wantParam: Record<string, Object>): AbilityConstant.OnContinueResult {
+    if (!store.continueEnabled) {
+      return AbilityConstant.OnContinueResult.REJECT;   // 登录页等敏感页不接续
+    }
+    const r = onContinueSave(wantParam);
+    hilog.info(DOMAIN, 'testTag', 'onContinue result=%{public}s', String(r));
+    return r;
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     this.handleCardWant(want);
+    if (isContinuation(launchParam)) {
+      restoreFlow(want);
+    }
   }
 
   /* 服务卡片路由（元服务卡片入口）：target=intake/ai/plans/shopping → 全局状态直达对应功能 */
@@ -72,6 +90,8 @@ export default class EntryAbility extends UIAbility {
   onForeground(): void {
     // Ability has brought to foreground
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
+    // 接续开关：登录页禁止接续，进入主界面后允许
+    allowContinue(store.loggedIn);
   }
 
   onBackground(): void {
@@ -80,4 +100,5 @@ export default class EntryAbility extends UIAbility {
     // M-5：退到后台时刷新服务卡片快照，卡片进程据此显示真实库存
     saveFormSnapshot();
   }
+
 }

@@ -78,6 +78,8 @@ export class Store {
   @Trace aiOpen: boolean = false;
   /** AI 面板预填提问（工作台/图谱点选后注入，AiPanel 打开时消费并清空） */
   @Trace aiPrefill: string = '';
+  /** 是否允许跨设备接续（登录页等敏感页置 false） */
+  @Trace continueEnabled: boolean = true;
   @Trace chatTyping: boolean = false;
   @Trace busy: string = '';
   @Trace itemFilter: string = 'all';
