@@ -17,6 +17,7 @@ import { GraphPanel } from './GraphPanel';
 import { AnalyticsBoard } from './AnalyticsBoard';
 import { buildFlowState, applyFlowState, buildDataSnapshot, applyDataSnapshot } from '../common/Continuation';
 import { publishFlow, pullFlow, deviceLabel, FlowHandoff } from '../common/FlowBridge';
+import { markSyncedRev } from '../common/LiveSync';
 import { recognizeImage, gatewayUsage, UsageSummary, UsageRow } from '../common/AiGateway';
 import { tryUploadSync, forceUploadSync, downloadSync, SyncConflict } from '../common/SyncApi';
 import { saveProfile, saveFormSnapshot, saveThemePrefs } from '../common/LocalStore';
@@ -125,6 +126,7 @@ struct FlowPanel {
       }
       const ok = applyFlowState(h.json);
       const items = h.data === '' ? 0 : applyDataSnapshot(h.data);
+      markSyncedRev(h.rev);
       if (ok) {
         this.note = items >= 0
           ? `已接续来自「${h.from}」的进度 · 同时同步 ${items} 件物品数据`
@@ -1579,6 +1581,7 @@ export struct SettingsView {
       }
       const ok = applyFlowState(h.json);
       const items = h.data === '' ? 0 : applyDataSnapshot(h.data);
+      markSyncedRev(h.rev);
       this.flowNote = ok
         ? (items >= 0 ? `已接续来自「${h.from}」的进度 · 同步 ${items} 件物品数据` : `已接续来自「${h.from}」的进度`)
         : '快照版本不一致，已忽略';
@@ -1769,7 +1772,9 @@ export struct SettingsView {
         Card() {
           Column({ space: 12 }) {
             CardHead({ title: '跨设备流转', sub: '手机 / 平板之间接着做' })
-            Text('把当前页面 + 本机数据一起送到另一台设备继续：库与物品、方案、临期预警、采购清单、' +
+            Text('登录后即开启多端活同步：任一台设备改了库存/清单/设置，另一台 2 秒内自动跟上；' +
+              '下面的按钮用于把"当前页面 + 本机数据"整包送过去继续。' +
+              '同步内容：库与物品、方案、临期预警、采购清单、' +
               '操作日志、提醒与外观设置、AI 偏好、每日待办。' +
               '真机同账号同网时由系统「应用接续」自动完成，这里不用管；模拟器之间没有 dsoftbus，' +
               '可以走本地中转服务（backend/flow-bridge.js）演示，两端用的是同一份快照。' +

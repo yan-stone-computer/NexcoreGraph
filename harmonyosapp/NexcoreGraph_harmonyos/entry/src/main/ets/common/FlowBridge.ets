@@ -19,6 +19,7 @@ let resolvedHost: string = '';
 
 export class FlowHandoff {
   found: boolean = false;
+  rev: number = 0;
   from: string = '';
   at: number = 0;
   json: string = '';
@@ -76,8 +77,9 @@ export function publishFlow(from: string, json: string, data: string = ''): Prom
 }
 
 /** 目标端：取中转里最新的流转记录 */
-export function pullFlow(): Promise<FlowHandoff> {
-  return tryAt(0, '/api/flow/latest', http.RequestMethod.GET, '')
+export function pullFlow(since: number = 0): Promise<FlowHandoff> {
+  const path = since > 0 ? `/api/flow/latest?since=${since}` : '/api/flow/latest';
+  return tryAt(0, path, http.RequestMethod.GET, '')
     .then((r: HttpResult): FlowHandoff => {
       const out = new FlowHandoff();
       if (r.code !== 200 || r.text === '') {
@@ -89,6 +91,7 @@ export function pullFlow(): Promise<FlowHandoff> {
         return out;
       }
       out.found = true;
+      out.rev = j['rev'] === undefined ? 0 : Number(j['rev']);
       out.from = j['from'] === undefined ? '' : String(j['from']);
       out.at = j['at'] === undefined ? 0 : Number(j['at']);
       out.json = j['json'] === undefined ? '' : String(j['json']);

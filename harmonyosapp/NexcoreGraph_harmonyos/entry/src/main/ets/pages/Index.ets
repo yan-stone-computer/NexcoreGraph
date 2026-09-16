@@ -9,6 +9,7 @@ import { restoreLibrary, restoreItem } from '../common/Api';
 import { display } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { initLocal, saveThemePrefs } from '../common/LocalStore';
+import { startLiveSync, stopLiveSync } from '../common/LiveSync';
 import { applyBreakpoints } from '../common/Breakpoints';
 import { AI_PANEL_WIDTH_VP } from '../common/Breakpoints';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
@@ -53,6 +54,12 @@ struct Index {
     initLocal(ctx);
     // 响应式断点：手表(compact) / 手机(normal) / 平板·2in1(wide)
     applyBreakpoints();
+    // 多端活同步：登录后本机改动会自动发给另一台设备，对端也会自动接收（模拟器/跨网段走本地中转）
+    startLiveSync();
+  }
+
+  aboutToDisappear(): void {
+    stopLiveSync();
   }
 
   @Computed

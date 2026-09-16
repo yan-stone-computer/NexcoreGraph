@@ -19,15 +19,22 @@ const PORT = Number(process.env.FLOW_PORT || 3100);
 const FILE = path.join(__dirname, 'flow-bridge.json');
 
 let latest = null;   // { from: string, at: number, json: string }
+let rev = 0;         // 自增版本号：端上用它判断"是不是新的一版"，避免重复应用
 try {
   latest = JSON.parse(fs.readFileSync(FILE, 'utf8'));
 } catch (_e) {
   latest = null;
 }
+try {
+  rev = Number(fs.readFileSync(FILE + '.rev', 'utf8')) || 0;
+} catch (_e) {
+  rev = 0;
+}
 
 function persist() {
   try {
     fs.writeFileSync(FILE, JSON.stringify(latest));
+    fs.writeFileSync(FILE + '.rev', String(rev));
   } catch (_e) {
     // 落盘失败不影响内存态，演示仍可继续
   }
@@ -67,11 +74,12 @@ const server = http.createServer((req, res) => {
           send(res, 400, { ok: false, error: 'data snapshot too large' });
           return;
         }
-        latest = { from: String(b.from || '未知设备'), at: Date.now(), json: json, data: data };
+        rev += 1;
+        latest = { rev: rev, from: String(b.from || '未知设备'), at: Date.now(), json: json, data: data };
         persist();
-        console.log('[flow-bridge] published from=' + latest.from + ' state=' + json.length +
+        console.log('[flow-bridge] rev=' + rev + ' published from=' + latest.from + ' state=' + json.length +
           'B data=' + data.length + 'B');
-        send(res, 200, { ok: true, at: latest.at });
+        send(res, 200, { ok: true, rev: rev, at: latest.at });
       } catch (e) {
         send(res, 400, { ok: false, error: 'bad json' });
       }
@@ -85,12 +93,12 @@ const server = http.createServer((req, res) => {
       return;
     }
     const since = Number(url.searchParams.get('since') || 0);
-    if (since > 0 && latest.at <= since) {
+    if (since > 0 && rev <= since) {
       send(res, 200, { found: false });
       return;
     }
     send(res, 200, {
-      found: true, from: latest.from, at: latest.at, json: latest.json, data: latest.data || ''
+      found: true, rev: rev, from: latest.from, at: latest.at, json: latest.json, data: latest.data || ''
     });
     return;
   }

@@ -6,6 +6,7 @@ import {
   Consume, Snap, SeatLib, SeatItem, Seat, Todo, WbMsg, WbHistory, KNOWLEDGE, seedIntake
 } from './Db';
 import { store, nowTime } from './Store';
+import { scheduleLivePublish } from './LiveSync';
 import { saveLedger } from './LocalStore';
 import { T } from './Tokens';
 import { kcalGuess } from './Knowledge';
@@ -50,6 +51,8 @@ export function runBusy(key: string, fn: () => Promise<void>, onDone?: () => voi
     store.busy = '';
     // 写操作收尾统一触发一次刷新：Api 内部多为直接改嵌套对象，不 reassign 界面不会重绘
     store.touch();
+    // 同时触发一次「活同步」：另一台设备 2 秒内会自动看到这次改动
+    scheduleLivePublish();
     if (onDone) {
       onDone();
     }

@@ -224,29 +224,71 @@ export function applyDataSnapshot(raw: string): number {
     if (p.v !== FLOW_VERSION || p.libraries === undefined) {
       return -1;
     }
-    /* 必须重建真实实例：@ObservedV2 数组里塞 JSON 纯对象会在渲染时 TypeError 崩溃
-       （图片不入流转快照，物品回落 emoji 显示） */
-    const libs: Library[] = [];
+    /* 按 id「原地同步」，不要整体替换对象：
+       1) @ObservedV2 数组里塞 JSON 纯对象会在渲染时 TypeError 崩溃，必须重建真实实例；
+       2) 但整体替换会让各列表/行组件观察到旧实例 —— 表现就是"数据看着换了，点它却不变化"。
+       所以：本地已有同 id 的库/物品就覆写字段（保留被观察的实例），没有的才新建。 */
     p.libraries.forEach((l: LibDto): void => {
-      const items: Item[] = [];
-      if (l.items !== undefined) {
-        l.items.forEach((it: ItemDto): void => {
-          const ni = new Item(it.id, it.name, it.emoji, '', it.kbKey, it.qty, it.unit,
-            it.price, it.priceSrc, it.expDays, it.pos, it.expiring);
-          ni.no = it.no;
-          ni.isPrivate = it.isPrivate;
-          items.push(ni);
-        });
+      const existed = store.findLib(l.id);
+      let lib: Library;
+      if (existed === null) {
+        lib = new Library(l.id, l.name, l.icon, l.tone, l.count, l.desc, []);
+        store.libraries = store.libraries.concat([lib]);
+      } else {
+        lib = existed;
       }
-      const lib = new Library(l.id, l.name, l.icon, l.tone, l.count, l.desc, items);
+      lib.name = l.name;
+      lib.icon = l.icon;
+      lib.tone = l.tone;
+      lib.count = l.count;
+      lib.desc = l.desc;
       lib.coop = l.coop;
       lib.coopFrom = l.coopFrom;
       lib.coopAddOnly = l.coopAddOnly;
       lib.of = l.of;
       lib.tag = l.tag;
-      libs.push(lib);
+
+      const dtoItems: ItemDto[] = l.items === undefined ? [] : l.items;
+      dtoItems.forEach((it: ItemDto): void => {
+        let hit: Item | null = null;
+        lib.items.forEach((cur: Item) => {
+          if (cur.id === it.id) {
+            hit = cur;
+          }
+        });
+        if (hit === null) {
+          const ni = new Item(it.id, it.name, it.emoji, '', it.kbKey, it.qty, it.unit,
+            it.price, it.priceSrc, it.expDays, it.pos, it.expiring);
+          ni.no = it.no;
+          ni.isPrivate = it.isPrivate;
+          lib.items.push(ni);
+        } else {
+          const cur = hit as Item;
+          cur.no = it.no;
+          cur.name = it.name;
+          cur.emoji = it.emoji;
+          cur.kbKey = it.kbKey;
+          cur.qty = it.qty;
+          cur.unit = it.unit;
+          cur.price = it.price;
+          cur.priceSrc = it.priceSrc;
+          cur.expDays = it.expDays;
+          cur.pos = it.pos;
+          cur.isPrivate = it.isPrivate;
+          cur.expiring = it.expiring;
+        }
+      });
+      // 对端已删除的物品：本地也移除
+      lib.items = lib.items.filter((cur: Item): boolean => {
+        let keep = false;
+        dtoItems.forEach((it: ItemDto) => {
+          if (it.id === cur.id) {
+            keep = true;
+          }
+        });
+        return keep;
+      });
     });
-    store.libraries = libs;
 
     const plans: Plan[] = [];
     if (p.plans !== undefined) {
