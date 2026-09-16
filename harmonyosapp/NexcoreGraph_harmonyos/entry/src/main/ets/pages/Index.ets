@@ -81,30 +81,60 @@ struct Index {
   /** 平板 / 2in1（≥840vp）：左侧导航栏替代底部 Tab */
   @Builder
   NavRail() {
-    Column({ space: 4 }) {
-      ForEach(NAV, (item: NavItem, i: number) => {
-        Column({ space: 4 }) {
-          Ico({ name: item.icon, dim: 22, color: this.curTab === i ? T.c('primary-ink') : T.c('text-muted') })
-          Text(item.label)
-            .fontSize(11)
-            .fontWeight(this.curTab === i ? 600 : 400)
-            .fontColor(this.curTab === i ? T.c('primary-ink') : T.c('text-muted'))
-        }
-        .width('100%')
-        .height(60)
-        .justifyContent(FlexAlign.Center)
-        .borderRadius(R_M)
-        .backgroundColor(this.curTab === i ? T.c('primary-container') : Color.Transparent)
-        .onClick(() => {
-          this.curTab = i;
-          store.tabIndex = i;
-          if (i !== 1) {
-            store.libId = '';
+    Column() {
+      /* 品牌：宽屏下品牌标识由侧边栏承载（顶栏不再重复），徽标 + 中英文名称 */
+      Column({ space: 6 }) {
+        Image($r('app.media.logo'))
+          .width(40)
+          .height(40)
+          .objectFit(ImageFit.Contain)
+        Text('启核图策')
+          .fontSize(13)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(T.c('text-primary'))
+          .maxLines(1)
+        Text('NexcoreGraph')
+          .fontSize(10)
+          .fontColor(T.c('text-muted'))
+          .maxLines(1)
+      }
+      .width('100%')
+      .padding({ top: 8, bottom: 12 })
+      .alignItems(HorizontalAlign.Center)
+
+      Column()
+        .width(36)
+        .height(1)
+        .backgroundColor(T.c('border'))
+        .margin({ bottom: 10 })
+
+      Column({ space: 4 }) {
+        ForEach(NAV, (item: NavItem, i: number) => {
+          Column({ space: 4 }) {
+            Ico({ name: item.icon, dim: 22, color: this.curTab === i ? T.c('primary-ink') : T.c('text-muted') })
+            Text(item.label)
+              .fontSize(11)
+              .fontWeight(this.curTab === i ? 600 : 400)
+              .fontColor(this.curTab === i ? T.c('primary-ink') : T.c('text-muted'))
           }
-        })
-      }, (item: NavItem, i: number) => `rail-${i}`)
+          .width('100%')
+          .height(60)
+          .justifyContent(FlexAlign.Center)
+          .borderRadius(R_M)
+          .backgroundColor(this.curTab === i ? T.c('primary-container') : Color.Transparent)
+          .onClick(() => {
+            this.curTab = i;
+            store.tabIndex = i;
+            if (i !== 1) {
+              store.libId = '';
+            }
+          })
+        }, (item: NavItem, i: number) => `rail-${i}`)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Center)
     }
-    .width(88)
+    .width(96)
     .height('100%')
     .padding({ left: 6, right: 6, top: 12, bottom: 12 })
     .justifyContent(FlexAlign.Start)
@@ -318,46 +348,45 @@ struct Index {
 struct TopBar {
   build() {
     Row({ space: 4 }) {
-      Row({ space: 8 }) {
-        Image($r('app.media.logo'))
-          .width(30).height(30).borderRadius(8).objectFit(ImageFit.Cover)
-        Column({ space: 1 }) {
-          Text('启核图策').fontSize(17).fontWeight(800).fontColor(T.c('text-primary'))
-          if (!store.isWide) {
+      // 宽屏（平板/2in1）：品牌随侧边栏，顶栏只留搜索与操作，避免重复
+      if (!store.isWide) {
+        Row({ space: 8 }) {
+          Image($r('app.media.logo'))
+            .width(30).height(30).objectFit(ImageFit.Contain)
+          Column({ space: 1 }) {
+            Text('启核图策').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
             Text(store.family.name).fontSize(10).fontColor(T.c('text-muted'))
           }
+          .alignItems(HorizontalAlign.Start)
         }
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(VerticalAlign.Center)
+      }
 
         if (store.isWide) {
-          Text('NexcoreGraph · 家庭资源智能管家').fontSize(12).fontColor(T.c('text-muted')).margin({ left: 4 })
+          // 宽屏：品牌已在侧边栏，顶栏左侧留给搜索（主入口）
+          Row({ space: 8 }) {
+            Ico({ name: 'search', dim: 16, color: T.c('text-muted') })
+            Text('搜物品、位置，或问“鸡蛋放哪了”').fontSize(13).fontColor(T.c('text-muted'))
+          }
+          .height(38)
+          .padding({ left: 14, right: 14 })
+          .borderRadius(999)
+          .backgroundColor(T.c('surface-sunken'))
+          .border({ width: 1, color: T.c('border') })
+          .constraintSize({ maxWidth: 380 })
+          .onClick(() => {
+            store.searchQ = '';
+            store.overlay = 'search';
+          })
         }
-      }
-      .alignItems(VerticalAlign.Center)
 
-      Blank()
+        Blank()
 
-
-      if (store.isWide) {
-        Row({ space: 8 }) {
-          Ico({ name: 'search', dim: 16, color: T.c('text-muted') })
-          Text('搜物品、位置，或问“鸡蛋放哪了”').fontSize(13).fontColor(T.c('text-muted'))
-        }
-        .height(38)
-        .padding({ left: 14, right: 14 })
-        .borderRadius(999)
-        .backgroundColor(T.c('surface-sunken'))
-        .border({ width: 1, color: T.c('border') })
-        .constraintSize({ maxWidth: 380 })
-        .onClick(() => {
-          store.searchQ = '';
-          store.overlay = 'search';
-        })
-      } else {
-        // 手机顶栏：预警 / 采购 / 搜索（家庭切换在「我的」页）
-        IconBtn({ icon: 'bell', dot: store.alerts.length > 0, tap: (): void => {
-          store.overlay = 'alerts';
-        } })
+        if (!store.isWide) {
+          // 手机顶栏：预警 / 采购 / 搜索（家庭切换在「我的」页）
+          IconBtn({ icon: 'bell', dot: store.alerts.length > 0, tap: (): void => {
+            store.overlay = 'alerts';
+          } })
         IconBtn({ icon: 'cart', tap: (): void => {
           store.overlay = 'shopping';
         } })
