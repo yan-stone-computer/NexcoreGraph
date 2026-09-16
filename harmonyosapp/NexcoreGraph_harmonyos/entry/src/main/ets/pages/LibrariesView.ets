@@ -1,7 +1,7 @@
 /* 启核图策 · 资源库列表（cubby 柜格）与库详情（物品清单 + 步进器） */
 
 import { store } from '../common/Store';
-import { T, R_M, R_L, R_XL, S3, S4 } from '../common/Tokens';
+import { T, R_M, R_L, R_XL, S3, S4, S8 } from '../common/Tokens';
 import { Ico, TBtn, ToneBadge, Chip, Card, CardHead, IconBtn, NumText, MiniSwitch } from '../components/Widgets';
 import { Library, Item, KNOWLEDGE } from '../common/Db';
 import { updateItemQty, runBusy, createLibrary, renameLibrary, deleteLibrary, restoreLibrary, moveLibrary } from '../common/Api';
@@ -12,18 +12,6 @@ const LIB_TONES: string[] = ['teal', 'indigo', 'red', 'slate', 'lime', 'brown', 
 @ComponentV2
 export struct LibrariesView {
   @Local newLibName: string = '';
-  @Local doorOpen: boolean = false;
-
-  aboutToAppear(): void {
-    // 入场：柜门缓缓打开
-    setTimeout((): void => {
-      this.doorOpen = true;
-    }, 400);
-  }
-
-  private toggleDoor(): void {
-    this.doorOpen = !this.doorOpen;
-  }
 
   build() {
     Scroll() {
@@ -36,17 +24,14 @@ export struct LibrariesView {
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
 
-          TBtn({ label: this.doorOpen ? '关上柜门' : '打开柜门', icon: 'door', kind: 'ghost', tap: (): void => this.toggleDoor() })
-          TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
-            store.overlay = 'intake';
-          } })
+            TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
+              store.overlay = 'intake';
+            } })
         }
         .width('100%')
         .alignItems(VerticalAlign.Bottom)
 
-        // 资源柜（双开门）
-        Stack({ alignContent: Alignment.TopStart }) {
-          // 柜内
+          // 资源柜（柜格）：直接铺开，不再用会飞出柜体的 3D 柜门
           Column({ space: 20 }) {
             Row() {
               Row({ space: 6 }) {
@@ -126,20 +111,21 @@ export struct LibrariesView {
               }
             }
           }
-          .width('100%')
-          .padding(24)
-          .borderRadius(R_XL)
-          .backgroundColor(T.c('surface-sunken'))
-          .border({ width: 1, color: T.c('border') })
-
-          // 双开门
-          CabinetDoor({ open: this.doorOpen, side: 0 })
-          CabinetDoor({ open: this.doorOpen, side: 1 })
+            .width('100%')
+            .padding(24)
+            .borderRadius(R_XL)
+            .backgroundColor(T.c('surface-sunken'))
+            .border({ width: 1, color: T.c('border') })
         }
-        .width('100%')
-      }
-      .padding({ left: 16, right: 16, top: 16, bottom: 96 })
-      .constraintSize({ maxWidth: 1180 })
+        .padding({
+          left: store.isWide ? S8 : 16,
+          right: store.isWide ? S8 : 16,
+          top: 16,
+          bottom: 96
+        })
+        // 注意：这里曾经有 constraintSize({maxWidth})。宽度上限小于可视宽时，
+        // Scroll 会按「上限+左右内边距」居中对齐内容，左侧内边距被吃掉，
+        // 整页会贴到侧边栏上（就是"被侧边栏挡住"）。故只靠内边距控制留白。
     }
     .width('100%')
     .height('100%')
@@ -150,58 +136,6 @@ export struct LibrariesView {
         store.libMenuId = '';
       }
     })
-  }
-}
-
-/* 柜门（3D 开合） */
-@ComponentV2
-struct CabinetDoor {
-  @Param open: boolean = false;
-  @Param side: number = 0;   // 0 左门 1 右门
-
-  build() {
-    Stack() {
-      Column()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 180,
-          colors: [[T.c('surface-raised'), 0], [T.c('surface-overlay'), 1]]
-        })
-
-      // 把手（靠中缝一侧）
-      Circle({ width: 14, height: 14 })
-        .fill(T.c('primary'))
-        .shadow({ radius: 10, color: 'rgba(232,112,30,0.45)', offsetY: 0 })
-        .margin({ left: this.side === 0 ? 'auto' : '14vp', right: this.side === 0 ? '14vp' : 'auto' })
-    }
-    .width('50%')
-    .height('100%')
-    .position({
-      x: this.side === 0 ? 0 : '50%',
-      y: 0
-    })
-    .border({
-      width: 1,
-      color: T.c('border-strong')
-    })
-    .borderRadius({
-      topLeft: this.side === 0 ? R_XL : 0,
-      bottomLeft: this.side === 0 ? R_XL : 0,
-      topRight: this.side === 1 ? R_XL : 0,
-      bottomRight: this.side === 1 ? R_XL : 0
-    })
-    .shadow({ radius: 12, color: 'rgba(0,0,0,0.25)', offsetY: 4 })
-    .rotate({
-      x: 0,
-      y: 1,
-      z: 0,
-      angle: this.open ? (this.side === 0 ? -105 : 105) : 0,
-      centerX: this.side === 0 ? '0%' : '100%',
-      centerY: '50%'
-    })
-    .animation({ duration: 620, curve: Curve.EaseInOut })
-    .hitTestBehavior(this.open ? HitTestMode.None : HitTestMode.Default)
   }
 }
 
@@ -375,8 +309,12 @@ export struct LibraryDetailView {
           }
         }
       }
-      .padding({ left: 16, right: 16, top: 8, bottom: 96 })
-      .constraintSize({ maxWidth: 1180 })
+        .padding({
+          left: store.isWide ? S8 : 16,
+          right: store.isWide ? S8 : 16,
+          top: 8,
+          bottom: 96
+        })
     }
     .width('100%')
     .height('100%')

@@ -1,7 +1,7 @@
 /* 启核图策 · 协作工作台（牌桌式座位：我的手牌扇形展开，对方牌背可翻转，邀请码 + 规则 + 协作方案） */
 
 import { store } from '../common/Store';
-import { T, R_M, R_L, R_XL, DUR_BASE, DUR_SLOW } from '../common/Tokens';
+import { T, R_M, R_L, R_XL, DUR_BASE, DUR_SLOW, S8 } from '../common/Tokens';
 import { Ico, TBtn, ToneBadge, Card, CardHead, NumText } from '../components/Widgets';
 import { Seat, SeatLib, WbHistory, Snap } from '../common/Db';
 import { runBusy, sendLibrary, endCoop, runWorkbench, revokeInvite, SendResult, syncMyHand } from '../common/Api';
@@ -220,8 +220,14 @@ export struct WorkbenchView {
           }
         }
       }
-      .padding({ left: 16, right: 16, top: 16, bottom: 96 })
-      .constraintSize({ maxWidth: 1180 })
+        .padding({
+          left: store.isWide ? S8 : 16,
+          right: store.isWide ? S8 : 16,
+          top: 16,
+          bottom: 96
+        })
+        // 不要在这里加 constraintSize({maxWidth})：小于可视宽时 Scroll 会居中内容，
+        // 左侧内边距被抵消，整页贴住侧边栏（用户看到的"被侧边栏挡住"）。
     }
     .width('100%')
     .height('100%')

@@ -6,7 +6,7 @@
    红线不变：摘要数字由代码计算；队列里的写操作必须用户确认后才生效。 */
 
 import { store } from '../common/Store';
-import { T, S1, S2, S3, S4, S6 } from '../common/Tokens';
+import { T, S1, S2, S3, S4, S6, S8 } from '../common/Tokens';
 import { TBtn, Card } from '../components/Widgets';
 import { ChatMsg, Plan, Item, Library } from '../common/Db';
 import { executePlan, setItemQtyByName, addShoppingByAI, runBusy, valueMetrics, ValueMetrics } from '../common/Api';
@@ -114,19 +114,24 @@ export struct AiWorkbench {
     store.aiOpen = true;
   }
 
-  build() {
-    Column({ space: 0 }) {
-      /* 页头：标题自己承担层级，不加 eyebrow */
-      Text('AI 工作台').fontSize(24).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
-      Row({ space: S2 }) {
-        Text(`${store.family.name}`).fontSize(12).fontColor(T.c('text-muted'))
-        Text('·').fontSize(12).fontColor(T.c('border-strong'))
-        Text(this.todayLine()).fontSize(12).fontColor(T.c('text-muted'))
-      }
-      .margin({ top: S1 })
+  /* ---------- 分区（宽窄屏共用；宽屏由 build() 排成左右两列） ---------- */
 
-      /* 事实行：等宽数字，细线分隔，不用卡片 */
-      Row() {
+  @Builder
+  Head() {
+    /* 页头：标题自己承担层级，不加 eyebrow */
+    Text('AI 工作台').fontSize(24).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+    Row({ space: S2 }) {
+      Text(`${store.family.name}`).fontSize(12).fontColor(T.c('text-muted'))
+      Text('·').fontSize(12).fontColor(T.c('border-strong'))
+      Text(this.todayLine()).fontSize(12).fontColor(T.c('text-muted'))
+    }
+    .margin({ top: S1 })
+  }
+
+  @Builder
+  Facts() {
+    /* 事实行：等宽数字，细线分隔，不用卡片 */
+    Row() {
         this.Fact(`${this.expiringItems().length}`, '临期')
         this.ThinDivider()
         this.Fact(`${this.itemCount()}`, '在库')
@@ -134,12 +139,15 @@ export struct AiWorkbench {
         this.Fact(`${this.pendingPlans().length}`, '待执行')
         this.ThinDivider()
         this.Fact(this.vm.expiringRate <= 0 ? '—' : `${this.vm.expiringRate}%`, '临期消耗率')
-      }
-      .width('100%')
-      .margin({ top: S4 })
+    }
+    .width('100%')
+    .margin({ top: S4 })
+  }
 
-      /* 焦点区：今天要处理（全页唯一卡片） */
-      Text('今天要处理').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+  @Builder
+  Focus() {
+    /* 焦点区：今天要处理（全页唯一卡片） */
+    Text('今天要处理').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
         .margin({ top: S6, bottom: S2 })
       if (this.queueCount() === 0) {
         Text('还没有待确认的动作。问我「鸡蛋只剩 5 个」或「今晚吃什么」，我会把动作准备好放在这里。')
@@ -175,32 +183,78 @@ export struct AiWorkbench {
           .alignItems(HorizontalAlign.Start)
         }
       }
+  }
 
-      /* 概览：label-value 细线行，退回背景层 */
-      Text('概览').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
-        .margin({ top: S6, bottom: S2 })
-      this.InfoRow('库存知识图谱', this.graphSize)
-      this.InfoRow('避免重复购买', `${this.vm.blockedRepurchase} 次`)
-      this.InfoRow('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '暂无记录')
+  @Builder
+  Overview() {
+    /* 概览：label-value 细线行，退回背景层 */
+    Text('概览').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+      .margin({ top: store.isWide ? S4 : S6, bottom: S2 })
+    this.InfoRow('库存知识图谱', this.graphSize)
+    this.InfoRow('避免重复购买', `${this.vm.blockedRepurchase} 次`)
+    this.InfoRow('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '暂无记录')
+  }
 
-      /* 底部：单一对话入口（克制，不再并排两个入口） */
-      Row({ space: S3 }) {
+  @Builder
+  AskBar() {
+    /* 底部：单一对话入口（克制，不再并排两个入口） */
+    Row({ space: S3 }) {
         Text('今晚吃什么').fontSize(13).fontColor(T.c('text-secondary'))
           .onClick((): void => this.ask('今晚吃什么'))
         Text('牛奶还能放几天').fontSize(13).fontColor(T.c('text-secondary'))
           .onClick((): void => this.ask('牛奶还能放几天'))
         Blank()
         TBtn({ label: '问 AI', icon: 'sparkles', kind: 'primary', small: true, tap: (): void => this.ask('') })
+    }
+    .width('100%')
+    .margin({ top: S6 })
+  }
+
+  build() {
+    Column({ space: 0 }) {
+      this.Head()
+
+      if (store.isWide) {
+        /* 平板 / 2in1：左列＝事实 + 今天要处理（唯一焦点），右列＝概览 + 对话入口
+           不再是「把手机单列放大」，两列都吃满横向空间 */
+        Row({ space: S8 }) {
+          Column({ space: 0 }) {
+            this.Facts()
+            this.Focus()
+          }
+          .layoutWeight(11)
+          .alignItems(HorizontalAlign.Start)
+
+          Column({ space: 0 }) {
+            this.Overview()
+            this.AskBar()
+          }
+          .layoutWeight(9)
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+      } else {
+        this.Facts()
+        this.Focus()
+        this.Overview()
+        this.AskBar()
       }
-      .width('100%')
-      .margin({ top: S6 })
 
       /* 底部留白：避开悬浮 AI 球 */
       Row().height(64)
     }
     .width('100%')
-    .padding({ left: S4, right: S4, top: S4, bottom: S4 })
+    /* 必须占满高度：否则内容比 TabContent 矮时会被整体垂直居中，页面顶部出现大片空白 */
+    .height('100%')
+    .padding({
+      left: store.isWide ? S8 : S4,
+      right: store.isWide ? S8 : S4,
+      top: S4,
+      bottom: S4
+    })
     .alignItems(HorizontalAlign.Start)
+    .justifyContent(FlexAlign.Start)
   }
 
   @Builder
