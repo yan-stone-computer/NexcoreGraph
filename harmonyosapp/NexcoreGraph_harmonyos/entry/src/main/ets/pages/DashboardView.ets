@@ -9,20 +9,20 @@ import { askSummary } from '../common/AiGateway';
 import { statsEvidence } from '../common/Router';
 import { saveFormSnapshot } from '../common/LocalStore';
 
-class Seg {
+export class Seg {
   label: string = '';
   value: number = 0;
   color: string = '';
 }
 
-class TrendSet {
+export class TrendSet {
   a: number[] = [];
   b: number[] = [];
   labels: string[] = [];
 }
 
 /** 操作日志 → 近 n 天消耗/采购分布（消耗 = 方案执行/协作；采购 = 拍照/手动新增） */
-function trendFromLogs(n: number): TrendSet {
+export function trendFromLogs(n: number): TrendSet {
   const days: string[] = [];
   for (let i = n - 1; i >= 0; i--) {
     days.push(todayKey(-i));
@@ -711,7 +711,7 @@ export struct DashboardView {
 /* ---------- Canvas 图表 ---------- */
 
 @ComponentV2
-struct DonutChart {
+export struct DonutChart {
   @Param segs: Seg[] = [];
   @Param centerTop: string = '';
   @Param centerBottom: string = '';
@@ -773,7 +773,7 @@ struct DonutChart {
 }
 
 @ComponentV2
-struct LineChart {
+export struct LineChart {
   @Param trend: TrendSet = new TrendSet();
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private ctx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
@@ -883,7 +883,7 @@ struct LineChart {
 }
 
 @ComponentV2
-struct RingChart {
+export struct RingChart {
   @Param pct: number = 0;
   @Param value: string = '';
   @Param label: string = '';

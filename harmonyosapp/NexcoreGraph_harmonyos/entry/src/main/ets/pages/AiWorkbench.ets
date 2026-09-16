@@ -13,6 +13,7 @@ import { executePlan, setItemQtyByName, addShoppingByAI, runBusy, valueMetrics, 
 import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { saveChat, saveFormSnapshot } from '../common/LocalStore';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
+import { AnalyticsBoard } from './AnalyticsBoard';
 
 @ComponentV2
 export struct AiWorkbench {
@@ -235,10 +236,15 @@ export struct AiWorkbench {
           }
           .layoutWeight(9)
           .alignItems(HorizontalAlign.Start)
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Top)
-      } else {
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Top)
+
+          /* 平板：下面接数据分析看板（KPI + 库存构成 + 食材趋势 + 小结 + 落地价值），
+             把宽屏多出来的纵向空间用起来；手机端不加，保持原来的单列节奏 */
+          AnalyticsBoard()
+            .margin({ top: S8 })
+        } else {
         this.Facts()
         this.Focus()
         this.Overview()
