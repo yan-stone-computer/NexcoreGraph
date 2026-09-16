@@ -154,21 +154,21 @@ export struct AnalyticsBoard {
       }
       .width('100%')
 
-      /* KPI 四格 */
+      /* KPI 四格（手机一行两格，平板一行四格） */
       GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        GridCol({ span: 3 }) {
+        GridCol({ span: { sm: 6, md: 3, lg: 3 } }) {
           this.KpiTile('package', 'teal', String(this.totalItems()), '资源总数',
             `${store.libraries.length} 个库`, T.c('text-muted'))
         }
-        GridCol({ span: 3 }) {
+        GridCol({ span: { sm: 6, md: 3, lg: 3 } }) {
           this.KpiTile('clock', 'amber', String(this.expiringItems().length), '临期预警',
             this.expiringItems().length > 0 ? '今日需处理' : '暂无临期', T.c('warning'))
         }
-        GridCol({ span: 3 }) {
+        GridCol({ span: { sm: 6, md: 3, lg: 3 } }) {
           this.KpiTile('list-check', 'teal', `${this.planPct()}%`, '方案执行率',
             store.plans.length > 0 ? `${this.doneCount()}/${store.plans.length} 已执行` : '暂无方案', T.c('success'))
         }
-        GridCol({ span: 3 }) {
+        GridCol({ span: { sm: 6, md: 3, lg: 3 } }) {
           this.KpiTile('wallet', 'teal', `¥${store.stats.spent}`, '本月花费',
             `预算 ¥${store.stats.budget}`, T.c('text-muted'))
         }
@@ -177,35 +177,38 @@ export struct AnalyticsBoard {
 
       /* 图表两栏 */
       GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        GridCol({ span: 5 }) {
+        GridCol({ span: { sm: 12, md: 12, lg: 5 } }) {
           Card() {
             Column({ space: 16 }) {
               CardHead({ title: '库存构成', sub: '按当前库存件数' })
-              Row({ space: 24 }) {
-                DonutChart({
-                  segs: this.donutSegs(),
-                  centerTop: String(this.totalItems()),
-                  centerBottom: `件 · ${this.activeLibs().length} 个有库存库`
-                })
-                Column({ space: 6 }) {
-                  ForEach(this.activeLibs(), (l: Library) => {
-                    Row({ space: 8 }) {
-                      Row().width(10).height(10).borderRadius(3).backgroundColor(T.tone(l.tone)[0])
-                      Text(l.name).fontSize(12).fontColor(T.c('text-secondary')).layoutWeight(1)
-                      NumText({ value: `${l.items.length} · ${this.libShare(l)}%`, dim: 12, color: T.c('text-muted') })
-                    }
-                    .width('100%')
-                  }, (l: Library) => l.id)
+              if (store.isWide) {
+                Row({ space: 24 }) {
+                  DonutChart({
+                    segs: this.donutSegs(),
+                    centerTop: String(this.totalItems()),
+                    centerBottom: `件 · ${this.activeLibs().length} 个有库存库`
+                  })
+                  this.Legend()
                 }
-                .layoutWeight(1)
+                .width('100%')
+                .alignItems(VerticalAlign.Center)
+              } else {
+                Column({ space: 16 }) {
+                  DonutChart({
+                    segs: this.donutSegs(),
+                    centerTop: String(this.totalItems()),
+                    centerBottom: `件 · ${this.activeLibs().length} 个有库存库`
+                  })
+                  this.Legend()
+                }
+                .width('100%')
+                .alignItems(HorizontalAlign.Center)
               }
-              .width('100%')
-              .alignItems(VerticalAlign.Center)
             }
           }
         }
 
-        GridCol({ span: 7 }) {
+        GridCol({ span: { sm: 12, md: 12, lg: 7 } }) {
           Card() {
             Column({ space: 12 }) {
               Row() {
@@ -248,30 +251,33 @@ export struct AnalyticsBoard {
 
       /* 小结 + 落地价值 */
       GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
-        GridCol({ span: 5 }) {
+        GridCol({ span: { sm: 12, md: 12, lg: 5 } }) {
           Card() {
             Column({ space: 16 }) {
               CardHead({
                 title: '本周小结', sub: '按当前库存与方案统计',
                 badgeText: '自动计算', badgeTone: 'teal', badgeIcon: 'sparkles'
               })
-              Row({ space: 24 }) {
-                RingChart({ pct: this.planPct(), value: `${this.doneCount()}/${store.plans.length}`, label: '方案执行率' })
-                Column({ space: 12 }) {
-                  this.MiniStat('sparkles', 'orange', '还能做', `${store.stats.mealsLeft} 顿饭 · 约 ${store.stats.daysLeft} 天`)
-                  this.MiniStat('wallet', 'teal', '本月花费', `¥${store.stats.spent} · 预算 ¥${store.stats.budget}`)
-                  this.MiniStat('package', 'lime', '浪费', `${store.stats.wasted} 件`)
-                  this.MiniStat('thermometer', 'amber', '库存健康度', `${this.healthPct()}%`)
+              if (store.isWide) {
+                Row({ space: 24 }) {
+                  RingChart({ pct: this.planPct(), value: `${this.doneCount()}/${store.plans.length}`, label: '方案执行率' })
+                  this.SummaryStats()
                 }
-                .layoutWeight(1)
+                .width('100%')
+                .alignItems(VerticalAlign.Center)
+              } else {
+                Column({ space: 16 }) {
+                  RingChart({ pct: this.planPct(), value: `${this.doneCount()}/${store.plans.length}`, label: '方案执行率' })
+                  this.SummaryStats()
+                }
+                .width('100%')
+                .alignItems(HorizontalAlign.Center)
               }
-              .width('100%')
-              .alignItems(VerticalAlign.Center)
             }
           }
         }
 
-        GridCol({ span: 7 }) {
+        GridCol({ span: { sm: 12, md: 12, lg: 7 } }) {
           Card() {
             Column({ space: 16 }) {
               CardHead({
@@ -297,5 +303,31 @@ export struct AnalyticsBoard {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  Legend() {
+    Column({ space: 6 }) {
+      ForEach(this.activeLibs(), (l: Library) => {
+        Row({ space: 8 }) {
+          Row().width(10).height(10).borderRadius(3).backgroundColor(T.tone(l.tone)[0])
+          Text(l.name).fontSize(12).fontColor(T.c('text-secondary')).layoutWeight(1)
+          NumText({ value: `${l.items.length} · ${this.libShare(l)}%`, dim: 12, color: T.c('text-muted') })
+        }
+        .width('100%')
+      }, (l: Library) => l.id)
+    }
+    .layoutWeight(1)
+  }
+
+  @Builder
+  SummaryStats() {
+    Column({ space: 12 }) {
+      this.MiniStat('sparkles', 'orange', '还能做', `${store.stats.mealsLeft} 顿饭 · 约 ${store.stats.daysLeft} 天`)
+      this.MiniStat('wallet', 'teal', '本月花费', `¥${store.stats.spent} · 预算 ¥${store.stats.budget}`)
+      this.MiniStat('package', 'lime', '浪费', `${store.stats.wasted} 件`)
+      this.MiniStat('thermometer', 'amber', '库存健康度', `${this.healthPct()}%`)
+    }
+    .layoutWeight(1)
   }
 }

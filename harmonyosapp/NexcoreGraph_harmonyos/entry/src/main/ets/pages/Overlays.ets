@@ -14,6 +14,7 @@ import {
 } from '../common/Api';
 import { AiPanel } from './AiPanel';
 import { GraphPanel } from './GraphPanel';
+import { AnalyticsBoard } from './AnalyticsBoard';
 import { recognizeImage, gatewayUsage, UsageSummary, UsageRow } from '../common/AiGateway';
 import { tryUploadSync, forceUploadSync, downloadSync, SyncConflict } from '../common/SyncApi';
 import { saveProfile, saveFormSnapshot, saveThemePrefs } from '../common/LocalStore';
@@ -58,9 +59,11 @@ export struct SheetContent {
             GroupChatPanel()
           } else if (store.overlay === 'settings') {
             SettingsView()
-          } else if (store.overlay === 'graph') {
-            GraphPanel()
-          } else if (store.aiOpen) {
+            } else if (store.overlay === 'graph') {
+              GraphPanel()
+            } else if (store.overlay === 'analytics') {
+              AnalyticsBoard()
+            } else if (store.aiOpen) {
             AiPanel()
           }
         }

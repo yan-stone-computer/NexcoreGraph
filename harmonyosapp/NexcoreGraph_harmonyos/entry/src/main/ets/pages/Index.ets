@@ -60,6 +60,7 @@ struct Index {
       return SheetSize.LARGE;
     }
     switch (store.overlay) {
+      case 'analytics':
       case 'newlib':
       case 'editlib':
       case 'itemadd':

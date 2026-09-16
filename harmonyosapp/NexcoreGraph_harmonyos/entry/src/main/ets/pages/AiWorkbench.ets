@@ -190,8 +190,22 @@ export struct AiWorkbench {
   @Builder
   Overview() {
     /* 概览：label-value 细线行，退回背景层 */
-    Text('概览').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
-      .margin({ top: store.isWide ? S4 : S6, bottom: S2 })
+    Row() {
+      Text('概览').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
+      Blank()
+      /* 手机：数据分析看板不铺在首页，改由这个按钮打开（平板是直接铺在下方，不再放入口） */
+      if (!store.isWide) {
+        Text('数据分析 ›')
+          .fontSize(13).fontWeight(600).fontColor(T.c('primary-ink'))
+          .padding({ left: 8, right: 4, top: 4, bottom: 4 })
+          .onClick((): void => {
+            store.overlay = 'analytics';
+          })
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .margin({ top: store.isWide ? S4 : S6, bottom: S2 })
     this.InfoRow('库存知识图谱', this.graphSize)
     this.InfoRow('避免重复购买', `${this.vm.blockedRepurchase} 次`)
     this.InfoRow('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '暂无记录')
