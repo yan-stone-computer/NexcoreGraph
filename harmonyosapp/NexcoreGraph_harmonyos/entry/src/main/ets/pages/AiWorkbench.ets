@@ -134,19 +134,19 @@ export struct AiWorkbench {
   Facts() {
     /* 平板：2×2 收窄成一小块，避免整行拉得又扁又长；手机：一行四格细线行 */
     if (store.isWide) {
-      GridRow({ columns: 12, gutter: { x: 8, y: 8 } }) {
-        GridCol({ span: 6 }) {
+      /* 用两行 Row 而不是 GridRow：GridRow 在这层只量出第一行高度，
+         第二行与后面的「概览」会被压没（实测左列只剩 2 个数字）。 */
+      Column({ space: S3 }) {
+        Row() {
           this.Fact(`${this.expiringItems().length}`, '临期')
-        }
-        GridCol({ span: 6 }) {
           this.Fact(`${this.itemCount()}`, '在库')
         }
-        GridCol({ span: 6 }) {
+        .width('100%')
+        Row() {
           this.Fact(`${this.pendingPlans().length}`, '待执行')
-        }
-        GridCol({ span: 6 }) {
           this.Fact(this.vm.expiringRate <= 0 ? '—' : `${this.vm.expiringRate}%`, '临期消耗率')
         }
+        .width('100%')
       }
       .width('100%')
       .margin({ top: S4 })
