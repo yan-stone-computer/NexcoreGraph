@@ -26,6 +26,30 @@ const { buildGraph } = require('./graphBuild');
 const { GraphService } = require('./graphService');
 const { buildEvidence, matchEntity } = require('./graphQuery');
 
+/**
+ * 可选：读取同目录 gitignore 的 backend/.env（AGNES_API_KEY=sk-xxx 等），
+ * 便于本地开发不必每次手写环境变量。已存在的环境变量优先，文件不会被提交。
+ */
+function loadDotEnv() {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const p = path.join(__dirname, '.env');
+    if (!fs.existsSync(p)) {
+      return;
+    }
+    fs.readFileSync(p, 'utf8').split(/\r?\n/).forEach((line) => {
+      const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m && !process.env[m[1]]) {
+        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+      }
+    });
+  } catch (_e) {
+    /* 读不到就当没配 */
+  }
+}
+loadDotEnv();
+
 const PORT = process.env.PORT || 3000;
 const DB = {
   host: process.env.DB_HOST || '127.0.0.1',
@@ -41,8 +65,12 @@ const AI = {
   baseUrl: process.env.AGNES_BASE_URL || 'https://api.agnes-ai.cn/v1',
   apiKey: process.env.AGNES_API_KEY || '',
   model: process.env.AGNES_MODEL || 'agnes-2.0-flash',
-  modelAlt: process.env.AGNES_MODEL_ALT || 'agnes-1.5-flash',
-  timeoutMs: Number(process.env.AI_TIMEOUT_MS || 15000),
+  // 备用模型必须是账号可用清单里的（GET /v1/models）；旧默认 agnes-1.5-flash 已下架，
+  // 导致主模型失败后降级必然再失败，端侧只能回退演示数据（看着像"识别是假的"）
+  modelAlt: process.env.AGNES_MODEL_ALT || 'agnes-3.0-flash',
+  // 视觉识别（带图片）在免费上游通常要 15-25s，15s 会把正常请求误判成超时；
+  // 文本快答仍由端侧 15s 目标时间约束，这里给足余量
+  timeoutMs: Number(process.env.AI_TIMEOUT_MS || 30000),
   rpm: Number(process.env.AI_RPM || 20),
   ttsEndpoint: process.env.TTS_ENDPOINT || '',
   ttsKey: process.env.TTS_API_KEY || ''
@@ -457,8 +485,8 @@ function buildChatSystemPrompt(intent, evidence, graphEvidence) {
   return sys;
 }
 
-/** 调用 Agnes（OpenAI 兼容）；主模型失败自动降级备用模型，单请求最多 2 次调用 */
-async function callAgnes(messages, maxTokens, model) {
+/** 单次上游调用（失败抛错，由上层决定重试/降级） */
+async function callAgnesOnce(messages, maxTokens, model) {
   const res = await fetch(AI.baseUrl + '/chat/completions', {
     method: 'POST',
     headers: {
@@ -474,7 +502,9 @@ async function callAgnes(messages, maxTokens, model) {
     signal: AbortSignal.timeout(AI.timeoutMs)
   });
   if (!res.ok) {
-    throw new Error('上游返回 ' + res.status);
+    const err = new Error('上游返回 ' + res.status);
+    err.status = res.status;
+    throw err;
   }
   const data = await res.json();
   const text = data && data.choices && data.choices[0] && data.choices[0].message
@@ -486,13 +516,36 @@ async function callAgnes(messages, maxTokens, model) {
   return { text, tokens, model };
 }
 
-async function agnesChat(messages, maxTokens) {
-  try {
-    return await callAgnes(messages, maxTokens, AI.model);
-  } catch (e) {
-    console.warn('[ai-gateway] 主模型失败，降级备用模型:', e.message);
-    return await callAgnes(messages, maxTokens, AI.modelAlt);
+/**
+ * 调用 Agnes（OpenAI 兼容）：同一模型内对 429/5xx 退避重试 3 次，再降级备用模型重试 3 次。
+ * 免费上游偶发 429/503（限流/排队）很常见，不重试会直接失败到端侧（端侧只能回退演示数据，
+ * 看起来就像"识别是假的"）。
+ */
+async function callAgnes(messages, maxTokens, model) {
+  const attempts = [model, AI.modelAlt];
+  let lastErr = null;
+  for (let m = 0; m < attempts.length; m++) {
+    for (let i = 0; i < 3; i++) {
+      try {
+        return await callAgnesOnce(messages, maxTokens, attempts[m]);
+      } catch (e) {
+        lastErr = e;
+        const retryable = e.status === 429 || (e.status >= 500 && e.status < 600) ||
+          String(e.message).indexOf('timeout') >= 0 || String(e.message).indexOf('aborted') >= 0;
+        if (!retryable || i === 2) {
+          break;
+        }
+        const waitMs = 800 * Math.pow(2, i);   // 0.8s / 1.6s
+        console.warn('[ai-gateway] ' + attempts[m] + ' ' + e.message + '，' + waitMs + 'ms 后重试');
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    }
   }
+  throw lastErr || new Error('上游调用失败');
+}
+
+async function agnesChat(messages, maxTokens) {
+  return await callAgnes(messages, maxTokens, AI.model);
 }
 
 /** 网关未配置 Key 时返回 503，端侧据此回退到本地快答 / 演示回复 */

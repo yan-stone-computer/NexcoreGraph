@@ -21,7 +21,8 @@ const DOMAIN: number = 0x0000;
 const TAG: string = 'NexcoreGraph';
 
 const CONNECT_MS: number = 5000;
-const READ_MS: number = 30000;      // 网关侧超时 15s，端侧留出余量
+const READ_MS: number = 30000;      // 文本快答：网关侧超时 30s，端侧留出余量
+const READ_VISION_MS: number = 90000;   // 视觉识别：带图片的上游调用常有 15-25s + 重试，单独放宽
 const REPORT_EVERY: number = 5;     // 快答每累计 5 条上报一次用量（M-10）
 
 let fastSinceReport: number = 0;
@@ -280,7 +281,7 @@ export function recognizeImage(base64Jpeg: string): Promise<IntakeResult[]> {
     'imageBase64': base64Jpeg
   };
   const start = Date.now();
-  return callJson('/api/ai/vision', http.RequestMethod.POST, JSON.stringify(body), CONNECT_MS, READ_MS)
+  return callJson('/api/ai/vision', http.RequestMethod.POST, JSON.stringify(body), CONNECT_MS, READ_VISION_MS)
     .then((text: string): IntakeResult[] => {
       const res = JSON.parse(text) as GatewayVision;
       recordUsage('vision', res.model === undefined || res.model === '' ? 'gateway' : res.model,

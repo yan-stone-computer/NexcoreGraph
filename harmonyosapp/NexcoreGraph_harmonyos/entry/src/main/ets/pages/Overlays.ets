@@ -26,6 +26,7 @@ import { rebuildGraph } from '../common/GraphBuild';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { GraphBuildStat } from '../common/GraphModel';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { cameraPicker, camera } from '@kit.CameraKit';
 import { image } from '@kit.ImageKit';
 import { util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
@@ -1049,13 +1050,17 @@ struct IntakePanel {
           Text('AI 自动识别物品、数量、保质期与价格，缺失字段你只补缺')
             .fontSize(13).fontColor(T.c('text-muted')).textAlign(TextAlign.Center)
 
-          Row({ space: 12 }) {
-            TBtn({ label: '模拟拍摄', icon: 'camera', kind: 'primary', tap: (): void => this.shoot() })
-            TBtn({ label: '从相册选择', icon: 'upload', kind: 'ghost', tap: (): void => this.pickPhoto() })
-          }
+            Row({ space: 12 }) {
+              TBtn({ label: '拍照', icon: 'camera', kind: 'primary', tap: (): void => this.shoot() })
+              TBtn({ label: '从相册选择', icon: 'upload', kind: 'ghost', tap: (): void => this.pickPhoto() })
+            }
 
-          Text('一次可多选最多 6 张，连拍自动合并去重累加')
-            .fontSize(12).fontColor(T.c('text-muted'))
+            Text('用内置演示图识别（相机不可用时）')
+              .fontSize(12).fontWeight(600).fontColor(T.c('primary-ink'))
+              .onClick((): void => this.shootDemoImage())
+
+            Text('相册一次可多选最多 6 张，连拍自动合并去重累加')
+              .fontSize(12).fontColor(T.c('text-muted'))
         }
         .width('100%')
         .alignItems(HorizontalAlign.Center)
@@ -1141,8 +1146,28 @@ struct IntakePanel {
     .alignItems(HorizontalAlign.Start)
   }
 
+  /** 真实拍照：调系统相机（CameraPicker，自带拍照权限流程），拍完直接压缩上传给后端做 Agnes 识图 */
   private shoot(): void {
-    // 模拟拍摄：对内置演示冰箱图跑真实 Agnes 视觉识别
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const profile: cameraPicker.PickerProfile = {
+      cameraPosition: camera.CameraPosition.CAMERA_POSITION_BACK
+    };
+    cameraPicker.pick(ctx, [cameraPicker.PickerMediaType.PHOTO], profile)
+      .then((result: cameraPicker.PickerResult): void => {
+        if (result.resultCode !== 0 || result.resultUri === undefined || result.resultUri === '') {
+          return;   // 用户取消拍摄
+        }
+        this.compressAndRecognize(result.resultUri);
+      })
+      .catch((e: Error): void => {
+        // 模拟器/无相机设备：回退到内置演示图，保证演示不空转
+        store.toast('相机不可用（' + e.message + '），改用内置演示图');
+        this.shootDemoImage();
+      });
+  }
+
+  /** 内置演示图：走的是同一条真实链路（压缩 → 上传 → Agnes 识图） */
+  private shootDemoImage(): void {
     this.batchMode = false;
     this.mergedDone = false;
     store.intakeStep = 1;

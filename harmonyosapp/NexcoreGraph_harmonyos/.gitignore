@@ -13,3 +13,5 @@
 # 流转中转服务的运行时快照（每次演示都会变，不入库）
 backend/flow-bridge.json
 backend/flow-bridge.json.rev
+# 本地开发用的环境变量文件（含 AI Key，绝不入库）
+backend/.env
