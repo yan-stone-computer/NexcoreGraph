@@ -1148,22 +1148,36 @@ struct IntakePanel {
 
   /** 真实拍照：调系统相机（CameraPicker，自带拍照权限流程），拍完直接压缩上传给后端做 Agnes 识图 */
   private shoot(): void {
-    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    const profile: cameraPicker.PickerProfile = {
-      cameraPosition: camera.CameraPosition.CAMERA_POSITION_BACK
-    };
-    cameraPicker.pick(ctx, [cameraPicker.PickerMediaType.PHOTO], profile)
-      .then((result: cameraPicker.PickerResult): void => {
-        if (result.resultCode !== 0 || result.resultUri === undefined || result.resultUri === '') {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const profile: cameraPicker.PickerProfile = {
+        cameraPosition: camera.CameraPosition.CAMERA_POSITION_BACK
+      };
+      // 注意：部分设备/模拟器上 pick 会直接返回 undefined（而不是 reject），
+      // 直接 .then 会 TypeError 闪退——必须先判空再挂回调。
+      const pending: Promise<cameraPicker.PickerResult> | undefined =
+        cameraPicker.pick(ctx, [cameraPicker.PickerMediaType.PHOTO], profile);
+      if (pending === undefined || pending === null) {
+        store.toast('当前设备相机不可用，改用内置演示图识别');
+        this.shootDemoImage();
+        return;
+      }
+      pending.then((result: cameraPicker.PickerResult): void => {
+        if (result === undefined || result.resultCode !== 0 ||
+          result.resultUri === undefined || result.resultUri === '') {
           return;   // 用户取消拍摄
         }
         this.compressAndRecognize(result.resultUri);
-      })
-      .catch((e: Error): void => {
+      }).catch((e: Error): void => {
         // 模拟器/无相机设备：回退到内置演示图，保证演示不空转
-        store.toast('相机不可用（' + e.message + '），改用内置演示图');
+        store.toast('相机不可用（' + (e !== undefined && e.message !== undefined ? e.message : '未知原因') +
+          '），改用内置演示图');
         this.shootDemoImage();
       });
+    } catch (_e) {
+      store.toast('相机调用失败，改用内置演示图识别');
+      this.shootDemoImage();
+    }
   }
 
   /** 内置演示图：走的是同一条真实链路（压缩 → 上传 → Agnes 识图） */
@@ -1280,13 +1294,16 @@ struct IntakePanel {
   private recognizeBase64(b64: string): void {
     store.intakeStep = 1;
     store.intakeLoading = true;
-    recognizeImage(b64).then((items: IntakeResult[]): void => {
-      store.intake = items;
-      store.intakeLoading = false;
-      store.toast(`Agnes 已识别 ${items.length} 项，请补缺确认`);
-    }).catch((_e: Error): void => {
-      this.recognizeFallback();
-    });
+      recognizeImage(b64).then((items: IntakeResult[]): void => {
+        store.intake = items;
+        store.intakeLoading = false;
+        store.toast(`Agnes 已识别 ${items.length} 项，请补缺确认`);
+      }).catch((e: Error): void => {
+        // 不再静默回退：把网关失败原因说出来，避免"看着像没接 AI"
+        store.toast('AI 识图失败（' +
+          (e !== undefined && e.message !== undefined ? e.message : '未知原因') + '），先用演示数据占位');
+        this.recognizeFallback();
+      });
   }
 
   private recognizeFallback(): void {

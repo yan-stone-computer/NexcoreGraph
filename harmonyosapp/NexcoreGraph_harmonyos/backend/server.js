@@ -884,6 +884,10 @@ initDb().then(() => {
 }).finally(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log('[nexcoregraph-backend] listening on http://0.0.0.0:' + PORT);
-    console.log('[nexcoregraph-backend] AI 网关: ' + (AI.apiKey ? '已配置 Key' : '未配置 AGNES_API_KEY（仅本地快答可用）'));
+        // 打 Key 前缀便于排查"用的哪把 Key"（曾出现：系统里残留失效旧 Key → 一直 401 → 端侧静默回退演示数据）
+        const keyTag = AI.apiKey
+          ? ('已配置 Key (' + AI.apiKey.slice(0, 7) + '****' + AI.apiKey.slice(-4) + ')')
+          : '未配置 AGNES_API_KEY（仅本地快答可用）';
+        console.log('[nexcoregraph-backend] AI 网关: ' + keyTag + ' | model=' + AI.model + ' alt=' + AI.modelAlt);
   });
 });

@@ -9,22 +9,27 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-if (-not $env:AGNES_API_KEY) {
-  $patterns = @(
-    "$env:USERPROFILE\.codex\plugins\cache\personal\text-model-multimodal-skill\*\skills\*\scripts\.env",
-    "$env:USERPROFILE\.codex\skills\*\scripts\.env"
-  )
-  $candidates = @()
-  foreach ($p in $patterns) {
-    $candidates += @(Get-ChildItem $p -ErrorAction SilentlyContinue)
-  }
-  if ($candidates.Count -gt 0) {
-    $envFile = ($candidates | Sort-Object LastWriteTime -Descending)[0].FullName
-    $line = Get-Content $envFile -Encoding UTF8 | Where-Object { $_ -match '^\s*AGNES_API_KEY\s*=' } | Select-Object -First 1
-    if ($line) {
-      $env:AGNES_API_KEY = ($line -replace '^\s*AGNES_API_KEY\s*=\s*', '').Trim()
-      Write-Host ("[start] AGNES_API_KEY loaded from " + $envFile + " (" + $env:AGNES_API_KEY.Substring(0, 6) + "****)")
+# The skill .env is the canonical key store (updated by `set-key`). We always read it
+# and override any inherited env var: a stale user-level AGNES_API_KEY once caused every
+# vision call to 401 while the app silently fell back to demo data.
+$patterns = @(
+  "$env:USERPROFILE\.codex\plugins\cache\personal\text-model-multimodal-skill\*\skills\*\scripts\.env",
+  "$env:USERPROFILE\.codex\skills\*\scripts\.env"
+)
+$candidates = @()
+foreach ($p in $patterns) {
+  $candidates += @(Get-ChildItem $p -ErrorAction SilentlyContinue)
+}
+if ($candidates.Count -gt 0) {
+  $envFile = ($candidates | Sort-Object LastWriteTime -Descending)[0].FullName
+  $line = Get-Content $envFile -Encoding UTF8 | Where-Object { $_ -match '^\s*AGNES_API_KEY\s*=' } | Select-Object -First 1
+  if ($line) {
+    $fromFile = ($line -replace '^\s*AGNES_API_KEY\s*=\s*', '').Trim()
+    if ($env:AGNES_API_KEY -and $env:AGNES_API_KEY -ne $fromFile) {
+      Write-Host '[start] overriding inherited AGNES_API_KEY with the one from the skill .env'
     }
+    $env:AGNES_API_KEY = $fromFile
+    Write-Host ("[start] AGNES_API_KEY loaded from " + $envFile + " (" + $env:AGNES_API_KEY.Substring(0, 6) + "****)")
   }
 }
 
