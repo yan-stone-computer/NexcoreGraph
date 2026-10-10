@@ -73,7 +73,16 @@ const AI = {
   timeoutMs: Number(process.env.AI_TIMEOUT_MS || 30000),
   rpm: Number(process.env.AI_RPM || 20),
   ttsEndpoint: process.env.TTS_ENDPOINT || '',
-  ttsKey: process.env.TTS_API_KEY || ''
+  ttsKey: process.env.TTS_API_KEY || '',
+  // 视觉识别模型链：实测 agnes-2.0-flash 连续调用第二次起就持续 429（免费额度按模型限流），
+  // 而 agnes-2.5-flash 连测 3 次全部 200 且只要 0.6–2.8s；agnes-2.5-pro 在本 Key 上是 403
+  // （无权限），不能放进链里。顺序 = 先快且稳的，再兜底。
+  visionModels: String(process.env.AGNES_VISION_MODELS ||
+    'agnes-2.5-flash,agnes-3.0-flash,agnes-2.0-flash')
+    .split(',').map((s) => s.trim()).filter((s) => s !== ''),
+  // 端到端硬预算：超预算立刻返回"识别超时"，不让端侧一直转圈（旧逻辑最坏可跑到 3 分钟）
+  visionBudgetMs: Number(process.env.AI_VISION_BUDGET_MS || 25000),
+  visionMaxTokens: Number(process.env.AI_VISION_MAX_TOKENS || 900)
 };
 
 const pool = mysql.createPool(Object.assign({ connectionLimit: 8 }, DB));
@@ -485,8 +494,8 @@ function buildChatSystemPrompt(intent, evidence, graphEvidence) {
   return sys;
 }
 
-/** 单次上游调用（失败抛错，由上层决定重试/降级） */
-async function callAgnesOnce(messages, maxTokens, model) {
+/** 单次上游调用（失败抛错，由上层决定重试/降级）；timeoutMs 缺省用全局 AI.timeoutMs */
+async function callAgnesOnce(messages, maxTokens, model, timeoutMs) {
   const res = await fetch(AI.baseUrl + '/chat/completions', {
     method: 'POST',
     headers: {
@@ -499,7 +508,7 @@ async function callAgnesOnce(messages, maxTokens, model) {
       max_tokens: maxTokens,
       temperature: 0.6
     }),
-    signal: AbortSignal.timeout(AI.timeoutMs)
+    signal: AbortSignal.timeout(Number(timeoutMs) > 0 ? Number(timeoutMs) : AI.timeoutMs)
   });
   if (!res.ok) {
     const err = new Error('上游返回 ' + res.status);
@@ -532,7 +541,8 @@ async function callAgnes(messages, maxTokens, model) {
         lastErr = e;
         const retryable = e.status === 429 || (e.status >= 500 && e.status < 600) ||
           String(e.message).indexOf('timeout') >= 0 || String(e.message).indexOf('aborted') >= 0;
-        if (!retryable || i === 2) {
+        // 429/403 是"这个模型现在不能用"，同模型重试只是白等（免费额度按模型限流）→ 直接换下一个模型
+        if (!retryable || i === 2 || e.status === 429 || e.status === 403) {
           break;
         }
         const waitMs = 800 * Math.pow(2, i);   // 0.8s / 1.6s
@@ -546,6 +556,136 @@ async function callAgnes(messages, maxTokens, model) {
 
 async function agnesChat(messages, maxTokens) {
   return await callAgnes(messages, maxTokens, AI.model);
+}
+
+/**
+ * 视觉识别专用调用链（与文本快答分开）。
+ *
+ * 为什么不能复用 callAgnes：实测 agnes-2.0-flash 连续发第二次就 429（免费额度按模型限流），
+ * 旧逻辑会对同一个已经被限流的模型退避 0.8s + 1.6s 再重试两次，每次都把整张图重传一遍，
+ * 用户看到的就是"发一张不相干的图，AI 识别特别久"。现在的策略：
+ *   - 429 / 403（限流、无权限）：立刻换下一个模型，不睡、不重传；
+ *   - 5xx / 超时：同模型只退避 400ms 再给一次机会，然后换下一个模型；
+ *   - 全程受 AI.visionBudgetMs 硬预算约束，超预算直接抛 deadline 错误，端侧立刻给出"识别超时"。
+ * 每次尝试的耗时都会进 trail，便于复盘到底卡在哪个模型（返回体里也带一份）。
+ */
+async function callAgnesVision(messages, maxTokens) {
+  const deadline = Date.now() + AI.visionBudgetMs;
+  const trail = [];
+  let lastErr = null;
+  for (let m = 0; m < AI.visionModels.length; m++) {
+    const model = AI.visionModels[m];
+    for (let i = 0; i < 2; i++) {
+      const left = deadline - Date.now();
+      if (left < 1500) {
+        const e = new Error('上游排队/限流，' + AI.visionBudgetMs + 'ms 预算内没等到结果');
+        e.deadline = true;
+        e.trail = trail;
+        e.lastErr = lastErr;
+        throw e;
+      }
+      const t = Date.now();
+      try {
+        const out = await callAgnesOnce(messages, maxTokens, model, Math.min(AI.timeoutMs, left));
+        trail.push(model + ':' + (Date.now() - t) + 'ms:ok');
+        console.log('[ai-gateway] vision ' + trail.join(' → '));
+        return Object.assign({}, out, { trail });
+      } catch (e) {
+        lastErr = e;
+        const status = Number(e.status || 0);
+        const isTimeout = String(e.message).indexOf('timeout') >= 0 ||
+          String(e.message).indexOf('aborted') >= 0;
+        trail.push(model + ':' + (Date.now() - t) + 'ms:' + (status > 0 ? status : (isTimeout ? 'timeout' : 'err')));
+        // 429/403：模型级不可用，换模型；其他非重试错误也直接换模型
+        if (status === 429 || status === 403 || status === 401 || status === 404) {
+          break;
+        }
+        if (i === 0 && (isTimeout || (status >= 500 && status < 600))) {
+          await new Promise((r) => setTimeout(r, 400));
+          continue;
+        }
+        break;
+      }
+    }
+  }
+  console.warn('[ai-gateway] vision 全部失败: ' + trail.join(' → '));
+  const err = lastErr || new Error('上游调用失败');
+  err.trail = trail;
+  throw err;
+}
+
+/** 上游有时会套 ```json 代码块、"items" 包裹或直接返回单对象，这里统一抽出 JSON */
+function extractVisionJson(text) {
+  const t = String(text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  const s = t.indexOf('[');
+  const e = t.lastIndexOf(']');
+  if (s >= 0 && e > s) {
+    try {
+      return JSON.parse(t.substring(s, e + 1));
+    } catch (_e) { /* 退到对象解析 */ }
+  }
+  const so = t.indexOf('{');
+  const eo = t.lastIndexOf('}');
+  if (so >= 0 && eo > so) {
+    try {
+      return JSON.parse(t.substring(so, eo + 1));
+    } catch (_e) { /* 交给调用方报格式异常 */ }
+  }
+  return null;
+}
+
+/**
+ * 归一化上游结果：模型偶尔返回裸字符串数组（["鸡蛋","牛奶"]）或换字段名（label/item/title），
+ * 旧代码只认 name，于是"明明识别到了东西"却变成 0 项，端侧再回退演示数据 —— 看着像假的。
+ */
+function normalizeVisionItems(raw) {
+  let list = raw;
+  if (list && !Array.isArray(list)) {
+    if (Array.isArray(list.items)) {
+      list = list.items;
+    } else if (Array.isArray(list.data)) {
+      list = list.data;
+    } else {
+      list = [list];
+    }
+  }
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  const num = (v, d) => {
+    const n = Number(v);
+    return isFinite(n) && n > 0 ? n : d;
+  };
+  const out = [];
+  list.forEach((it) => {
+    if (it === null || it === undefined) {
+      return;
+    }
+    if (typeof it === 'string') {
+      const name = it.trim();
+      if (name !== '') {
+        out.push({ name, category: '', qty: 1, unit: '个', pos: '', expDays: 7, price: 0, partial: true });
+      }
+      return;
+    }
+    if (typeof it !== 'object') {
+      return;
+    }
+    const name = String(it.name || it.label || it.item || it.title || '').trim();
+    if (name === '') {
+      return;
+    }
+    out.push({
+      name,
+      category: String(it.category || it.type || ''),
+      qty: num(it.qty || it.quantity || it.count, 1),
+      unit: String(it.unit || '个'),
+      pos: String(it.pos || it.position || it.location || ''),
+      expDays: num(it.expDays || it.shelfLifeDays || it.expireDays, 7),
+      price: num(it.price, 0)
+    });
+  });
+  return out.slice(0, 60);
 }
 
 /** 网关未配置 Key 时返回 503，端侧据此回退到本地快答 / 演示回复 */
@@ -618,6 +758,21 @@ app.post('/api/ai/chat', async (req, res) => {
   }
 });
 
+/**
+ * 视觉识别的系统提示。重点是让"不相干的图"快速返回空数组：
+ * 旧提示词写的是"识别图中所有可见物品"，于是拍一张桌上电脑的照片，模型会认真列一堆
+ * 屏幕/鼠标/文字并生成近千 token，既慢又会被当成库存物品。
+ */
+const VISION_RULES = '你是「启核图策」家庭库存识别引擎。只输出一个 JSON 数组，' +
+  '不要输出任何解释、前后缀文字或 ``` 代码块标记。\n' +
+  '数组元素格式：{"name":"鸡蛋","category":"蛋类","qty":8,"unit":"个","pos":"冷藏区","expDays":30,"price":15.9}\n' +
+  '规则：\n' +
+  '1. 只收录"家里会入库的物品"：食物、饮品、日用品、清洁用品、药品、工具、家居耗材；\n' +
+  '2. 不要收录场景元素：屏幕、窗户、家具、人物、宠物、文字、图标、图表、logo、天空、建筑等；\n' +
+  '3. 如果图中没有第 1 类物品（比如截图、风景、人像、文档、商品海报），直接返回 []，不要解释；\n' +
+  '4. qty 必须是数字；单位用中文（个/瓶/袋/盒/把/斤）；识别不到价格填 0，识别不到保质期填 7；\n' +
+  '5. 不要输出 bbox、confidence、坐标等额外字段。';
+
 /* 视觉识别：端侧压缩后的 base64 JPEG → 结构化物品数组（F1.1/F1.5） */
 app.post('/api/ai/vision', async (req, res) => {
   const { familyId, user, imageBase64, hints } = req.body || {};
@@ -630,31 +785,41 @@ app.post('/api/ai/vision', async (req, res) => {
   if (rateLimited(familyId)) {
     return res.status(429).json({ ok: false, error: 'AI 调用过于频繁，请稍后再试' });
   }
-  const prompt = '识别图中所有可见物品并估算信息。只输出一个 JSON 数组，不要输出任何其他文字、解释或代码块标记。' +
-    '格式：[{"name":"鸡蛋","category":"蛋类","qty":8,"unit":"个","pos":"冷藏区","expDays":30,"price":15.9}]。' +
-    'qty 为数字；识别不了的物品跳过；价格识别不了填 0。' +
-    (hints ? '已知线索：' + String(hints).slice(0, 200) : '');
+  const prompt = VISION_RULES + (hints ? '\n已知线索：' + String(hints).slice(0, 200) : '');
   const messages = [
-    { role: 'system', content: '你是家庭物品识别引擎，只输出 JSON 数组。' },
+    { role: 'system', content: '你是家庭物品识别引擎，只输出 JSON 数组，没有家庭物品时输出 []。' },
     { role: 'user', content: [{ type: 'text', text: prompt },
       { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + String(imageBase64) } }] }
   ];
   const t0 = Date.now();
   try {
-    const out = await agnesChat(messages, 1500);
-    let jsonText = out.text.trim();
-    const s = jsonText.indexOf('[');
-    const e = jsonText.lastIndexOf(']');
-    if (s >= 0 && e > s) {
-      jsonText = jsonText.substring(s, e + 1);
-    }
-    const items = JSON.parse(jsonText);
+    const out = await callAgnesVision(messages, AI.visionMaxTokens);
+    const raw = extractVisionJson(out.text);
     const ms = Date.now() - t0;
+    if (raw === null) {
+      await logAiUsage({ familyId, user, route: 'vision', model: out.model + '·格式异常', ms, tokens: out.tokens });
+      return res.status(502).json({
+        ok: false, error: '模型返回格式异常，请换一张图或重拍', ms, model: out.model, trail: out.trail
+      });
+    }
+    const items = normalizeVisionItems(raw);
     await logAiUsage({ familyId, user, route: 'vision', model: out.model, ms, tokens: out.tokens });
-    res.json({ ok: true, items, model: out.model, ms, tokens: out.tokens });
+    console.log('[ai-vision] items=' + items.length + ' ms=' + ms + ' model=' + out.model +
+      ' trail=' + out.trail.join(' → '));
+    res.json({
+      ok: true, items, model: out.model, ms, tokens: out.tokens,
+      trail: out.trail, noHouseholdItems: items.length === 0
+    });
   } catch (e) {
-    await logAiUsage({ familyId, user, route: 'vision', model: 'failed', ms: Date.now() - t0, tokens: 0 });
-    res.status(502).json({ ok: false, error: '识别失败：' + e.message });
+    const ms = Date.now() - t0;
+    await logAiUsage({ familyId, user, route: 'vision', model: e.deadline ? 'timeout' : 'failed', ms, tokens: 0 });
+    console.log('[ai-vision] failed ms=' + ms + ' deadline=' + (e.deadline === true) +
+      ' trail=' + (Array.isArray(e.trail) ? e.trail.join(' → ') : '-'));
+    res.status(e.deadline === true ? 504 : 502).json({
+      ok: false, ms,
+      error: (e.deadline === true ? '识别超时（上游限流），请重拍或稍后再试：' : '识别失败：') + e.message,
+      trail: Array.isArray(e.trail) ? e.trail : []
+    });
   }
 });
 
@@ -888,6 +1053,7 @@ initDb().then(() => {
         const keyTag = AI.apiKey
           ? ('已配置 Key (' + AI.apiKey.slice(0, 7) + '****' + AI.apiKey.slice(-4) + ')')
           : '未配置 AGNES_API_KEY（仅本地快答可用）';
-        console.log('[nexcoregraph-backend] AI 网关: ' + keyTag + ' | model=' + AI.model + ' alt=' + AI.modelAlt);
+        console.log('[nexcoregraph-backend] AI 网关: ' + keyTag + ' | model=' + AI.model + ' alt=' + AI.modelAlt +
+          ' | vision=' + AI.visionModels.join('>') + ' budget=' + AI.visionBudgetMs + 'ms maxTok=' + AI.visionMaxTokens);
   });
 });

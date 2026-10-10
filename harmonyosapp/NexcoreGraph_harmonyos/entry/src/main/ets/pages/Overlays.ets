@@ -30,6 +30,104 @@ import { cameraPicker, camera } from '@kit.CameraKit';
 import { image } from '@kit.ImageKit';
 import { util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
+import { fileIo } from '@kit.CoreFileKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+const INTAKE_DOMAIN: number = 0x0000;
+const INTAKE_TAG: string = 'NexcoreGraph';
+/** 端侧图形流水线（读文件 → 解码 → 缩放 → 压 JPEG → base64）的硬上限 */
+const DECODE_BUDGET_MS: number = 12000;
+const INTAKE_MAX_EDGE: number = 1024;
+const INTAKE_JPEG_QUALITY: number = 80;
+
+/** 给任意 Promise 套一个硬超时：没有它，图形/网络任一步不回调就会永远停在"识别中" */
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve: (v: T) => void, reject: (e: Error) => void): void => {
+    let settled: boolean = false;
+    const timer: number = setTimeout((): void => {
+      if (!settled) {
+        settled = true;
+        reject(new Error(what + '超过 ' + Math.round(ms / 1000) + 's 未响应'));
+      }
+    }, ms);
+    p.then((v: T): void => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(v);
+      }
+    }).catch((e: Error): void => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+  });
+}
+
+/**
+ * 把相册/相机给出的 uri 压成 ≤1024px 的 JPEG base64。
+ *
+ * 修复的真问题：相册返回的是 file://media/... 的**授权 URI**，之前直接
+ * image.createImageSource(uri) 在这个版本上既不回调成功也不报错（既不 resolve 也不 reject），
+ * 于是界面永远停在"AI 识别中 · 已 0s"，网关侧连一个请求都收不到 —— 用户感受到的就是
+ * "发了张图，AI 识别特别久/永远不出来"。正确做法是先用 fileIo 以 fd 打开再解码。
+ * 每一步都有 hilog 埋点，便于下次直接看是哪一步慢。
+ */
+function uriToJpegBase64(uri: string): Promise<string> {
+  const t0: number = Date.now();
+  const mark = (stage: string): void => {
+    hilog.info(INTAKE_DOMAIN, INTAKE_TAG, '[intake] %{public}s +%{public}dms', stage, Date.now() - t0);
+  };
+  let fd: number = -1;
+  let src: image.ImageSource | undefined = undefined;
+  try {
+    // fd 方式读授权 URI（相册/相机都适用）
+    const file: fileIo.File = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
+    fd = file.fd;
+    src = image.createImageSource(fd);
+    mark('open fd=' + fd);
+  } catch (e) {
+    mark('打开失败 ' + (e as Error).message);
+    if (fd >= 0) {
+      fileIo.closeSync(fd);
+    }
+    return Promise.reject(new Error('打不开图片：' + (e as Error).message));
+  }
+  const source: image.ImageSource = src as image.ImageSource;
+  // 注意：元服务（atomicService）下 ImageSource/PixelMap 的 release() 属于不支持的接口（编译期报
+  // 11706010），所以这里只关 fd，解码对象交给 GC。
+  const release = (): void => {
+    if (fd >= 0) {
+      fileIo.closeSync(fd);
+    }
+  };
+  return source.getImageInfo().then((info: image.ImageInfo): Promise<image.PixelMap> => {
+    mark('getImageInfo ' + info.size.width + 'x' + info.size.height);
+    const long: number = Math.max(info.size.width, info.size.height);
+    const scale: number = Math.min(1, INTAKE_MAX_EDGE / long);
+    const pmOpts: image.DecodingOptions = {
+      desiredSize: { width: Math.round(info.size.width * scale), height: Math.round(info.size.height * scale) }
+    };
+    return source.createPixelMap(pmOpts);
+  }).then((pixel: image.PixelMap): Promise<ArrayBuffer> => {
+    mark('createPixelMap');
+    return image.createImagePacker().packToData(pixel, {
+      format: 'image/jpeg', quality: INTAKE_JPEG_QUALITY
+    });
+  }).then((buf: ArrayBuffer): string => {
+    mark('packToData ' + Math.round(buf.byteLength / 1024) + 'KB');
+    const b64: string = new util.Base64Helper().encodeToStringSync(new Uint8Array(buf));
+    mark('base64 ' + Math.round(b64.length / 1024) + 'KB');
+    release();
+    return b64;
+  }).catch((e: Error): string => {
+    mark('解码失败 ' + e.message);
+    release();
+    throw new Error('图片解码失败：' + e.message);
+  });
+}
 
 /* ================= 半模态 Sheet 宿主（鸿蒙 bindSheet 内容） ================= */
 
@@ -971,7 +1069,11 @@ struct IntakePanel {
   @Local frameH: number = 320;
   @Local batchMode: boolean = false;      // 连拍合并模式（F1.2）
   @Local mergedDone: boolean = false;     // 合并已完成（展示去重后清单）
+  @Local elapsedSec: number = 0;          // 识别秒表：用户反馈"发不相干的图要等很久又没反馈"
+  @Local intakeEmpty: boolean = false;    // 网关判定"图中没有可入库的家庭物品"（正常结果，不是失败）
+  @Local intakeNote: string = '';         // 空结果 / 失败的一句话说明（含实测耗时）
   private scanTimer: number = -1;
+  private tickTimer: number = -1;
   private intakeStartMs: number = 0;      // M-11 指标③：本次盘点起始时刻（拍摄/选图 → 确认入库）
 
   aboutToAppear(): void {
@@ -985,6 +1087,30 @@ struct IntakePanel {
       clearInterval(this.scanTimer);
       this.scanTimer = -1;
     }
+    this.stopTicker();
+  }
+
+  /** 识别期间每秒 +1，让"还要等多久"可见（读图 12s / 网关 25s 都有硬预算，不会无限转圈） */
+  private startTicker(): void {
+    if (this.tickTimer !== -1) {
+      return;   // 已经在计时就别重置（读图 + 网关是同一次盘点）
+    }
+    this.elapsedSec = 0;
+    this.tickTimer = setInterval((): void => {
+      this.elapsedSec = this.elapsedSec + 1;
+    }, 1000);
+  }
+
+  private stopTicker(): void {
+    if (this.tickTimer !== -1) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = -1;
+    }
+  }
+
+  /** 从 t0 到现在的耗时（秒，保留一位小数），用于把"这次识别花了多久"写进提示 */
+  private msLabel(t0: number): string {
+    return ((Date.now() - t0) / 1000).toFixed(1) + 's';
   }
 
   build() {
@@ -1077,13 +1203,48 @@ struct IntakePanel {
           Column({ space: 12 }) {
             Row({ space: 8 }) {
               Ico({ name: 'scan', dim: 14, color: T.c('primary-ink') })
-              Text(this.batchMode ? '连拍识别中 · 多张合并去重中' : 'AI 识别中…')
+              Text(this.batchMode
+                ? `连拍识别中 · 多张合并去重中 · 已 ${this.elapsedSec}s`
+                : `AI 识别中 · 已 ${this.elapsedSec}s`)
                 .fontSize(13).fontWeight(600).fontColor(T.c('primary-ink'))
             }
             Row().height(14).borderRadius(999).backgroundColor(T.c('surface-overlay')).width('70%')
             Row().height(14).borderRadius(999).backgroundColor(T.c('surface-overlay')).width('40%')
             Row().height(14).borderRadius(999).backgroundColor(T.c('surface-overlay')).width('100%')
             Row().height(14).borderRadius(999).backgroundColor(T.c('surface-overlay')).width('40%')
+            Text(this.elapsedSec >= 6
+              ? '上游在排队限流，网关会自动换模型，最晚 25 秒一定给结果'
+              : '常见 1-3 秒；上游排队时网关会自动切换模型，不会卡住')
+              .fontSize(12).fontColor(T.c('text-muted'))
+          }
+          .width('100%')
+          .padding(24)
+          .borderRadius(R_L)
+          .backgroundColor(T.c('surface-raised'))
+        } else if (this.intakeEmpty) {
+          // 正常空结果（拍的是截图/风景/人像等）：给明确出口，不再塞演示数据糊弄用户
+          Column({ space: 12 }) {
+            Row({ space: 8 }) {
+              Ico({ name: 'scan', dim: 14, color: T.c('primary-ink') })
+              Text('这张图里没有可入库的家庭物品')
+                .fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
+            }
+            Text(this.intakeNote === '' ? '换成冰箱、货架、购物袋这类照片更准。' : this.intakeNote)
+              .fontSize(13).fontColor(T.c('text-secondary'))
+            Row({ space: 12 }) {
+              TBtn({ label: '重新拍照', icon: 'camera', kind: 'primary', tap: (): void => {
+                this.shoot();
+              } })
+              TBtn({ label: '从相册选', icon: 'undo', kind: 'ghost', tap: (): void => {
+                this.pickPhoto();
+              } })
+            }
+            .width('100%')
+
+            // 第三个按钮放不下（视觉模型读屏实测右侧文字被截断），改成一行文字链接
+            Text('用内置演示图填表（相机不可用时）')
+              .fontSize(12).fontWeight(600).fontColor(T.c('primary-ink'))
+              .onClick((): void => this.recognizeFallback())
           }
           .width('100%')
           .padding(24)
@@ -1112,8 +1273,11 @@ struct IntakePanel {
 
               Row({ space: 12 }) {
                 TBtn({ label: '重新识别', icon: 'undo', kind: 'ghost', small: true, tap: (): void => {
+                  this.stopTicker();
                   this.batchMode = false;
                   this.mergedDone = false;
+                  this.intakeEmpty = false;
+                  this.intakeNote = '';
                   resetIntake();
                 } })
                 TBtn({ label: '确认入库', icon: 'check', kind: 'primary', busyKey: 'intake:confirm',
@@ -1216,7 +1380,10 @@ struct IntakePanel {
         store.intake = [];
         this.batchMode = true;
         this.mergedDone = false;
+        this.intakeEmpty = false;
+        this.intakeNote = '';
         this.intakeStartMs = Date.now();
+        this.startTicker();
         const batches: IntakeResult[][] = [];
         this.recognizeBatch(uris, 0, batches);
       }
@@ -1228,9 +1395,15 @@ struct IntakePanel {
   /** 串行识别多张图，全部完成后合并去重累加 */
   private recognizeBatch(uris: string[], idx: number, batches: IntakeResult[][]): void {
     if (idx >= uris.length) {
+      this.stopTicker();
       const merged = mergeIntakeResults(batches);
       if (merged.length === 0) {
-        this.recognizeFallback();
+        // 多张图里一张都没有可入库物品：同上，给明确出口，不塞演示数据
+        store.intake = [];
+        store.intakeLoading = false;
+        this.intakeEmpty = true;
+        this.intakeNote = `这 ${uris.length} 张图里都没有可入库的家庭物品，换成冰箱/货架/购物袋再试。`;
+        store.toast('这些图里没有识别到家庭物品，换一批再试试');
         return;
       }
       store.intake = merged;
@@ -1250,63 +1423,66 @@ struct IntakePanel {
 
   /** 对单个 uri 跑识别，返回结果数组 */
   private recognizeUri(uri: string): Promise<IntakeResult[]> {
-    return image.createImageSource(uri).getImageInfo().then((info: image.ImageInfo): Promise<image.PixelMap> => {
-      const long = Math.max(info.size.width, info.size.height);
-      const scale = Math.min(1, 1024 / long);
-      const pmOpts: image.DecodingOptions = {
-        desiredSize: { width: Math.round(info.size.width * scale), height: Math.round(info.size.height * scale) }
-      };
-      return image.createImageSource(uri).createPixelMap(pmOpts);
-    }).then((pm: image.PixelMap): Promise<ArrayBuffer> => {
-      const pk = image.createImagePacker();
-      return pk.packToData(pm, { format: 'image/jpeg', quality: 80 });
-    }).then((buf: ArrayBuffer): Promise<IntakeResult[]> => {
-      const b64 = new util.Base64Helper().encodeToStringSync(new Uint8Array(buf));
-      return recognizeImage(b64);
-    });
+    return withTimeout(uriToJpegBase64(uri), DECODE_BUDGET_MS, '读取图片')
+      .then((b64: string): Promise<IntakeResult[]> => recognizeImage(b64));
   }
 
   private compressAndRecognize(uri: string): void {
     this.batchMode = false;
     this.mergedDone = false;
+    this.intakeEmpty = false;
+    this.intakeNote = '';
     this.intakeStartMs = Date.now();
     store.intakeStep = 1;
     store.intakeLoading = true;
-    const src = image.createImageSource(uri);
-    src.getImageInfo().then((info: image.ImageInfo): Promise<image.PixelMap> => {
-      const long = Math.max(info.size.width, info.size.height);
-      const scale = Math.min(1, 1024 / long);
-      const pmOpts: image.DecodingOptions = {
-        desiredSize: { width: Math.round(info.size.width * scale), height: Math.round(info.size.height * scale) }
-      };
-      return src.createPixelMap(pmOpts);
-    }).then((pm: image.PixelMap): Promise<ArrayBuffer> => {
-      const pk = image.createImagePacker();
-      return pk.packToData(pm, { format: 'image/jpeg', quality: 80 });
-    }).then((buf: ArrayBuffer): void => {
-      const b64 = new util.Base64Helper().encodeToStringSync(new Uint8Array(buf));
+    this.stopTicker();
+    this.startTicker();
+    withTimeout(uriToJpegBase64(uri), DECODE_BUDGET_MS, '读取图片').then((b64: string): void => {
       this.recognizeBase64(b64);
-    }).catch((_e: Error): void => {
-      this.recognizeFallback();
+    }).catch((e: Error): void => {
+      // 读图失败不塞演示数据，直接说清原因并退回拍摄页
+      this.stopTicker();
+      store.intakeLoading = false;
+      store.intakeStep = 0;
+      const why: string = e !== undefined && e.message !== undefined ? e.message : '未知原因';
+      store.toast('读图失败：' + why + '，可重选或用内置演示图');
     });
   }
 
   private recognizeBase64(b64: string): void {
     store.intakeStep = 1;
     store.intakeLoading = true;
+    this.intakeEmpty = false;
+    this.intakeNote = '';
+    this.startTicker();
+    // 用时从"拍摄/选图那一刻"算起，用户看到的就是真实总耗时
+    const t0: number = this.intakeStartMs > 0 ? this.intakeStartMs : Date.now();
       recognizeImage(b64).then((items: IntakeResult[]): void => {
+        this.stopTicker();
         store.intake = items;
         store.intakeLoading = false;
-        store.toast(`Agnes 已识别 ${items.length} 项，请补缺确认`);
+        if (items.length === 0) {
+          // 空结果是正常结果：网关判定这张图里没有食物/日用品等可入库物品。
+          // 这里以前会 throw → 调用方一律载入演示数据，于是"发一张不相干的图"会冒出鸡蛋/西红柿等假数据。
+          this.intakeEmpty = true;
+          this.intakeNote = `AI 已看过这张图，里面没有可入库的家庭物品（用时 ${this.msLabel(t0)}）。`;
+          store.toast('没有识别到可入库的家庭物品，换一张再试试');
+          return;
+        }
+        store.toast(`Agnes 已识别 ${items.length} 项（${this.msLabel(t0)}），请补缺确认`);
       }).catch((e: Error): void => {
+        this.stopTicker();
         // 不再静默回退：把网关失败原因说出来，避免"看着像没接 AI"
-        store.toast('AI 识图失败（' +
-          (e !== undefined && e.message !== undefined ? e.message : '未知原因') + '），先用演示数据占位');
+        const why: string = e !== undefined && e.message !== undefined && e.message !== '' ? e.message : '未知原因';
+        this.intakeNote = `AI 识图失败（${this.msLabel(t0)}）：${why}`;
+        store.toast('AI 识图失败（' + why + '），先用演示数据占位');
         this.recognizeFallback();
       });
   }
 
   private recognizeFallback(): void {
+    this.stopTicker();
+    this.intakeEmpty = false;
     store.intake = seedIntake();
     store.intakeLoading = false;
     store.intakeStep = 1;

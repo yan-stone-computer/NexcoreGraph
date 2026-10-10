@@ -22,7 +22,9 @@ const TAG: string = 'NexcoreGraph';
 
 const CONNECT_MS: number = 5000;
 const READ_MS: number = 30000;      // 文本快答：网关侧超时 30s，端侧留出余量
-const READ_VISION_MS: number = 90000;   // 视觉识别：带图片的上游调用常有 15-25s + 重试，单独放宽
+// 视觉识别：网关侧已改成"模型链 + 25s 硬预算"（429 立刻换模型，不再退避重试），
+// 端侧 45s 足够覆盖上传时间；旧值 90s 会让网关挂掉时用户白等一分半。
+const READ_VISION_MS: number = 45000;
 const REPORT_EVERY: number = 5;     // 快答每累计 5 条上报一次用量（M-10）
 
 let fastSinceReport: number = 0;
@@ -72,6 +74,10 @@ class GatewayVision {
   model: string = '';
   ms: number = 0;
   error: string = '';
+  /** 网关判定"这张图里没有家庭物品"（非失败）：端侧据此给明确提示，不回退演示数据 */
+  noHouseholdItems: boolean = false;
+  /** 网关实际走过的模型链（如 agnes-2.5-flash:485ms:ok），用于复盘"到底慢在哪" */
+  trail: string[] = [];
 }
 
 /** 用量聚合（M-10：端内与管理员端共用同一口径） */
@@ -305,9 +311,9 @@ export function recognizeImage(base64Jpeg: string): Promise<IntakeResult[]> {
           '拍照识别（AI 生成）', false));
       });
       uploadUsage();
-      if (results.length === 0) {
-        throw new Error('未识别到物品');
-      }
+      // 注意：空结果是**正常结果**（网关判定这张图里没有家庭物品），不是失败。
+      // 旧代码在这里 throw，调用方一律走"载入演示数据"，于是拍一张不相干的图会冒出
+      // 鸡蛋/西红柿等假数据 —— 看起来像 AI 在乱认。现在把空结果交回调用方区分处理。
       return results;
     });
 }
