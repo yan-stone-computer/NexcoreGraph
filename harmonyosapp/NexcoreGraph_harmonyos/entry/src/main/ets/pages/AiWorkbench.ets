@@ -271,6 +271,12 @@ export struct AiWorkbench {
     .alignItems(VerticalAlign.Center)
     .margin({ top: store.isWide ? S4 : S6, bottom: S2 })
     this.InfoRow('库存知识图谱', this.graphSize)
+      // 空库时图里只有内置的食材/菜谱概念层，直接甩"19 节点"容易被当成假数据，这里说清楚
+      if (this.itemCount() === 0) {
+        Text('当前图里只有内置的食材/菜谱知识层，你入库的物品会作为实体进入这张图')
+          .fontSize(11).fontColor(T.c('text-muted')).width('100%')
+          .margin({ bottom: S1 })
+      }
     this.InfoRow('避免重复购买', `${this.vm.blockedRepurchase} 次`)
     this.InfoRow('盘点中位耗时', this.vm.intakeMedianMs > 0 ? `${this.vm.intakeMedianMs} ms` : '暂无记录')
   }

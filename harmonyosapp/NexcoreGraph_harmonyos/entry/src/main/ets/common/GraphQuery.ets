@@ -31,7 +31,9 @@ export function currentGraphVersion(): string {
 
 export function currentGraphSize(): string {
   const d = ensureGraph();
-  return `${d.nodes.length} 节点 · ${d.edges.length} 边 · ${d.communities.length} 社区`;
+  // 社区数为 0 时不写出来：空库里"0 社区"只是噪音，还容易被误读成"有图但没算出来"
+  const base = `${d.nodes.length} 节点 · ${d.edges.length} 边`;
+  return d.communities.length > 0 ? `${base} · ${d.communities.length} 社区` : base;
 }
 
 export function nodeById(d: GraphDoc, id: string): GraphNode | null {
