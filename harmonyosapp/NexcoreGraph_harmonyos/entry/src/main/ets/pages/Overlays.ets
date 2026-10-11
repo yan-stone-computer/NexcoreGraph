@@ -660,13 +660,31 @@ struct NewLibPanel {
   @Local icon: string = 'package';
   @Local tone: string = 'teal';
 
+  /** 创建库（按钮与键盘回车共用一份实现） */
+  private doCreate(): void {
+    if (this.name.trim() === '') {
+      store.toast('请输入库名称');
+      return;
+    }
+    const icon: string = this.icon;
+    const tone: string = this.tone;
+    const name: string = this.name.trim();
+    runBusy('lib:create', (): Promise<void> => createLibrary(name, icon, tone).then((): void => {
+      store.overlay = '';
+    }), (): void => {
+      store.toast(`已创建库「${name}」`);
+    });
+  }
+
   build() {
     Column({ space: 16 }) {
       Text('新建资源库').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).width('100%')
       Field({ label: '库名称', text: this.name, placeholder: '如：零食柜、鞋柜',
         change: (v: string): void => {
           this.name = v;
-        } })
+        },
+        // 键盘回车 = 点"创建库"：软键盘会盖住底部按钮，用户不必先收键盘
+        submit: (): void => this.doCreate() })
       Text('图标').fontSize(11).fontWeight(600).fontColor(T.c('text-muted')).width('100%')
       Row({ space: 8 }) {
         ForEach(['package', 'fridge', 'shirt', 'pill', 'wrench', 'dumbbell', 'book', 'paw', 'plug'], (ic: string) => {
@@ -699,18 +717,7 @@ struct NewLibPanel {
       }
 
       TBtn({ label: '创建库', kind: 'primary', busyKey: 'lib:create', tap: (): void => {
-        if (this.name.trim() === '') {
-          store.toast('请输入库名称');
-          return;
-        }
-        const icon = this.icon;
-        const tone = this.tone;
-        const name = this.name.trim();
-        runBusy('lib:create', (): Promise<void> => createLibrary(name, icon, tone).then((): void => {
-          store.overlay = '';
-        }), (): void => {
-          store.toast(`已创建库「${name}」`);
-        });
+        this.doCreate();
       } })
         .width('100%')
     }
