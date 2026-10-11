@@ -22,6 +22,7 @@
 
 const express = require('express');
 const os = require('os');
+const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 const { buildGraph } = require('./graphBuild');
 const { GraphService } = require('./graphService');
@@ -224,12 +225,18 @@ async function initDb() {
   for (const q of [
     'ALTER TABLE users MODIFY phone VARCHAR(128) NOT NULL',
     'ALTER TABLE families MODIFY owner_phone VARCHAR(128) NULL',
-    'ALTER TABLE family_members MODIFY phone VARCHAR(128) NOT NULL'
+    'ALTER TABLE family_members MODIFY phone VARCHAR(128) NOT NULL',
+    // 登录密码：只存 scrypt(salt+password) 的自描述串，永不存明文
+    'ALTER TABLE users ADD COLUMN pwd_scrypt VARCHAR(512) NULL',
+    'ALTER TABLE users ADD COLUMN pwd_updated DATETIME NULL'
   ]) {
     try {
       await pool.query(q);
     } catch (e) {
-      console.warn('[db] 账号列扩容跳过:', e.message);
+      // 列已经存在是正常情况（幂等迁移），不用每次都报警吓人
+      if (String(e.message).indexOf('Duplicate column') < 0) {
+        console.warn('[db] 账号列扩容跳过:', e.message);
+      }
     }
   }
 }
@@ -289,6 +296,87 @@ function genCode() {
 function genToken() {
   return 'nxg-' + Math.random().toString(36).slice(2) + Date.now().toString(36) +
     Math.random().toString(36).slice(2);
+}
+
+/* ---------- 登录密码存储：scrypt（内存硬慢哈希） + 每用户随机盐 ----------
+   绝不存明文，也不用 MD5/SHA 这类快哈希。存成一列自描述字符串，方便以后换算法/调参数：
+     scrypt$N=16384,r=8,p=1,keylen=64$<salt base64>$<hash base64>
+   参数按 Node 默认上限取（N=16384,r=8,p=1，内存约 16MB/次），单次校验约几十毫秒，
+   暴力破解成本随迭代次数线性上升；将来只调这一段即可整体升级，旧记录仍可验证。 */
+
+const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64, saltBytes: 16 };
+
+function b64(buf) {
+  return Buffer.from(buf).toString('base64');
+}
+
+function hashPassword(plain) {
+  const salt = crypto.randomBytes(SCRYPT.saltBytes);
+  const hash = crypto.scryptSync(String(plain), salt, SCRYPT.keylen, {
+    N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p
+  });
+  return `scrypt$N=${SCRYPT.N},r=${SCRYPT.r},p=${SCRYPT.p},keylen=${SCRYPT.keylen}$` +
+    `${b64(salt)}$${b64(hash)}`;
+}
+
+/** 校验密码：按存储字符串里的参数重算，再用定长比较防时序侧信道 */
+function verifyPassword(plain, stored) {
+  try {
+    const parts = String(stored || '').split('$');
+    if (parts.length !== 4 || parts[0] !== 'scrypt') {
+      return false;
+    }
+    const opt = {};
+    parts[1].split(',').forEach((kv) => {
+      const [k, v] = kv.split('=');
+      opt[k] = Number(v);
+    });
+    const salt = Buffer.from(parts[2], 'base64');
+    const want = Buffer.from(parts[3], 'base64');
+    const got = crypto.scryptSync(String(plain), salt, want.length, {
+      N: opt.N || SCRYPT.N, r: opt.r || SCRYPT.r, p: opt.p || SCRYPT.p
+    });
+    return got.length === want.length && crypto.timingSafeEqual(got, want);
+  } catch (_e) {
+    return false;
+  }
+}
+
+/** 账号不存在时也烧掉同样的 CPU：避免用响应时间探测"这个账号是否注册过" */
+function dummyVerify(plain) {
+  verifyPassword(String(plain), 'scrypt$N=16384,r=8,p=1,keylen=64$AAAAAAAAAAAAAAAAAAAAAA==$' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==');
+}
+
+/* 密码登录失败节流：同一账号连续错 5 次锁 15 分钟（OTP 有次数上限，密码这条路必须自己防爆破） */
+const pwdFails = new Map();   // account -> { count, until }
+const PWD_MAX_FAILS = 5;
+const PWD_LOCK_MS = 15 * 60 * 1000;
+
+function pwdLocked(account) {
+  const rec = pwdFails.get(account);
+  if (!rec) {
+    return 0;
+  }
+  if (rec.until > Date.now()) {
+    return Math.ceil((rec.until - Date.now()) / 1000);
+  }
+  // 只有"锁确实到期了"才清记录；否则会把还在累计的失败次数一起删掉，
+  // 导致永远凑不满 5 次（实测连错 6 次都没锁上就是这个原因）
+  if (rec.until !== 0) {
+    pwdFails.delete(account);
+  }
+  return 0;
+}
+
+function pwdFail(account) {
+  const rec = pwdFails.get(account) || { count: 0, until: 0 };
+  rec.count += 1;
+  if (rec.count >= PWD_MAX_FAILS) {
+    rec.until = Date.now() + PWD_LOCK_MS;
+    rec.count = 0;
+  }
+  pwdFails.set(account, rec);
 }
 
 /** 账号：11 位手机号 或 邮箱（两者都能作为登录名，用户表里存的就是这串账号） */
@@ -394,9 +482,54 @@ app.post('/api/auth/login', async (req, res) => {
   const raw = req.body || {};
   const account = String(raw.account || raw.phone || '').trim();
   const code = String(raw.code || '');
+  const password = String(raw.password || '');
   const bad = accountError(account);
   if (bad !== '') {
     return res.status(400).json({ ok: false, error: bad });
+  }
+  /* 密码登录：账号已设过密码时可用（与验证码登录并存，验证码仍可用于找回/改密） */
+  if (password !== '' && code === '') {
+    const wait = pwdLocked(account);
+    if (wait > 0) {
+      return res.status(429).json({ ok: false, error: `密码错误次数过多，请 ${Math.ceil(wait / 60)} 分钟后再试` });
+    }
+    let rowPwd = null;
+    try {
+      const [rows] = await pool.query('SELECT pwd_scrypt FROM users WHERE phone = ?', [account]);
+      rowPwd = rows.length > 0 ? rows[0].pwd_scrypt : null;
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+    if (!rowPwd) {
+      dummyVerify(password);   // 没设过密码也烧同样的 CPU，防账号探测
+      pwdFail(account);
+      return res.status(400).json({ ok: false, error: '该账号还没有设置密码，请用验证码登录' });
+    }
+    if (!verifyPassword(password, rowPwd)) {
+      pwdFail(account);
+      return res.status(400).json({ ok: false, error: '密码错误' });
+    }
+    pwdFails.delete(account);
+    // 密码正确：走与验证码登录相同的发 token 流程
+    try {
+      const [rows] = await pool.query('SELECT phone, nickname FROM users WHERE phone = ?', [account]);
+      const [mine] = await pool.query(
+        'SELECT f.id, f.name, fm.role, ' +
+        '(SELECT COUNT(*) FROM family_members x WHERE x.family_id = f.id) AS member_count ' +
+        'FROM family_members fm JOIN families f ON f.id = fm.family_id ' +
+        "WHERE fm.phone = ? ORDER BY (fm.role = '管理员') DESC, f.id", [account]);
+      const token = genToken();
+      authTokens.set(token, { account, expiresAt: Date.now() + 30 * 24 * 3600 * 1000 });
+      return res.json({
+        ok: true, token, phone: account,
+        nickname: rows.length > 0 ? rows[0].nickname : account.split('@')[0],
+        role: mine.length > 0 ? mine[0].role : '管理员',
+        families: mine,
+        method: 'password'
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
   }
   const rec = authCodes.get(account);
   if (!rec) {
@@ -442,8 +575,63 @@ app.post('/api/auth/login', async (req, res) => {
       phone: account,
       nickname: rows.length > 0 ? rows[0].nickname : nick,
       role: mine[0].role,
-      families: mine
+      families: mine,
+      method: 'code',
+      // 有没有设过密码，端侧据此决定是否展示"密码登录"
+      hasPassword: await hasPassword(account)
     });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+async function hasPassword(account) {
+  try {
+    const [rows] = await pool.query('SELECT pwd_scrypt FROM users WHERE phone = ?', [account]);
+    return rows.length > 0 && !!rows[0].pwd_scrypt;
+  } catch (_e) {
+    return false;
+  }
+}
+
+/* 设置 / 修改登录密码：必须先通过验证码证明是账号本人（所以密码只能"改"不能"猜"） */
+app.post('/api/auth/password', async (req, res) => {
+  const raw = req.body || {};
+  const account = String(raw.account || '').trim();
+  const code = String(raw.code || '');
+  const password = String(raw.password || '');
+  const bad = accountError(account);
+  if (bad !== '') {
+    return res.status(400).json({ ok: false, error: bad });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ ok: false, error: '密码至少 8 位' });
+  }
+  if (password.length > 64) {
+    return res.status(400).json({ ok: false, error: '密码不要超过 64 位' });
+  }
+  const rec = authCodes.get(account);
+  if (!rec) {
+    return res.status(400).json({ ok: false, error: '请先获取验证码' });
+  }
+  if (Date.now() > rec.expiresAt) {
+    authCodes.delete(account);
+    return res.status(400).json({ ok: false, error: '验证码已过期，请重新获取' });
+  }
+  if (code !== rec.code) {
+    rec.tries += 1;
+    return res.status(400).json({ ok: false, error: '验证码错误' });
+  }
+  authCodes.delete(account);
+  try {
+    await pool.query('INSERT IGNORE INTO users (phone, nickname) VALUES (?, ?)',
+      [account, account.split('@')[0]]);
+    const stored = hashPassword(password);           // 只把 scrypt 串写库，明文不落任何地方
+    await pool.query('UPDATE users SET pwd_scrypt = ?, pwd_updated = NOW() WHERE phone = ?',
+      [stored, account]);
+    pwdFails.delete(account);
+    console.log('[auth] 已为 ' + account + ' 设置登录密码（scrypt N=' + SCRYPT.N + ', 每用户随机盐）');
+    res.json({ ok: true, algo: 'scrypt', N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
