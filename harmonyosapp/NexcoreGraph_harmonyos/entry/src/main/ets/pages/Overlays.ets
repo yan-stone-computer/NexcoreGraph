@@ -20,7 +20,8 @@ import { publishFlow, pullFlow, deviceLabel, FlowHandoff } from '../common/FlowB
 import { markSyncedRev } from '../common/LiveSync';
 import { recognizeImage, gatewayUsage, UsageSummary, UsageRow } from '../common/AiGateway';
 import { tryUploadSync, forceUploadSync, downloadSync, SyncConflict } from '../common/SyncApi';
-import { saveProfile, saveFormSnapshot, saveThemePrefs } from '../common/LocalStore';
+import { saveProfile, saveFormSnapshot, saveThemePrefs, saveServerUrl } from '../common/LocalStore';
+import { currentBase, manualBaseUrl, currentServerMode, setManualBase, resolveBase } from '../common/Backend';
 import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { rebuildGraph } from '../common/GraphBuild';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
@@ -1629,9 +1630,18 @@ export struct SettingsView {
   @Local graphSize: string = '';
   @Local graphVersion: string = '';
   @Local graphNote: string = '';
+  /** 局域网自建服务器：当前地址与手动填写（换 WiFi/换电脑时改这里，不用重新打包） */
+  @Local serverInput: string = '';
+  @Local serverNow: string = '';
+  @Local serverModeText: string = '';
 
   aboutToAppear(): void {
     this.refreshGraphInfo();
+    this.serverInput = manualBaseUrl();
+    this.serverNow = currentBase();
+    this.serverModeText = currentServerMode() === 'lan-self-hosted'
+      ? '局域网自建服务器（数据不出局域网，不需要域名与备案）'
+      : '自建后端服务';
   }
 
   private refreshGraphInfo(): void {
@@ -1720,7 +1730,7 @@ export struct SettingsView {
     runBusy('sync:up', (): Promise<void> => tryUploadSync().then((r: SyncConflict): void => {
       if (r.ok) {
         this.syncNote = '';
-        store.toast(`已上传到云端（版本 ${r.version}）`);
+        store.toast(`已备份到本机后端（版本 ${r.version}）`);
       } else if (r.conflict) {
         this.syncNote = 'conflict';
         this.syncDetail = `云端已在 ${this.fmtUtc(r.updatedAt)} 更新到版本 ${r.version}，本机也有改动`;
@@ -1789,6 +1799,50 @@ export struct SettingsView {
   /** 分组 A：账号 / 家庭空间 / 云端同步 / 隐私与数据（宽屏落在左列） */
   @Builder
   SettingsSlotA() {
+        // 服务器连接：标明这是局域网自建服务器，并允许直接改地址（换 WiFi / 换电脑都不用重新打包）
+        Card() {
+          Column({ space: 12 }) {
+            CardHead({ title: '服务器连接', sub: '局域网自建服务器 · 非云端' })
+            Text('当前连接：' + (this.serverNow === '' ? '正在探测…' : this.serverNow))
+              .fontSize(13).fontColor(T.c('text-secondary'))
+            Text(this.serverModeText).fontSize(12).fontColor(T.c('text-muted'))
+            Text('后端就跑在你自己的电脑上：手机/平板与电脑连同一个 WiFi 即可。' +
+              '换网络后把电脑的局域网 IP 填在下面（电脑上执行 ipconfig 查看，或看后端启动日志打印的地址）。')
+              .fontSize(12).lineHeight(18).fontColor(T.c('text-muted'))
+            Row({ space: 10 }) {
+              Column() {
+                Field({ label: '服务器地址', text: this.serverInput, placeholder: 'http://192.168.x.x:3000',
+                  change: (v: string): void => {
+                    this.serverInput = v;
+                  } })
+              }
+              .layoutWeight(1)
+              TBtn({ label: '测试并保存', icon: 'check', kind: 'primary', small: true, busyKey: 'srv:test',
+                tap: (): void => {
+                  const url: string = this.serverInput.trim();
+                  if (url === '') {
+                    store.toast('请先填服务器地址，例如 http://192.168.1.5:3000');
+                    return;
+                  }
+                  runBusy('srv:test', (): Promise<void> => {
+                    setManualBase(url);
+                    return resolveBase().then((base: string): void => {
+                      saveServerUrl(url);
+                      this.serverNow = base;
+                      this.serverModeText = currentServerMode() === 'lan-self-hosted'
+                        ? '局域网自建服务器（数据不出局域网，不需要域名与备案）'
+                        : '自建后端服务';
+                      store.toast('已切换并连通：' + base);
+                    });
+                  }, (): void => {
+                    store.toast('连不上这个地址，请核对 IP 与端口（后端默认 3000）');
+                  });
+                } })
+            }
+            .width('100%')
+          }
+        }
+
         // 账号
         Row({ space: 16 }) {
           Column() {
@@ -1846,16 +1900,18 @@ export struct SettingsView {
         .border({ width: 1, color: T.c('border') })
         .alignItems(VerticalAlign.Center)
 
-        // 云端同步（M2：本地优先 + 云端快照备份 + 版本冲突提示 F9.10）
+        // 数据备份（M2：本地优先 + 快照备份到本机后端 + 版本冲突提示 F9.10）
+        // 部署形态是局域网自建服务器：措辞统一叫"本机后端"，不要写"云端"，避免误解数据出了局域网
         Card() {
           Column({ space: 12 }) {
-            Text('云端同步').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).margin({ bottom: 4 })
-            Text('数据本地优先，可备份到电脑后端（MySQL）。上传时检测版本冲突：云端更新则提示，不静默覆盖。')
+            Text('数据备份（本机后端）').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).margin({ bottom: 4 })
+            Text('数据本地优先，备份目标是同一局域网内你电脑上的后端（MySQL）。' +
+              '上传时检测版本冲突：后端已有更新则提示，不静默覆盖；数据不出局域网。')
               .fontSize(12).fontColor(T.c('text-muted'))
             Row({ space: 12 }) {
-              TBtn({ label: '上传到云端', icon: 'upload', kind: 'primary', small: true, busyKey: 'sync:up',
+              TBtn({ label: '备份到本机后端', icon: 'upload', kind: 'primary', small: true, busyKey: 'sync:up',
                 tap: (): void => this.syncUp() })
-              TBtn({ label: '从云端拉取', icon: 'download', kind: 'ghost', small: true, busyKey: 'sync:down',
+              TBtn({ label: '从本机后端拉取', icon: 'download', kind: 'ghost', small: true, busyKey: 'sync:down',
                 tap: (): void => this.syncDown() })
             }
 
@@ -2203,6 +2259,7 @@ export struct SettingsView {
           }
           .alignItems(HorizontalAlign.Start)
         }
+
 
         // 账号与数据：账号来自后端登录，本机数据来自你录入 + 从后端拉取
         Row({ space: 16 }) {

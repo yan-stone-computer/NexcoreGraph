@@ -1,18 +1,57 @@
 /* 启核图策 · 后端地址解析与 JSON 请求（同步 SyncApi 与 AI 网关 AiGateway 共用）
-   候选地址链：模拟器 NAT 宿主机 → 局域网 IP → 本机预览；健康探测通过后缓存。
+
+   部署形态：**局域网自建服务器**。后端跑在你自己电脑上，手机/平板在同一 WiFi 下直连，
+   数据不出局域网、没有域名、也不涉及公网备案。地址解析顺序：
+       ① 手动指定的地址（我的 → 服务器连接，或首启自动探测到的）→
+       ② 内置候选链：模拟器 NAT 宿主机 → 局域网 IP → 本机预览
+   健康探测通过后缓存复用；界面上会明确标注"局域网自建服务器"。
    整改文档 4.7：端上不直连模型厂商，所有 AI 调用都经此模块打到自建后端 /api/ai/*。 */
 
 import { http } from '@kit.NetworkKit';
 
-const CANDIDATES: string[] = [
+/** 内置候选：模拟器用 10.0.2.2 指向宿主机；真机在同一 WiFi 时用下面的局域网地址 */
+const BUILTIN_CANDIDATES: string[] = [
   'http://10.0.2.2:3000',          // QEMU NAT 宿主机
-  'http://192.168.16.247:3000',    // 宿主机局域网 IP
+  'http://192.168.16.247:3000',    // 宿主机局域网 IP（换网络后若不通，请在「我的 → 服务器连接」改成当前 IP）
   'http://127.0.0.1:3000'          // PC 侧预览/真机同网段时替换
 ];
 
 let resolvedBase: string = '';
 let lastStatus: number = 0;
 let lastBody: string = '';
+/** 手动指定的服务器地址（保存在本机偏好里，重启仍在） */
+let manualBase: string = '';
+/** 后端自报的部署形态（lan-self-hosted / 未标注） */
+let serverMode: string = '';
+
+export function setManualBase(url: string): void {
+  manualBase = url.trim().replace(/\/+$/, '');
+  resolvedBase = '';        // 换地址后重新探测
+  serverMode = '';
+}
+
+export function manualBaseUrl(): string {
+  return manualBase;
+}
+
+/** 后端自报的部署形态（"lan-self-hosted" = 局域网自建服务器） */
+export function currentServerMode(): string {
+  return serverMode;
+}
+
+/** 候选地址链：手动指定的排第一，其余是内置 */
+function candidates(): string[] {
+  const out: string[] = [];
+  if (manualBase !== '') {
+    out.push(manualBase);
+  }
+  BUILTIN_CANDIDATES.forEach((u: string): void => {
+    if (out.indexOf(u) < 0) {
+      out.push(u);
+    }
+  });
+  return out;
+}
 
 /** HTTP 结果：不因状态码非 200 抛异常，交由调用方按业务语义处理（如同步 409 冲突） */
 export class HttpResult {
@@ -82,16 +121,24 @@ export function resolveBase(): Promise<string> {
   if (resolvedBase !== '') {
     return Promise.resolve(resolvedBase);
   }
+  const list: string[] = candidates();
   const tryAt = (idx: number): Promise<string> => {
-    if (idx >= CANDIDATES.length) {
-      return Promise.reject(new Error('找不到后端服务（请确认电脑上 backend 已启动）'));
+    if (idx >= list.length) {
+      return Promise.reject(new Error('找不到本机后端服务：请确认电脑上的 backend 已启动、' +
+        '手机与电脑在同一个 WiFi，且已在「我的 → 服务器连接」填对地址'));
     }
-    return requestJson(CANDIDATES[idx] + '/api/health', http.RequestMethod.GET, '', 4000, 6000)
+    return requestJson(list[idx] + '/api/health', http.RequestMethod.GET, '', 4000, 6000)
       .then((r: HttpResult): Promise<string> => {
         if (r.code !== 200) {
           return tryAt(idx + 1);
         }
-        resolvedBase = CANDIDATES[idx];
+        resolvedBase = list[idx];
+        try {
+          const info = JSON.parse(r.text) as Record<string, Object>;
+          serverMode = String(info['mode'] ?? '');
+        } catch (_e) {
+          serverMode = '';
+        }
         return Promise.resolve(resolvedBase);
       })
       .catch((_e: Error): Promise<string> => tryAt(idx + 1));

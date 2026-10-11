@@ -8,6 +8,7 @@ import { T, R_L, R_XL, DUR_SLOW } from '../common/Tokens';
 import { Ico, TBtn, Field } from '../components/Widgets';
 import { requestLoginCode, loginByCode } from '../common/Api';
 import { startLiveSync } from '../common/LiveSync';
+import { currentBase, resolveBase, currentServerMode } from '../common/Backend';
 
 @ComponentV2
 export struct LoginView {
@@ -17,7 +18,23 @@ export struct LoginView {
   @Local hint: string = '';
   @Local sending: boolean = false;
   @Local cooldown: number = 0;
+  @Local serverText: string = '正在探测本机后端…';
   private cdTimer: number = -1;
+
+  aboutToAppear(): void {
+    // 标明连接目标：登录走的是你自己电脑上的局域网服务器，不是云端
+    const now: string = currentBase();
+    if (now !== '') {
+      this.serverText = '已连接 ' + now;
+      return;
+    }
+    resolveBase().then((base: string): void => {
+      this.serverText = '已连接 ' + base +
+        (currentServerMode() === 'lan-self-hosted' ? '（局域网自建服务器）' : '');
+    }).catch((): void => {
+      this.serverText = '未找到本机后端：请先在电脑上启动 backend（同一 WiFi，地址可在「我的 → 服务器连接」修改）';
+    });
+  }
 
   aboutToDisappear(): void {
     if (this.cdTimer !== -1) {
@@ -141,6 +158,9 @@ export struct LoginView {
         .width('100%')
       Text('登录后你的库存、方案与 AI 对话会存在你自己的账号里，换设备登录即可继续')
         .fontSize(12).fontColor(T.c('text-muted'))
+      // 标明部署形态：局域网自建服务器（数据不出局域网，不涉及公网与备案）
+      Text(this.serverText)
+        .fontSize(11).fontColor(T.c('text-muted'))
     }
     .padding(24)
     .borderRadius(R_XL)

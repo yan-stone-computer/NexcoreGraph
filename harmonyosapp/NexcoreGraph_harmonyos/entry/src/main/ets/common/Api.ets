@@ -70,6 +70,9 @@ class FamilyDto {
   id: string = '';
   name: string = '';
   memberCount: number = 0;
+  /** 后端返回的是 member_count（snake_case），必须单独接一下，
+      否则界面会显示 "undefined 位成员" */
+  member_count: number = 0;
   role: string = '';
 }
 
@@ -111,7 +114,8 @@ export function loginByCode(account: string, code: string): Promise<string> {
       store.userRole = r.role === '' ? '成员' : r.role;
       const list: Family[] = [];
       r.families.forEach((f: FamilyDto): void => {
-        list.push(new Family(f.id, f.name, f.memberCount));
+        const n: number = f.member_count !== undefined && f.member_count !== 0 ? f.member_count : (f.memberCount || 1);
+        list.push(new Family(f.id, f.name, n));
       });
       store.families = list;
       store.family = list.length > 0 ? list[0] : new Family('', '', 1);

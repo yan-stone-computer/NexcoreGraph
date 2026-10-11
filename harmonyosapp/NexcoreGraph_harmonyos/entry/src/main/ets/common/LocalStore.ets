@@ -7,6 +7,7 @@ import { store, AiUsageRow, nowTime, ValueLedger } from './Store';
 import { ChatMsg, Profile, Item, Library, Family } from './Db';
 import { T } from './Tokens';
 import { buildDataSnapshot, applyDataSnapshot } from './Continuation';
+import { setManualBase } from './Backend';
 
 const MAX_CHAT: number = 200;   // 滚动裁剪上限（验收 I5/K11）
 
@@ -24,6 +25,11 @@ export function initLocal(ctx: common.UIAbilityContext): void {
 function loadAll(): void {
   if (prefs === null) {
     return;
+  }
+  // 局域网自建服务器地址（我的 → 服务器连接 里填的），优先于内置候选链
+  const srv = prefs.getSync('serverUrl', '') as string;
+  if (srv !== '') {
+    setManualBase(srv);
   }
   // 用户数据（库/物品/方案/清单/待办/工作台/对话/日志）：本机上次的样子，离线也能打开
   const dataJson = prefs.getSync('userData', '') as string;
@@ -91,6 +97,15 @@ export function saveThemePrefs(): void {
   }
   const r: Record<string, Object> = { 'palette': T.palette, 'dark': T.dark };
   prefs.putSync('theme', JSON.stringify(r));
+  prefsFlush();
+}
+
+/** 局域网服务器地址落盘（换 WiFi/换电脑后在这里改，不用重新打包） */
+export function saveServerUrl(url: string): void {
+  if (prefs === null) {
+    return;
+  }
+  prefs.putSync('serverUrl', url);
   prefsFlush();
 }
 
@@ -312,8 +327,12 @@ export function restoreSession(): boolean {
     store.userName = s.name;
     store.userInitial = s.name === '' ? '' : s.name.slice(0, 1);
     store.userRole = s.role;
-    store.family = new Family(s.familyId, s.familyName, s.members);
-    store.families = s.families.map((d: FamilyDto): Family => new Family(d.id, d.name, d.memberCount));
+    // 老版本存下来的会话里可能没有成员数字段（JSON 会丢掉 undefined），这里兜个 1，
+    // 否则界面会显示 "undefined 位成员"
+    const members: number = s.members !== undefined && s.members > 0 ? s.members : 1;
+    store.family = new Family(s.familyId, s.familyName, members);
+    store.families = s.families.map((d: FamilyDto): Family =>
+      new Family(d.id, d.name, d.memberCount !== undefined && d.memberCount > 0 ? d.memberCount : 1));
     store.loggedIn = true;
     return true;
   } catch (_e) {

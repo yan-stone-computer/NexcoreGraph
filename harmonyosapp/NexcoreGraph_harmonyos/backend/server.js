@@ -21,6 +21,7 @@
    - GET   /api/ai/usage?familyId=&range= 用量聚合：路由分布 / 模型分布 / 平均耗时 / 快答占比 */
 
 const express = require('express');
+const os = require('os');
 const mysql = require('mysql2/promise');
 const { buildGraph } = require('./graphBuild');
 const { GraphService } = require('./graphService');
@@ -237,8 +238,37 @@ function genInvite() {
   return 'TS-' + String(Math.floor(1000 + Math.random() * 9000));
 }
 
+/**
+ * 列出本机所有局域网 IPv4（用于告诉手机/平板该填哪个地址）。
+ * 部署形态是「局域网自建服务器」：后端跑在你的电脑上，同一 WiFi 下的设备直连，
+ * 不经过公网、不需要域名与备案。
+ */
+function lanAddresses() {
+  const out = [];
+  const nets = os.networkInterfaces();
+  Object.keys(nets).forEach((name) => {
+    (nets[name] || []).forEach((n) => {
+      if (n.family === 'IPv4' && !n.internal) {
+        // 虚拟网卡（VMware/VirtualBox/Hyper-V/WSL）不是手机能连的地址，单独标出来避免填错
+        const virtual = /vmware|virtualbox|vethernet|hyper-v|wsl|loopback|docker/i.test(name);
+        out.push({ iface: name, ip: n.address, virtual: virtual });
+      }
+    });
+  });
+  // 真实网卡排前面（手机/平板要填的就是这类）
+  return out.sort((a, b) => Number(a.virtual) - Number(b.virtual));
+}
+
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, time: Date.now() });
+  res.json({
+    ok: true,
+    time: Date.now(),
+    service: 'nexcoregraph-backend',
+    // 明确标注部署形态：端侧据此在界面上显示"局域网自建服务器"，避免被当成云端服务
+    mode: 'lan-self-hosted',
+    lanIps: lanAddresses().map((a) => a.ip),
+    ai: AI.apiKey ? 'ready' : 'no-key'
+  });
 });
 
 /* ---------- 账号（F9.1/F9.2）：邮箱/手机号 + 随机验证码 + TTL + 真 token ----------
@@ -1351,5 +1381,19 @@ initDb().then(() => {
         console.log('[nexcoregraph-backend] 验证码通道: ' + mailTag +
           ' | 短信=' + (AI.smsEndpoint ? '已配置' : '未配置') +
           ' | AUTH_SHOW_CODE=' + (process.env.AUTH_SHOW_CODE === '1' ? '1（联调）' : '0'));
+        // 局域网自建服务器：把手机/平板该填的地址直接打出来，省得自己查 ipconfig
+        const lans = lanAddresses();
+        if (lans.length === 0) {
+          console.log('[nexcoregraph-backend] 部署形态: 局域网自建服务器（未发现局域网网卡，检查是否连着 WiFi/网线）');
+        } else {
+          console.log('[nexcoregraph-backend] 部署形态: 局域网自建服务器（不经过公网，不需要域名与备案）');
+          lans.forEach((a) => {
+            console.log('[nexcoregraph-backend]   ' +
+              (a.virtual ? '虚拟网卡（手机连不上，别填这个）: ' : '手机/平板填这个地址: ') +
+              'http://' + a.ip + ':' + PORT + '   [' + a.iface + ']');
+          });
+          console.log('[nexcoregraph-backend]   同一 WiFi + 电脑防火墙放行 ' + PORT +
+            '/3100（首次运行可执行 tools/start-lan.ps1，它会提示放行命令）');
+        }
   });
 });
