@@ -766,13 +766,29 @@ struct EditLibPanel {
 struct ItemAddPanel {
   @Local form: ItemForm = new ItemForm();
 
+  /** 添加物品（按钮与键盘回车共用；软键盘会盖住底部"添加"，所以每个输入框都能回车提交） */
+  private doAdd(): void {
+    if (this.form.name.trim() === '') {
+      store.toast('请输入物品名称');
+      return;
+    }
+    const libId: string = store.overlayArg;
+    const form: ItemForm = this.form;
+    runBusy('item:save', (): Promise<void> => addItem(libId, form).then((): void => {
+      store.overlay = '';
+    }), (): void => {
+      store.toast(`已添加「${form.name.trim()}」`);
+    });
+  }
+
   build() {
     Column({ space: 16 }) {
       Text('手动添加物品').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).width('100%')
       Field({ label: '名称', text: this.form.name, placeholder: '如：青椒',
         change: (v: string): void => {
           this.form.name = v;
-        } })
+        },
+        submit: (): void => this.doAdd() })
       Row({ space: 12 }) {
         Field({ label: '数量', text: this.form.qty, num: true,
           change: (v: string): void => {
@@ -796,24 +812,15 @@ struct ItemAddPanel {
       Field({ label: '存放位置', text: this.form.pos, placeholder: '如：冷藏区底层',
         change: (v: string): void => {
           this.form.pos = v;
-        } })
+        },
+        submit: (): void => this.doAdd() })
       SwitchRow({ title: '仅自己可见', desc: '共享库与协作中不展示（F2.5）', on: this.form.isPrivate,
         tap: (): void => {
           this.form.isPrivate = !this.form.isPrivate;
         } })
 
       TBtn({ label: '添加', kind: 'primary', busyKey: 'item:save', tap: (): void => {
-        if (this.form.name.trim() === '') {
-          store.toast('请输入物品名称');
-          return;
-        }
-        const libId = store.overlayArg;
-        const form = this.form;
-        runBusy('item:save', (): Promise<void> => addItem(libId, form).then((): void => {
-          store.overlay = '';
-        }), (): void => {
-          store.toast(`已添加「${form.name.trim()}」`);
-        });
+        this.doAdd();
       } })
         .width('100%')
     }
@@ -844,6 +851,18 @@ struct ItemEditPanel {
     return found;
   }
 
+  /** 保存修改（按钮与键盘回车共用） */
+  private doSave(): void {
+    const libId: string = store.overlayArg;
+    const itemId: string = store.overlayArg2;
+    const form: ItemForm = this.form;
+    runBusy('item:save', (): Promise<void> => updateItem(libId, itemId, form).then((): void => {
+      store.overlay = '';
+    }), (): void => {
+      store.toast('已保存修改');
+    });
+  }
+
   aboutToAppear(): void {
     const it = this.it();
     if (it !== null) {
@@ -864,6 +883,7 @@ struct ItemEditPanel {
     Column({ space: 16 }) {
       Text('编辑物品').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).width('100%')
       Field({ label: '名称', text: this.form.name,
+        submit: (): void => this.doSave(),
         change: (v: string): void => {
           this.form.name = v;
         } })
@@ -890,6 +910,7 @@ struct ItemEditPanel {
           } }).layoutWeight(1)
       }
       Field({ label: '存放位置', text: this.form.pos,
+        submit: (): void => this.doSave(),
         change: (v: string): void => {
           this.form.pos = v;
         } })
@@ -900,14 +921,7 @@ struct ItemEditPanel {
 
       Row({ space: 12 }) {
         TBtn({ label: '保存', kind: 'primary', busyKey: 'item:save', tap: (): void => {
-          const libId = store.overlayArg;
-          const itemId = store.overlayArg2;
-          const form = this.form;
-          runBusy('item:save', (): Promise<void> => updateItem(libId, itemId, form).then((): void => {
-            store.overlay = '';
-          }), (): void => {
-            store.toast('已保存修改');
-          });
+          this.doSave();
         } }).layoutWeight(1)
 
         TBtn({ label: '删除物品', icon: 'trash', kind: 'ghost', busyKey: 'item:del', tap: (): void => {
@@ -1962,14 +1976,17 @@ export struct SettingsView {
               tap: (): void => this.toggleSetting('private')
             })
               SwitchRow({
-                title: '聊天记录仅存本地',
-                desc: '聊天记录落本机存储，不上云（F9.11）',
+                // 原来这里写"仅存本地"、下面又写"随设备同步"，两个开关默认都开，读起来自相矛盾。
+                // 实际语义是：这一项管"要不要在本机留聊天记录"，下面那项管"留了之后要不要跟设备一起走"。
+                title: '保存聊天记录',
+                desc: '聊天记录落在本机，重开 App 还在（数据不出局域网；关掉则退出后不再保留）',
                 on: store.settings['chat'],
                 tap: (): void => this.toggleSetting('chat')
               })
               SwitchRow({
                 title: 'AI 对话随设备同步',
-                desc: '自由流转：这边问 AI，另一台设备原样出现同一问答，并能接着问；关闭则跨端不同步（仅存本机）',
+                desc: '这边问 AI，另一台设备原样出现同一问答并能接着问（需先开启上面的保存）；' +
+                  '关闭后对话只留在本机',
                 on: store.settings['syncChat'],
                 tap: (): void => this.toggleSetting('syncChat')
               })

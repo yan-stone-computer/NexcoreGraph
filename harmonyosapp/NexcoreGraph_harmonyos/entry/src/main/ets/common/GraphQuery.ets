@@ -271,6 +271,19 @@ export function ragEvidence(mode: string, question: string): RagEvidence {
       p.score = f.haveItems.length - f.missFoods.length * 0.5;
       ev.paths.push(p);
     });
+    /* 兜底：multi-hop 的种子只有"临期物品"。库里没有临期（或刚建库）时它会一条证据都拿不到，
+       于是问"今晚吃什么"这种最该用数据的场景，模型手里反而是空的 —— 实测就是回答
+       "库存摘要为空，我无法确认"。这里退回实体邻域：先把用户问到的 / 库里真实存在的物品给模型。 */
+    if (seenLines.length === 0) {
+      const fallbackSeeds = matchEntity(d, question).slice(0, 3);
+      fallbackSeeds.forEach((seedId: string) => pushLine(itemLine(d, seedId)));
+      if (fallbackSeeds.length === 0) {
+        expiringItemIds(d, 5).forEach((itemId: string) => pushLine(itemLine(d, itemId)));
+      }
+      if (seenLines.length > 0) {
+        ev.mode = 'multi-hop→local';   // 如实标注：实际用的邻域证据
+      }
+    }
   } else if (mode === 'global') {
     const comms: GraphCommunity[] = [];
     d.communities.forEach((c: GraphCommunity) => {

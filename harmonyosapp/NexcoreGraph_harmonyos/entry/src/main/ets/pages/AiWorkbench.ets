@@ -193,15 +193,21 @@ export struct AiWorkbench {
       if (this.itemCount() === 0) {
         Card() {
           Column({ space: 10 }) {
-            Text('你的库还是空的').fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
-            Text('拍一张冰箱/货架的照片让 AI 识别入库，或者在资源库里手动建库、逐件添加。' +
+            // 区分"一个库都没建"与"建了库但还没放东西"：原来两种情况都说"你的库还是空的"，建过库的人会困惑
+            Text(store.libraries.length === 0 ? '还没有资源库' : '库建好了，但里面还没有物品')
+              .fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
+            Text((store.libraries.length === 0
+              ? '拍一张冰箱/货架的照片让 AI 识别入库，或者在资源库里手动建一个库（如冰箱、药盒）。'
+              : '打开「' + (store.libraries.length > 0 ? store.libraries[0].name : '') +
+                '」手动添加，或拍照让 AI 识别后确认入库。') +
               '入库后这里会出现临期提醒、可执行方案和数据分析。')
               .fontSize(13).lineHeight(20).fontColor(T.c('text-secondary'))
             Row({ space: 12 }) {
               TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', small: true, tap: (): void => {
                 store.overlay = 'intake';
               } })
-              TBtn({ label: '新建资源库', icon: 'plus', kind: 'ghost', small: true, tap: (): void => {
+              TBtn({ label: store.libraries.length === 0 ? '新建资源库' : '去资源库添加物品',
+                icon: 'plus', kind: 'ghost', small: true, tap: (): void => {
                 store.tabIndex = 1;
               } })
             }
