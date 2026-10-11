@@ -2,16 +2,28 @@
 
 import { store } from '../common/Store';
 import { T, R_M, R_L, R_XL, DUR_BASE, DUR_SLOW, S8 } from '../common/Tokens';
-import { Ico, TBtn, ToneBadge, Card, CardHead, NumText } from '../components/Widgets';
+import { Ico, TBtn, ToneBadge, Card, CardHead, NumText, Field } from '../components/Widgets';
 import { Seat, SeatLib, WbHistory, Snap } from '../common/Db';
-import { runBusy, sendLibrary, endCoop, runWorkbench, revokeInvite, SendResult, syncMyHand, takeSeat } from '../common/Api';
+import { runBusy, sendLibrary, endCoop, runWorkbench, revokeInvite, SendResult, syncMyHand, takeSeat,
+  createCoop, joinCoop, verifyCoop } from '../common/Api';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 
 @ComponentV2
 export struct WorkbenchView {
+  @Local joinMode: boolean = false;     // 展开"加入协作池"的输入框
+  @Local joinCode: string = '';
+
   aboutToAppear(): void {
     // 进入牌桌时同步我的手牌（与换牌选择、实时库存数量保持一致）
     syncMyHand();
+    // 本机记着的池子可能早已被清理/过期（比如上一版残留的邀请码）：进页面先验一次
+    if (store.workbench.code !== '') {
+      verifyCoop().then((ok: boolean): void => {
+        if (!ok) {
+          store.toast('上次的协作池已失效，请重新创建或加入');
+        }
+      });
+    }
   }
 
   private poolCards(): number[] {
@@ -34,6 +46,11 @@ export struct WorkbenchView {
   build() {
     Scroll() {
       Column({ space: 16 }) {
+        /* 协作池必须"创建"或"加入"之后才存在：没有池子时只给这两个入口，
+           不显示牌桌、合作池、邀请码与"结束合作"（以前空池子也把这些摆在页面上）。 */
+        if (!this.inCoop()) {
+          this.CoopGate()
+        } else {
         Row({ space: 12 }) {
           Column({ space: 8 }) {
             Text(store.workbench.name).fontSize(store.isWide ? 24 : 20).fontWeight(800).fontColor(T.c('text-primary'))
@@ -189,10 +206,11 @@ export struct WorkbenchView {
                   .border({ width: 1.5, color: T.c('primary-ink'), style: BorderStyle.Dashed })
                   .borderRadius(R_M)
                   .backgroundColor(T.c('primary-container'))
-                Text('7 天后失效 · 已用 2 / 3 人').fontSize(12).fontColor(T.c('text-muted'))
+                Text(store.workbench.expires + ' · 已入池 ' + store.workbench.members.length + ' 人')
+                  .fontSize(12).fontColor(T.c('text-muted'))
                 Row({ space: 12 }) {
                   TBtn({ label: '复制邀请码', icon: 'copy', kind: 'primary', small: true, tap: (): void => {
-                    store.toast(`邀请码 ${store.workbench.code} 已复制，7 天后失效`);
+                    store.toast(`邀请码 ${store.workbench.code} 已复制，${store.workbench.expires}`);
                   } })
                   TBtn({ label: '撤销邀请码', kind: 'ghost', small: true, busyKey: 'wb:revoke',
                     tap: (): void => {
@@ -234,6 +252,7 @@ export struct WorkbenchView {
             .width('100%')
           }
         }
+        }   // else：已创建/已加入协作池，才显示牌桌与邀请码
       }
         .padding({
           top: 16,
@@ -247,6 +266,77 @@ export struct WorkbenchView {
       .height('100%')
       .align(Alignment.TopStart)
       .scrollBar(BarState.Off)
+  }
+
+  /** 是否已在某个协作池里（邀请码为空 = 还没创建也没加入） */
+  private inCoop(): boolean {
+    return store.workbench.code !== '';
+  }
+
+  /** 未入池：只给"创建 / 加入"两个入口，别的一律不显示 */
+  @Builder
+  CoopGate() {
+    Column({ space: 16 }) {
+      Column({ space: 8 }) {
+        Text('家庭协作 · 工作台').fontSize(store.isWide ? 24 : 20).fontWeight(800).fontColor(T.c('text-primary'))
+        Text('协作池是临时开的一桌：创建后拿到邀请码，家人凭邀请码加入。' +
+          '各自把手上的资源库摆上桌，就能拼菜、按归属扣减；结束后聚合数据与复制库自动清理。')
+          .fontSize(14).lineHeight(22).fontColor(T.c('text-muted'))
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+
+      Card() {
+        Column({ space: 12 }) {
+          Text(store.libraries.length === 0
+            ? '你现在还没有资源库：先建库并录入物品，创建协作池后才有手牌可摆。'
+            : `你有 ${store.libraries.length} 个库，创建后最多可摆 4 个上桌当手牌。`)
+            .fontSize(13).fontColor(T.c('text-secondary'))
+          Row({ space: 12 }) {
+            TBtn({ label: '创建协作池', icon: 'plus', kind: 'primary', small: true, busyKey: 'coop:new',
+              tap: (): void => {
+                runBusy('coop:new', (): Promise<void> => createCoop().then((code: string): void => {
+                  store.toast('协作池已创建，邀请码 ' + code + '，发给家人即可加入');
+                }), (): void => {
+                  store.toast('创建失败，请检查后端服务');
+                });
+              } })
+            TBtn({ label: this.joinMode ? '收起' : '加入协作池', icon: 'arrow-right', kind: 'ghost', small: true,
+              tap: (): void => {
+                this.joinMode = !this.joinMode;
+              } })
+          }
+
+          if (this.joinMode) {
+            Column({ space: 10 }) {
+              Field({ label: '邀请码', text: this.joinCode, placeholder: '输入 6 位邀请码，如 K7M2QP',
+                change: (v: string): void => {
+                  this.joinCode = v;
+                } })
+                .width('100%')
+              TBtn({ label: '加入', icon: 'check', kind: 'primary', small: true, busyKey: 'coop:join',
+                tap: (): void => {
+                  if (this.joinCode.trim().length < 4) {
+                    store.toast('请输入完整的邀请码');
+                    return;
+                  }
+                  runBusy('coop:join', (): Promise<void> => joinCoop(this.joinCode).then((n: number): void => {
+                    store.toast(`已加入协作池，当前 ${n} 人同桌`);
+                    this.joinMode = false;
+                  }), (): void => {
+                    store.toast('加入失败：邀请码不存在或已过期');
+                  });
+                } })
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder

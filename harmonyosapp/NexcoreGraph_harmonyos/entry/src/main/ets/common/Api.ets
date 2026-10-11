@@ -4,12 +4,12 @@
 
 import {
   Item, Library, Plan, AlertItem, ShoppingItem, ChatMsg, IntakeResult,
-  Consume, Snap, SeatLib, SeatItem, Seat, Todo, WbMsg, WbHistory, KNOWLEDGE, Family
+  Consume, Snap, SeatLib, SeatItem, Seat, Todo, WbMsg, WbMember, WbHistory, KNOWLEDGE, Family
 } from './Db';
 import { store, nowTime } from './Store';
 import { scheduleLivePublish, stopLiveSync } from './LiveSync';
 import { saveLedger, saveUserData, clearUserDataSaved, saveSession } from './LocalStore';
-import { callJson } from './Backend';
+import { callJson, backendStatus } from './Backend';
 import { pullMyData } from './SyncApi';
 import { http } from '@kit.NetworkKit';
 import { T } from './Tokens';
@@ -388,6 +388,114 @@ export function takeSeat(): Promise<void> {
     store.touch();
     store.pushLog('coop', '已上桌 · 手牌 ' + store.workbench.myDeck.length + ' 张');
   });
+}
+
+/* ---------- 协作池（工作台）：必须"创建"或"加入"之后才有池子 ---------- */
+
+class CoopResp {
+  ok: boolean = false;
+  error: string = '';
+  code: string = '';
+  name: string = '';
+  expiresAt: number = 0;
+  members: CoopMemberDto[] = [];
+}
+
+class CoopMemberDto {
+  account: string = '';
+  nickname: string = '';
+}
+
+const COOP_CONNECT_MS: number = 6000;
+const COOP_READ_MS: number = 15000;
+
+/** 把后端返回的池子信息写进 store（名字/邀请码/有效期/成员/我的座位） */
+function applyCoop(r: CoopResp): void {
+  store.workbench.name = r.name === '' ? '家庭协作牌桌' : r.name;
+  store.workbench.code = r.code;
+  const leftH: number = Math.max(1, Math.round((r.expiresAt - Date.now()) / 3600000));
+  store.workbench.expires = `${leftH} 小时后失效`;
+  store.workbench.members = r.members.map((m: CoopMemberDto): WbMember => {
+    const nickname = m.nickname === '' ? m.account : m.nickname;
+    return new WbMember(nickname, 'teal', 0, []);
+  });
+  // 我的座位：没有就建
+  if (store.workbench.seats.length === 0) {
+    store.workbench.seats = [new Seat('me', `${store.userName === '' ? '我' : store.userName} · 我`, 'teal', [])];
+  }
+  if (store.workbench.myDeck.length === 0) {
+    store.workbench.myDeck = store.libraries.slice(0, 4).map((l: Library): string => l.id);
+  }
+  syncMyHand();
+  store.touch();
+}
+
+/** 创建协作池：后端发邀请码，创建者自动入池 */
+export function createCoop(): Promise<string> {
+  return callJson('/api/coop/create', http.RequestMethod.POST,
+    JSON.stringify({ account: store.userPhone, name: `${store.userName === '' ? '我' : store.userName} 的协作池` }),
+    COOP_CONNECT_MS, COOP_READ_MS).then((text: string): string => {
+    const r = JSON.parse(text) as CoopResp;
+    if (!r.ok || r.code === '') {
+      throw new Error(r.error === '' ? '创建失败' : r.error);
+    }
+    applyCoop(r);
+    store.pushLog('coop', '创建协作池 ' + r.code);
+    return r.code;
+  });
+}
+
+/** 加入协作池：凭邀请码入池 */
+export function joinCoop(code: string): Promise<number> {
+  return callJson('/api/coop/join', http.RequestMethod.POST,
+    JSON.stringify({ account: store.userPhone, code: code.trim().toUpperCase() }),
+    COOP_CONNECT_MS, COOP_READ_MS).then((text: string): number => {
+    const r = JSON.parse(text) as CoopResp;
+    if (!r.ok) {
+      throw new Error(r.error === '' ? '加入失败' : r.error);
+    }
+    applyCoop(r);
+    store.pushLog('coop', '加入协作池 ' + r.code);
+    return r.members.length;
+  });
+}
+
+/** 清掉本机的池子（退出/失效时用），回到"创建或加入"状态 */
+export function clearCoop(): void {
+  store.workbench.code = '';
+  store.workbench.expires = '';
+  store.workbench.seats = [];
+  store.workbench.members = [];
+  store.workbench.myDeck = [];
+  store.workbench.chat = [];
+  store.touch();
+}
+
+/**
+ * 校验本机记着的协作池在后端是否还有效：
+ * 返回 true 表示有效（顺带刷新成员与有效期）；false 表示已被清理/过期，本机也会清掉。
+ */
+export function verifyCoop(): Promise<boolean> {
+  const code: string = store.workbench.code;
+  if (code === '' || store.userPhone === '') {
+    return Promise.resolve(false);
+  }
+  return callJson('/api/coop/' + code, http.RequestMethod.GET, '', COOP_CONNECT_MS, COOP_READ_MS)
+    .then((text: string): boolean => {
+      const r = JSON.parse(text) as CoopResp;
+      if (!r.ok) {
+        return false;
+      }
+      applyCoop(r);
+      return true;
+    })
+    .catch((_e: Error): boolean => {
+      // 后端明确说没有/过期 → 清本机；网络不通则保留（离线时别误清）
+      if (backendStatus() === 404 || backendStatus() === 410) {
+        clearCoop();
+      }
+      return false;
+    });
 }
 
 /* ---------- 物品管理（F2.2） ---------- */
@@ -787,6 +895,12 @@ export function endCoop(): Promise<WbHistory[]> {
     });
     store.workbench.history = [];
     store.workbench.chat = [];
+    store.workbench.code = '';        // 池子结束：回到"创建 / 加入"入口
+    store.workbench.expires = '';
+    store.workbench.seats = [];
+    store.workbench.members = [];
+    store.workbench.myDeck = [];
+    store.touch();
     store.pushLog('coop', '合作结束，聚合数据与协作复制库已清理');
     return summary;
   });

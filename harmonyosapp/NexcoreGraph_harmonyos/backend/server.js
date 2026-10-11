@@ -116,6 +116,22 @@ async function initDb() {
     joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (family_id, phone)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  /* 协作池（工作台）：必须先"创建"或"加入"才存在；有邀请码 + 有效期 + 成员 */
+  await pool.query(`CREATE TABLE IF NOT EXISTS coop_sessions (
+    code VARCHAR(16) PRIMARY KEY,
+    owner_account VARCHAR(128) NOT NULL,
+    family_id VARCHAR(64) NOT NULL,
+    name VARCHAR(64) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS coop_members (
+    code VARCHAR(16) NOT NULL,
+    account VARCHAR(128) NOT NULL,
+    nickname VARCHAR(64),
+    joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (code, account)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   await pool.query(`CREATE TABLE IF NOT EXISTS sync_snapshots (
     family_id VARCHAR(64) PRIMARY KEY,
     payload MEDIUMTEXT NOT NULL,
@@ -397,6 +413,109 @@ app.post('/api/auth/login', async (req, res) => {
       nickname: rows.length > 0 ? rows[0].nickname : nick,
       role: mine[0].role,
       families: mine
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/* ---------- 协作池（工作台）：必须先创建或加入才存在 ----------
+   创建 → 生成 6 位邀请码（默认 24 小时有效），创建者自动入池；
+   加入 → 校验邀请码未过期，登记成员后返回池子信息。 */
+
+const COOP_TTL_MS = Number(process.env.COOP_TTL_MS || 24 * 3600 * 1000);
+
+function genCoopCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 去掉了易混的 I/O/0/1
+  let s = '';
+  for (let i = 0; i < 6; i++) {
+    s += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return s;
+}
+
+async function coopMembers(code) {
+  const [rows] = await pool.query(
+    'SELECT account, nickname, joined_at FROM coop_members WHERE code = ? ORDER BY joined_at', [code]);
+  return rows;
+}
+
+app.post('/api/coop/create', async (req, res) => {
+  const account = String((req.body || {}).account || '').trim();
+  const name = String((req.body || {}).name || '').trim();
+  if (account === '') {
+    return res.status(400).json({ ok: false, error: '缺少 account' });
+  }
+  try {
+    const [mine] = await pool.query(
+      'SELECT family_id FROM family_members WHERE phone = ? ORDER BY joined_at LIMIT 1', [account]);
+    const familyId = mine.length > 0 ? mine[0].family_id : '';
+    let code = genCoopCode();
+    for (let i = 0; i < 5; i++) {
+      const [dup] = await pool.query('SELECT code FROM coop_sessions WHERE code = ?', [code]);
+      if (dup.length === 0) {
+        break;
+      }
+      code = genCoopCode();
+    }
+    const expires = new Date(Date.now() + COOP_TTL_MS);
+    await pool.query(
+      'INSERT INTO coop_sessions (code, owner_account, family_id, name, expires_at) VALUES (?, ?, ?, ?, ?)',
+      [code, account, familyId, name === '' ? '家庭协作牌桌' : name, expires]);
+    await pool.query('INSERT INTO coop_members (code, account, nickname) VALUES (?, ?, ?)',
+      [code, account, account.split('@')[0]]);
+    const members = await coopMembers(code);
+    res.json({ ok: true, code, name: name === '' ? '家庭协作牌桌' : name, expiresAt: expires.getTime(), members });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/coop/join', async (req, res) => {
+  const account = String((req.body || {}).account || '').trim();
+  const code = String((req.body || {}).code || '').trim().toUpperCase();
+  if (account === '' || code === '') {
+    return res.status(400).json({ ok: false, error: '缺少 account 或邀请码' });
+  }
+  try {
+    const [rows] = await pool.query(
+      'SELECT code, name, expires_at FROM coop_sessions WHERE code = ?', [code]);
+    if (rows.length === 0) {
+      return res.status(404).json({ ok: false, error: '邀请码不存在' });
+    }
+    if (new Date(rows[0].expires_at).getTime() < Date.now()) {
+      return res.status(410).json({ ok: false, error: '邀请码已过期' });
+    }
+    await pool.query(
+      'INSERT INTO coop_members (code, account, nickname) VALUES (?, ?, ?) ' +
+      'ON DUPLICATE KEY UPDATE nickname = VALUES(nickname)',
+      [code, account, account.split('@')[0]]);
+    const members = await coopMembers(code);
+    res.json({
+      ok: true, code, name: rows[0].name,
+      expiresAt: new Date(rows[0].expires_at).getTime(), members
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/* 查询协作池是否还有效（本机缓存里的池子可能是上一版残留/已过期） */
+app.get('/api/coop/:code', async (req, res) => {
+  const code = String(req.params.code || '').trim().toUpperCase();
+  try {
+    const [rows] = await pool.query(
+      'SELECT code, name, expires_at FROM coop_sessions WHERE code = ?', [code]);
+    if (rows.length === 0) {
+      return res.status(404).json({ ok: false, error: '协作池不存在' });
+    }
+    if (new Date(rows[0].expires_at).getTime() < Date.now()) {
+      return res.status(410).json({ ok: false, error: '协作池已过期' });
+    }
+    const members = await coopMembers(code);
+    res.json({
+      ok: true, code, name: rows[0].name,
+      expiresAt: new Date(rows[0].expires_at).getTime(), members
     });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
