@@ -3,6 +3,7 @@
    数据全部来自端侧图谱（GraphStore/GraphQuery），不调用模型。 */
 
 import { store } from '../common/Store';
+import { Library } from '../common/Db';
 import { T, R_L } from '../common/Tokens';
 import { TBtn, Card, CardHead, Chip, NumText } from '../components/Widgets';
 import { GraphDoc, GraphNode, GraphCommunity, RagEvidence } from '../common/GraphModel';
@@ -35,6 +36,15 @@ export struct GraphPanel {
   @Local edges: string[] = [];          // "fromId->toId"
   @Local onlyExpiring: boolean = false;
   @Local sizeText: string = '';
+
+  /** 用户自己库里的物品总数（=0 说明图里只有内置知识层） */
+  private itemCount(): number {
+    let n = 0;
+    store.libraries.forEach((l: Library): void => {
+      n += l.items.length;
+    });
+    return n;
+  }
   @Local verText: string = '';
   @Local selTitle: string = '';
   @Local selKind: string = '';
@@ -249,6 +259,16 @@ export struct GraphPanel {
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
+
+      // 空库说明：图里只剩内置的食材/菜谱知识层，用户自己的库存节点要入库后才出现
+      if (this.itemCount() === 0) {
+        Text('你的库还是空的：现在图里只有内置的食材/菜谱知识层。先拍照或手动入库，' +
+          '你的物品、库位、保质期才会作为实体进入这张图，AI 的回答也会改用你的数据做证据。')
+          .fontSize(12).lineHeight(18).fontColor(T.c('text-secondary'))
+          .width('100%').padding(12)
+          .borderRadius(12)
+          .backgroundColor(T.c('surface-raised'))
+      }
 
       Row({ space: 8 }) {
         Chip({ text: '全部', active: !this.onlyExpiring, tap: (): void => {

@@ -189,6 +189,26 @@ export struct AiWorkbench {
     /* 焦点区：今天要处理（全页唯一卡片） */
     Text('今天要处理').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
         .margin({ top: S6, bottom: S2 })
+      // 首启引导：库是空的（新账号的真实状态），先把"下一步做什么"摆到最显眼处
+      if (this.itemCount() === 0) {
+        Card() {
+          Column({ space: 10 }) {
+            Text('你的库还是空的').fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
+            Text('拍一张冰箱/货架的照片让 AI 识别入库，或者在资源库里手动建库、逐件添加。' +
+              '入库后这里会出现临期提醒、可执行方案和数据分析。')
+              .fontSize(13).lineHeight(20).fontColor(T.c('text-secondary'))
+            Row({ space: 12 }) {
+              TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', small: true, tap: (): void => {
+                store.overlay = 'intake';
+              } })
+              TBtn({ label: '新建资源库', icon: 'plus', kind: 'ghost', small: true, tap: (): void => {
+                store.tabIndex = 1;
+              } })
+            }
+          }
+          .alignItems(HorizontalAlign.Start)
+        }
+      }
       if (this.queueCount() === 0) {
         Text('还没有待确认的动作。问我「鸡蛋只剩 5 个」或「今晚吃什么」，我会把动作准备好放在这里。')
           .fontSize(13).lineHeight(20).fontColor(T.c('text-muted'))

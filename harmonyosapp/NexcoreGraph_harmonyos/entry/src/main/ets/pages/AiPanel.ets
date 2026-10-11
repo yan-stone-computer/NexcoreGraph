@@ -100,16 +100,17 @@ export struct AiPanel {
       }
       this.scrollToBottom();
     }).catch((_e: Error): void => {
-      // 网络异常时回退到本地演示回复
+      // 断网兜底：用本地事实层回答（只复述用户库里真实存在的数据，不编造）
       chatReply(v).then((reply): void => {
         store.chatTyping = false;
           const replyMsg = new ChatMsg('ai', reply.text, '刚刚', reply.plans);
           store.chat = store.chat.concat([replyMsg]);
           scheduleLivePublish();
-          store.toast('网络异常，当前为本地演示回复');
+          store.toast('连不上模型服务，已用本地库存事实回答');
         this.scrollToBottom();
       }).catch((): void => {
         store.chatTyping = false;
+        store.toast('AI 暂时不可用，请检查后端服务后重试');
       });
     });
   }

@@ -1,13 +1,17 @@
-/* 启核图策 · 伪实现后端层（移植 web-demo/js/mockapi.js，接口签名与未来真实后端对齐）
-   ponytail: 数据仅存内存；接真实后端时替换为 HTTP + RDB 本地缓存。 */
+/* 启核图策 · 业务动作层
+   数据只来自用户输入 / 拍照识别 / 后端返回；本文件不含任何预置样例数据。
+   账号相关动作（取验证码 / 登录 / 退出）直接打后端 /api/auth/*，登录成功后把远端数据拉回本机。 */
 
 import {
   Item, Library, Plan, AlertItem, ShoppingItem, ChatMsg, IntakeResult,
-  Consume, Snap, SeatLib, SeatItem, Seat, Todo, WbMsg, WbHistory, KNOWLEDGE, seedIntake
+  Consume, Snap, SeatLib, SeatItem, Seat, Todo, WbMsg, WbHistory, KNOWLEDGE, Family
 } from './Db';
 import { store, nowTime } from './Store';
-import { scheduleLivePublish } from './LiveSync';
-import { saveLedger } from './LocalStore';
+import { scheduleLivePublish, stopLiveSync } from './LiveSync';
+import { saveLedger, saveUserData, clearUserDataSaved, saveSession } from './LocalStore';
+import { callJson } from './Backend';
+import { pullMyData } from './SyncApi';
+import { http } from '@kit.NetworkKit';
 import { T } from './Tokens';
 import { kcalGuess } from './Knowledge';
 
@@ -37,6 +41,102 @@ function sleep(): Promise<void> {
 
 function nid(prefix: string): string {
   return prefix + Date.now() + Math.floor(Math.random() * 1000);
+}
+
+/* ---------- 账号（F9.1/F9.2）：验证码由后端下发并校验，端侧不留任何固定演示码 ---------- */
+
+const AUTH_CONNECT_MS: number = 6000;
+const AUTH_READ_MS: number = 15000;
+
+class CodeResp {
+  ok: boolean = false;
+  error: string = '';
+  ttlSec: number = 0;
+  channel: string = '';     // sms=已发短信；console=后端未接短信通道，验证码只打在服务端日志
+  devCode: string = '';     // 仅后端显式开启 AUTH_SHOW_CODE=1 时才有值
+}
+
+class LoginResp {
+  ok: boolean = false;
+  error: string = '';
+  token: string = '';
+  phone: string = '';
+  nickname: string = '';
+  role: string = '';
+  families: FamilyDto[] = [];
+}
+
+class FamilyDto {
+  id: string = '';
+  name: string = '';
+  memberCount: number = 0;
+  role: string = '';
+}
+
+/** 取验证码：后端生成随机 6 位码并按账号存 TTL；账号可以是手机号或邮箱 */
+export function requestLoginCode(account: string): Promise<string> {
+  return callJson('/api/auth/code', http.RequestMethod.POST, JSON.stringify({ account: account }),
+    AUTH_CONNECT_MS, AUTH_READ_MS).then((text: string): string => {
+    const r = JSON.parse(text) as CodeResp;
+    if (!r.ok) {
+      throw new Error(r.error === '' ? '验证码下发失败' : r.error);
+    }
+    const ttl: string = Math.round(r.ttlSec / 60) + ' 分钟内有效';
+    if (r.channel === 'email') {
+      return '验证码已发送到你的邮箱，' + ttl + '（收不到先看垃圾邮件）';
+    }
+    if (r.channel === 'sms') {
+      return '验证码已通过短信发送，' + ttl;
+    }
+    return '验证码已生成（后端未配置邮件/短信通道，验证码打印在服务端日志里），' + ttl;
+  });
+}
+
+/**
+ * 验证码登录：后端校验通过后返回 token 与真实家庭列表；
+ * 端侧随后用该账号把云端数据拉回本机（后端是账号数据的权威存放处）。
+ */
+export function loginByCode(account: string, code: string): Promise<string> {
+  return callJson('/api/auth/login', http.RequestMethod.POST,
+    JSON.stringify({ account: account, code: code }), AUTH_CONNECT_MS, AUTH_READ_MS)
+    .then((text: string): Promise<string> => {
+      const r = JSON.parse(text) as LoginResp;
+      if (!r.ok || r.token === '') {
+        throw new Error(r.error === '' ? '登录失败' : r.error);
+      }
+      store.userPhone = r.phone;
+      store.authToken = r.token;
+      store.userName = r.nickname === '' ? '用户' + r.phone.slice(-4) : r.nickname;
+      store.userInitial = store.userName.slice(0, 1);
+      store.userRole = r.role === '' ? '成员' : r.role;
+      const list: Family[] = [];
+      r.families.forEach((f: FamilyDto): void => {
+        list.push(new Family(f.id, f.name, f.memberCount));
+      });
+      store.families = list;
+      store.family = list.length > 0 ? list[0] : new Family('', '', 1);
+      store.loggedIn = true;
+      // 拉回该家庭在云端的数据；新账号云端没有快照 → 保持空库
+      return pullMyData().then((found: boolean): string => {
+        saveSession();
+        saveUserData();
+        return found
+          ? `已登录 ${store.userName}，云端数据已同步到本机`
+          : `已登录 ${store.userName}，这是新账号，从空库开始`;
+      }).catch((_e: Error): string => {
+        saveSession();
+        saveUserData();
+        return `已登录 ${store.userName}（暂时读不到云端数据，本机先按空的开始）`;
+      });
+    });
+}
+
+/** 退出登录：停同步、清本机缓存；云端数据保留，下次登录还能拉回来 */
+export function logout(): Promise<void> {
+  stopLiveSync();
+  clearUserDataSaved();
+  store.clearUserData();
+  return Promise.resolve();
 }
 
 function touchLib(lib: Library): void {
@@ -269,6 +369,25 @@ export function syncMyHand(): void {
     }
   });
   me.libs = libs;
+}
+
+/**
+ * 上桌（原本依赖预置的牌桌数据，现在由用户自己决定摆哪些库）：
+ * 没有"我的座位"就新建一个，手牌取 myDeck；myDeck 为空则默认摆前 4 个库。
+ */
+export function takeSeat(): Promise<void> {
+  return sleep().then((): void => {
+    if (store.workbench.seats.length === 0) {
+      const seat = new Seat('me', `${store.userName === '' ? '我' : store.userName} · 我`, 'teal', []);
+      store.workbench.seats = [seat];
+    }
+    if (store.workbench.myDeck.length === 0) {
+      store.workbench.myDeck = store.libraries.slice(0, 4).map((l: Library): string => l.id);
+    }
+    syncMyHand();
+    store.touch();
+    store.pushLog('coop', '已上桌 · 手牌 ' + store.workbench.myDeck.length + ' 张');
+  });
 }
 
 /* ---------- 物品管理（F2.2） ---------- */
@@ -720,17 +839,80 @@ export class ChatReply {
   }
 }
 
+/**
+ * 纯本地兜底回答（网关不可用时用）：
+ * 只复述**用户自己库里**的真实事实，查不到就说查不到，绝不编造物品/数量/方案。
+ * 旧实现返回的是写死的示例话术（"番茄炒蛋""采购清单：皮蛋 1 个…"），已删除。
+ */
 export function chatReply(text: string): Promise<ChatReply> {
   return sleep().then((): ChatReply => {
-    const t = text || '';
-    if (t.indexOf('牛奶') > -1) {
-      return new ChatReply('鲜牛奶（巴氏）冷藏可放约 6 天，开封后建议 24 小时内喝完。按今天算还有 2 天到期，已加入临期提醒。', []);
+    const q = text || '';
+    const it = findItemByName(q);
+    if (it !== null) {
+      const lib = libOfItem(it);
+      const where = lib === null ? it.pos : `${lib.name} · ${it.pos}`;
+      return new ChatReply(
+        `（本地兜底·未联网）${it.name} 现有 ${it.qty}${it.unit}，放在 ${where}` +
+        (it.expDays > 0 ? `，约 ${it.expDays} 天后到期。` : '。'), []);
     }
-    if (t.indexOf('采购') > -1 || t.indexOf('买') > -1) {
-      return new ChatReply('已按方案缺料和低库存生成采购清单：皮蛋 1 个、鸡蛋补到 12 个、燕麦 50 克、生抽 1 瓶。', []);
+    if (store.libraries.length === 0) {
+      return new ChatReply('（本地兜底·未联网）你的库还是空的，先拍照入库或手动添加，我才能按你的东西回答。', []);
     }
-    return new ChatReply('按当前库存和临期情况排了优先方案，番茄炒蛋仍是消耗临期食材最快的选择；需要我把采购清单一起生成吗？', [1, 3]);
+    const exp = expiringSoon();
+    if (exp.length > 0) {
+      return new ChatReply('（本地兜底·未联网）我现在只能查到你库里的原始事实：' +
+        exp.slice(0, 3).map((i: Item): string => `${i.name} ${i.qty}${i.unit}（${i.expDays} 天后到期）`).join('、') +
+        '。要更完整的建议，等联网后我再问一次。', []);
+    }
+    return new ChatReply('（本地兜底·未联网）我这边暂时连不上模型，只能确认：你的库里有 ' +
+      `${store.libraries.length} 个库、共 ${countItems()} 件物品。联网后再问一次就能给你分析建议。`, []);
   });
+}
+
+/** 在用户自己的库里按名称找物品（本地兜底用） */
+function findItemByName(q: string): Item | null {
+  const s = q.trim();
+  if (s === '') {
+    return null;
+  }
+  let hit: Item | null = null;
+  store.libraries.forEach((l: Library) => {
+    l.items.forEach((it: Item) => {
+      if (hit === null && it.name !== '' && s.indexOf(it.name) > -1) {
+        hit = it;
+      }
+    });
+  });
+  return hit;
+}
+
+function libOfItem(it: Item): Library | null {
+  let hit: Library | null = null;
+  store.libraries.forEach((l: Library) => {
+    if (hit === null && l.items.some((x: Item): boolean => x.id === it.id)) {
+      hit = l;
+    }
+  });
+  return hit;
+}
+
+function expiringSoon(): Item[] {
+  const out: Item[] = [];
+  store.libraries.forEach((l: Library) => {
+    l.items.forEach((it: Item) => {
+      if (it.expDays > 0 && it.expDays <= 7) {
+        out.push(it);
+      }
+    });
+  });
+  out.sort((a: Item, b: Item): number => a.expDays - b.expDays);
+  return out;
+}
+
+function countItems(): number {
+  let n = 0;
+  store.libraries.forEach((l: Library) => n += l.items.length);
+  return n;
 }
 
 /* ---------- 设置 ---------- */
@@ -751,9 +933,9 @@ export function toggleDaily(id: number): Promise<void> {
   });
 }
 
-/* ---------- 重新识别（重置演示识别数据） ---------- */
+/* ---------- 重新识别（清空本次识别草稿，回到拍摄/上传） ---------- */
 export function resetIntake(): void {
-  store.intake = seedIntake();
+  store.intake = [];
   store.intakeStep = 0;
   store.intakeLoading = false;
 }

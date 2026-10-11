@@ -25,6 +25,7 @@ const mysql = require('mysql2/promise');
 const { buildGraph } = require('./graphBuild');
 const { GraphService } = require('./graphService');
 const { buildEvidence, matchEntity } = require('./graphQuery');
+const { sendMail } = require('./mailer');
 
 /**
  * 可选：读取同目录 gitignore 的 backend/.env（AGNES_API_KEY=sk-xxx 等），
@@ -74,6 +75,9 @@ const AI = {
   rpm: Number(process.env.AI_RPM || 20),
   ttsEndpoint: process.env.TTS_ENDPOINT || '',
   ttsKey: process.env.TTS_API_KEY || '',
+  // 短信通道（可选）：配置后 /api/auth/code 会把验证码发出去；不配置则只打服务端日志
+  smsEndpoint: process.env.SMS_ENDPOINT || '',
+  smsKey: process.env.SMS_API_KEY || '',
   // 视觉识别模型链：实测 agnes-2.0-flash 连续调用第二次起就持续 429（免费额度按模型限流），
   // 而 agnes-2.5-flash 连测 3 次全部 200 且只要 0.6–2.8s；agnes-2.5-pro 在本 Key 上是 403
   // （无权限），不能放进链里。顺序 = 先快且稳的，再兜底。
@@ -197,6 +201,20 @@ async function initDb() {
     edges INT DEFAULT 0,
     built_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  /* 账号列扩容：登录名可能是邮箱（原 VARCHAR(16) 装不下），放宽到 128 并保持唯一约束。
+     幂等：已经是 128 时 MODIFY 等于空操作。 */
+  for (const q of [
+    'ALTER TABLE users MODIFY phone VARCHAR(128) NOT NULL',
+    'ALTER TABLE families MODIFY owner_phone VARCHAR(128) NULL',
+    'ALTER TABLE family_members MODIFY phone VARCHAR(128) NOT NULL'
+  ]) {
+    try {
+      await pool.query(q);
+    } catch (e) {
+      console.warn('[db] 账号列扩容跳过:', e.message);
+    }
+  }
 }
 
 function genInvite() {
@@ -207,30 +225,181 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, time: Date.now() });
 });
 
-/* 演示登录：验证码固定 123456，用户首次登录自动建档并加入默认家庭（F9.1） */
-app.post('/api/auth/login', async (req, res) => {
-  const { phone, code } = req.body || {};
-  if (!/^1\d{10}$/.test(String(phone || ''))) {
-    return res.status(400).json({ error: '请输入 11 位手机号' });
+/* ---------- 账号（F9.1/F9.2）：邮箱/手机号 + 随机验证码 + TTL + 真 token ----------
+   没有任何固定验证码：每次索取都现生成 6 位随机码，服务端按账号存 TTL（5 分钟）。
+   下发通道：邮箱账号走 SMTP（MAIL_USER/MAIL_PASS，163 默认 smtp.163.com:465），
+   手机号账号可走可选短信通道；两个通道都没配时，验证码只打进服务端日志（本地开发可登录，
+   但端侧永远拿不到"默认码"）。可选 AUTH_SHOW_CODE=1 时响应里会回带 devCode（仅本地联调）。 */
+
+const AUTH_TTL_MS = Number(process.env.AUTH_CODE_TTL_MS || 5 * 60 * 1000);
+const AUTH_COOLDOWN_MS = Number(process.env.AUTH_CODE_COOLDOWN_MS || 60 * 1000);
+const authCodes = new Map();     // account -> { code, expiresAt, sentAt, tries }
+const authTokens = new Map();    // token -> { account, expiresAt }
+
+function genCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function genToken() {
+  return 'nxg-' + Math.random().toString(36).slice(2) + Date.now().toString(36) +
+    Math.random().toString(36).slice(2);
+}
+
+/** 账号：11 位手机号 或 邮箱（两者都能作为登录名，用户表里存的就是这串账号） */
+function isPhone(s) {
+  return /^1\d{10}$/.test(s);
+}
+
+function isEmail(s) {
+  return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(s);
+}
+
+function accountError(s) {
+  if (isPhone(s) || isEmail(s)) {
+    return '';
   }
-  if (String(code) !== '123456') {
-    return res.status(400).json({ error: '验证码错误（演示码 123456）' });
+  return '请输入手机号或邮箱';
+}
+
+/** 短信通道（可选）：配置 SMS_ENDPOINT 后 POST { phone, text } 即可 */
+async function sendSms(phone, text) {
+  if (!AI.smsEndpoint) {
+    return false;
   }
   try {
-    await pool.query('INSERT IGNORE INTO users (phone, nickname) VALUES (?, ?)', [phone, '用户' + phone.slice(-4)]);
-    // 首个登录者创建默认家庭并成为管理员；后续登录者加入为成员（F9.1/F9.2）
-    const [famIns] = await pool.query(
-      'INSERT IGNORE INTO families (id, name, owner_phone, invite_code) VALUES (?, ?, ?, ?)',
-      ['home', '幸福小家', phone, 'TS-4821']);
-    const role = famIns.affectedRows === 1 ? '管理员' : '成员';
-    await pool.query(
-      'INSERT INTO family_members (family_id, phone, role) VALUES (?, ?, ?) ' +
-      'ON DUPLICATE KEY UPDATE role = role',
-      ['home', phone, role]);
-    const [rows] = await pool.query('SELECT id, phone, nickname FROM users WHERE phone = ?', [phone]);
-    res.json({ token: 'demo-' + phone, user: rows[0] });
+    const r = await fetch(AI.smsEndpoint, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' },
+        AI.smsKey ? { 'Authorization': 'Bearer ' + AI.smsKey } : {}),
+      body: JSON.stringify({ phone, text }),
+      signal: AbortSignal.timeout(10000)
+    });
+    return r.ok;
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.warn('[auth] 短信下发失败:', e.message);
+    return false;
+  }
+}
+
+/**
+ * 按账号类型下发验证码。返回实际使用的通道：
+ * email=邮件已发出；sms=短信已发出；console=都没配，只打了服务端日志
+ */
+async function deliverCode(account, code) {
+  const ttlMin = Math.round(AUTH_TTL_MS / 60000);
+  const text = '【启核图策】验证码 ' + code + '，' + ttlMin + ' 分钟内有效。为保障安全，请勿向任何人透露。';
+  if (isEmail(account)) {
+    try {
+      await sendMail({
+        to: account,
+        subject: '启核图策 · 登录验证码 ' + code,
+        text: '你的登录验证码是 ' + code + '（' + ttlMin + ' 分钟内有效）。\n\n' +
+          '如果不是你本人操作，忽略本邮件即可。'
+      });
+      console.log('[auth] 验证码邮件已发送: ' + account);
+      return 'email';
+    } catch (e) {
+      // 本地联调（AUTH_SHOW_CODE=1）时邮件没配也能继续：把码打进日志并回带 devCode。
+      // 生产环境（未开该开关）必须让错误抛出去，绝不能"假装发出去了"。
+      if (process.env.AUTH_SHOW_CODE === '1') {
+        console.warn('[auth] 邮件下发失败（本地联调降级为服务端日志）:', e.message);
+        return 'console';
+      }
+      throw e;
+    }
+  }
+  if (await sendSms(account, text)) {
+    return 'sms';
+  }
+  console.log('[auth] 未配置下发通道，验证码只打印在服务端日志: ' + account + ' -> ' + code);
+  return 'console';
+}
+
+app.post('/api/auth/code', async (req, res) => {
+  const account = String((req.body || {}).account || (req.body || {}).phone || '').trim();
+  const bad = accountError(account);
+  if (bad !== '') {
+    return res.status(400).json({ ok: false, error: bad });
+  }
+  const prev = authCodes.get(account);
+  if (prev && Date.now() - prev.sentAt < AUTH_COOLDOWN_MS) {
+    const left = Math.ceil((AUTH_COOLDOWN_MS - (Date.now() - prev.sentAt)) / 1000);
+    return res.status(429).json({ ok: false, error: '请求过于频繁，请 ' + left + ' 秒后再试' });
+  }
+  const code = genCode();
+  authCodes.set(account, { code, expiresAt: Date.now() + AUTH_TTL_MS, sentAt: Date.now(), tries: 0 });
+  let channel = 'console';
+  try {
+    channel = await deliverCode(account, code);
+  } catch (e) {
+    authCodes.delete(account);      // 发不出去就别占着冷却时间
+    console.warn('[auth] 验证码下发失败:', e.message);
+    return res.status(502).json({ ok: false, error: '验证码发送失败：' + e.message });
+  }
+  const body = { ok: true, ttlSec: Math.round(AUTH_TTL_MS / 1000), channel };
+  if (process.env.AUTH_SHOW_CODE === '1') {
+    body.devCode = code;
+  }
+  res.json(body);
+});
+
+/* 登录：校验验证码 → 建档 → 返回 token 与真实的家庭列表（首次登录自动建一个空家庭） */
+app.post('/api/auth/login', async (req, res) => {
+  const raw = req.body || {};
+  const account = String(raw.account || raw.phone || '').trim();
+  const code = String(raw.code || '');
+  const bad = accountError(account);
+  if (bad !== '') {
+    return res.status(400).json({ ok: false, error: bad });
+  }
+  const rec = authCodes.get(account);
+  if (!rec) {
+    return res.status(400).json({ ok: false, error: '请先获取验证码' });
+  }
+  if (Date.now() > rec.expiresAt) {
+    authCodes.delete(account);
+    return res.status(400).json({ ok: false, error: '验证码已过期，请重新获取' });
+  }
+  if (rec.tries >= 5) {
+    authCodes.delete(account);
+    return res.status(429).json({ ok: false, error: '验证码错误次数过多，请重新获取' });
+  }
+  if (code !== rec.code) {
+    rec.tries += 1;
+    return res.status(400).json({ ok: false, error: '验证码错误' });
+  }
+  authCodes.delete(account);
+  try {
+    const nick = isEmail(account) ? account.split('@')[0] : '用户' + account.slice(-4);
+    await pool.query('INSERT IGNORE INTO users (phone, nickname) VALUES (?, ?)', [account, nick]);
+    // 没有家庭的新账号：建一个属于他自己的空家庭（管理员），不再塞任何默认家庭/默认数据
+    const [mine] = await pool.query(
+      'SELECT f.id, f.name, fm.role, ' +
+      '(SELECT COUNT(*) FROM family_members x WHERE x.family_id = f.id) AS member_count ' +
+      'FROM family_members fm JOIN families f ON f.id = fm.family_id ' +
+      "WHERE fm.phone = ? ORDER BY (fm.role = '管理员') DESC, f.id", [account]);
+    if (mine.length === 0) {
+      const fid = 'fam-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      await pool.query(
+        'INSERT INTO families (id, name, owner_phone, invite_code) VALUES (?, ?, ?, ?)',
+        [fid, nick + '的家', account, genInvite()]);
+      await pool.query('INSERT INTO family_members (family_id, phone, role) VALUES (?, ?, ?)',
+        [fid, account, '管理员']);
+      mine.push({ id: fid, name: nick + '的家', role: '管理员', member_count: 1 });
+    }
+    const token = genToken();
+    authTokens.set(token, { account, expiresAt: Date.now() + 30 * 24 * 3600 * 1000 });
+    const [rows] = await pool.query('SELECT phone, nickname FROM users WHERE phone = ?', [account]);
+    res.json({
+      ok: true,
+      token,
+      phone: account,
+      nickname: rows.length > 0 ? rows[0].nickname : nick,
+      role: mine[0].role,
+      families: mine
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
@@ -1055,5 +1224,13 @@ initDb().then(() => {
           : '未配置 AGNES_API_KEY（仅本地快答可用）';
         console.log('[nexcoregraph-backend] AI 网关: ' + keyTag + ' | model=' + AI.model + ' alt=' + AI.modelAlt +
           ' | vision=' + AI.visionModels.join('>') + ' budget=' + AI.visionBudgetMs + 'ms maxTok=' + AI.visionMaxTokens);
+        // 验证码下发通道：邮箱账号是否有授权码、短信通道是否配好（只打账号，不打密码）
+        const mailTag = process.env.MAIL_USER
+          ? ('邮箱 ' + process.env.MAIL_USER + ' @ ' + (process.env.MAIL_HOST || 'smtp.163.com') +
+            (process.env.MAIL_PASS ? '（已配置授权码）' : '（缺 MAIL_PASS 授权码）'))
+          : '邮箱未配置（缺 MAIL_USER / MAIL_PASS）';
+        console.log('[nexcoregraph-backend] 验证码通道: ' + mailTag +
+          ' | 短信=' + (AI.smsEndpoint ? '已配置' : '未配置') +
+          ' | AUTH_SHOW_CODE=' + (process.env.AUTH_SHOW_CODE === '1' ? '1（联调）' : '0'));
   });
 });

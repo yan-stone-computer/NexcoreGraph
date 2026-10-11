@@ -5,12 +5,12 @@ import { store, LogRow, AiUsageRow } from '../common/Store';
 import { T, R_S, R_M, R_L, R_XL, DUR_BASE, DUR_SLOW } from '../common/Tokens';
 import { Ico, TBtn, ToneBadge, Chip, Card, CardHead, IconBtn, NumText, MiniSwitch, SwitchRow, Field, PlanCard } from '../components/Widgets';
 import {
-  Library, Item, AlertItem, ShoppingItem, Plan, IntakeResult, WbMsg, seedIntake, Family
+  Library, Item, AlertItem, ShoppingItem, Plan, IntakeResult, WbMsg, Family
 } from '../common/Db';
 import {
   runBusy, addItems, mergeIntakeResults, resetIntake, generatePlans, resolveAlert, shoppingList, search, SearchHit,
   createLibrary, renameLibrary, addItem, updateItem, deleteItem, restoreItem,
-  setDeck, sendChat, setSetting, ItemForm, kbSrc, recordIntakeMs, valueMetrics, ValueMetrics
+  setDeck, sendChat, setSetting, ItemForm, kbSrc, recordIntakeMs, valueMetrics, ValueMetrics, logout
 } from '../common/Api';
 import { AiPanel } from './AiPanel';
 import { GraphPanel } from './GraphPanel';
@@ -1133,11 +1133,16 @@ struct IntakePanel {
         // 取景框
         Column({ space: 16 }) {
           Stack() {
-            Image($r('app.media.fridge'))
-              .width('100%')
-              .aspectRatio(1)
-              .borderRadius(R_L)
-              .objectFit(ImageFit.Cover)
+            // 取景框不再放示例照片：空框 + 提示，照片完全来自用户自己拍的/选的
+            Column({ space: 10 }) {
+              Ico({ name: 'camera', dim: 40, color: T.c('text-muted') })
+              Text('这里预览你拍的照片').fontSize(13).fontColor(T.c('text-muted'))
+            }
+            .width('100%')
+            .aspectRatio(1)
+            .justifyContent(FlexAlign.Center)
+            .borderRadius(R_L)
+            .backgroundColor(T.c('surface-overlay'))
 
             // 四角
             VfCorner({ corner: 0 }).position({ x: 14, y: 14 })
@@ -1158,7 +1163,7 @@ struct IntakePanel {
 
             Row({ space: 6 }) {
               Ico({ name: 'scan', dim: 13, color: T.c('text-primary') })
-              Text('对准冰箱 · AI 自动识别').fontSize(12).fontWeight(600).fontColor(T.c('text-primary'))
+              Text('对准货架/冰箱 · AI 自动识别').fontSize(12).fontWeight(600).fontColor(T.c('text-primary'))
             }
             .padding({ left: 14, right: 14, top: 6, bottom: 6 })
             .borderRadius(999)
@@ -1181,11 +1186,7 @@ struct IntakePanel {
               TBtn({ label: '从相册选择', icon: 'upload', kind: 'ghost', tap: (): void => this.pickPhoto() })
             }
 
-            Text('用内置演示图识别（相机不可用时）')
-              .fontSize(12).fontWeight(600).fontColor(T.c('primary-ink'))
-              .onClick((): void => this.shootDemoImage())
-
-            Text('相册一次可多选最多 6 张，连拍自动合并去重累加')
+            Text('相册一次可多选最多 6 张，连拍自动合并去重累加；无相机设备请用「从相册选择」')
               .fontSize(12).fontColor(T.c('text-muted'))
         }
         .width('100%')
@@ -1240,11 +1241,8 @@ struct IntakePanel {
               } })
             }
             .width('100%')
-
-            // 第三个按钮放不下（视觉模型读屏实测右侧文字被截断），改成一行文字链接
-            Text('用内置演示图填表（相机不可用时）')
-              .fontSize(12).fontWeight(600).fontColor(T.c('primary-ink'))
-              .onClick((): void => this.recognizeFallback())
+            Text('也可以直接从资源库手动添加物品')
+              .fontSize(12).fontColor(T.c('text-muted'))
           }
           .width('100%')
           .padding(24)
@@ -1322,8 +1320,7 @@ struct IntakePanel {
       const pending: Promise<cameraPicker.PickerResult> | undefined =
         cameraPicker.pick(ctx, [cameraPicker.PickerMediaType.PHOTO], profile);
       if (pending === undefined || pending === null) {
-        store.toast('当前设备相机不可用，改用内置演示图识别');
-        this.shootDemoImage();
+        store.toast('当前设备没有可用相机，请用「从相册选择」');
         return;
       }
       pending.then((result: cameraPicker.PickerResult): void => {
@@ -1333,30 +1330,12 @@ struct IntakePanel {
         }
         this.compressAndRecognize(result.resultUri);
       }).catch((e: Error): void => {
-        // 模拟器/无相机设备：回退到内置演示图，保证演示不空转
         store.toast('相机不可用（' + (e !== undefined && e.message !== undefined ? e.message : '未知原因') +
-          '），改用内置演示图');
-        this.shootDemoImage();
+          '），请用「从相册选择」');
       });
     } catch (_e) {
-      store.toast('相机调用失败，改用内置演示图识别');
-      this.shootDemoImage();
+      store.toast('相机调用失败，请用「从相册选择」');
     }
-  }
-
-  /** 内置演示图：走的是同一条真实链路（压缩 → 上传 → Agnes 识图） */
-  private shootDemoImage(): void {
-    this.batchMode = false;
-    this.mergedDone = false;
-    store.intakeStep = 1;
-    store.intakeLoading = true;
-    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    ctx.resourceManager.getMediaContent($r('app.media.fridge')).then((data: Uint8Array): void => {
-      const b64 = new util.Base64Helper().encodeToStringSync(data);
-      this.recognizeBase64(b64);
-    }).catch((_e: Error): void => {
-      this.recognizeFallback();
-    });
   }
 
   private pickPhoto(): void {
@@ -1445,7 +1424,7 @@ struct IntakePanel {
       store.intakeLoading = false;
       store.intakeStep = 0;
       const why: string = e !== undefined && e.message !== undefined ? e.message : '未知原因';
-      store.toast('读图失败：' + why + '，可重选或用内置演示图');
+      store.toast('读图失败：' + why + '，请重新选择图片');
     });
   }
 
@@ -1475,18 +1454,10 @@ struct IntakePanel {
         // 不再静默回退：把网关失败原因说出来，避免"看着像没接 AI"
         const why: string = e !== undefined && e.message !== undefined && e.message !== '' ? e.message : '未知原因';
         this.intakeNote = `AI 识图失败（${this.msLabel(t0)}）：${why}`;
-        store.toast('AI 识图失败（' + why + '），先用演示数据占位');
-        this.recognizeFallback();
+        store.toast('AI 识图失败（' + why + '），可重拍或稍后再试');
+        store.intake = [];
+        this.intakeEmpty = true;   // 失败也停在"没有可入库内容"，绝不塞示例数据
       });
-  }
-
-  private recognizeFallback(): void {
-    this.stopTicker();
-    this.intakeEmpty = false;
-    store.intake = seedIntake();
-    store.intakeLoading = false;
-    store.intakeStep = 1;
-    store.toast('Agnes 识别失败，已载入演示数据');
   }
 
   @Builder
@@ -1992,7 +1963,7 @@ export struct SettingsView {
           .alignItems(HorizontalAlign.Start)
         }
 
-        // 跨设备流转（演示 / 兜底通道：模拟器与跨网段用）
+        // 跨设备流转（同一账号多端；同网段走本地中转，真机同账号走系统接续）
         Card() {
           Column({ space: 12 }) {
             CardHead({ title: '跨设备流转', sub: '手机 / 平板之间接着做' })
@@ -2000,8 +1971,8 @@ export struct SettingsView {
               '下面的按钮用于把"当前页面 + 本机数据"整包送过去继续。' +
               '同步内容：库与物品、方案、临期预警、采购清单、' +
               '操作日志、提醒与外观设置、AI 偏好、每日待办。' +
-              '真机同账号同网时由系统「应用接续」自动完成，这里不用管；模拟器之间没有 dsoftbus，' +
-              '可以走本地中转服务（backend/flow-bridge.js）演示，两端用的是同一份快照。' +
+              '真机同账号同网时由系统「应用接续」自动完成，这里不用管；设备之间没有直连通道时，' +
+              '走本地中转服务（backend/flow-bridge.js），两端用的是同一份快照。' +
               '按既定隐私策略，聊天正文与图片二进制不随流转同步。')
               .fontSize(12).fontColor(T.c('text-muted'))
             Row({ space: 12 }) {
@@ -2233,21 +2204,23 @@ export struct SettingsView {
           .alignItems(HorizontalAlign.Start)
         }
 
-        // 演示数据
+        // 账号与数据：账号来自后端登录，本机数据来自你录入 + 从后端拉取
         Row({ space: 16 }) {
           Column({ space: 2 }) {
-            Text('演示数据').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
-            Text('本地模拟数据库，可一键重置').fontSize(13).fontColor(T.c('text-muted'))
+            Text('账号与数据').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
+            Text(store.userPhone === ''
+              ? '未登录'
+              : `${store.userPhone} · ${store.userRole === '' ? '成员' : store.userRole} · ${store.family.name}`)
+              .fontSize(13).fontColor(T.c('text-muted'))
+            Text('本机只保留你的录入内容；退出登录会清空本机缓存，云端数据不受影响')
+              .fontSize(12).fontColor(T.c('text-muted'))
           }
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
 
-          TBtn({ label: '重置演示数据', kind: 'ghost', busyKey: 'reset', tap: (): void => {
-            runBusy('reset', (): Promise<void> => {
-              store.reset();
-              return Promise.resolve();
-            }, (): void => {
-              store.toast('演示数据已重置');
+          TBtn({ label: '退出登录', kind: 'ghost', busyKey: 'logout', tap: (): void => {
+            runBusy('logout', (): Promise<void> => logout(), (): void => {
+              store.toast('已退出登录，云端数据已保留');
             });
           } })
           }

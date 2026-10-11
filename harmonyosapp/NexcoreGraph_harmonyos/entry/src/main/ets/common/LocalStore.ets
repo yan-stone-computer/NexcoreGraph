@@ -4,8 +4,9 @@
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { store, AiUsageRow, nowTime, ValueLedger } from './Store';
-import { ChatMsg, Profile, Item, Library } from './Db';
+import { ChatMsg, Profile, Item, Library, Family } from './Db';
 import { T } from './Tokens';
+import { buildDataSnapshot, applyDataSnapshot } from './Continuation';
 
 const MAX_CHAT: number = 200;   // 滚动裁剪上限（验收 I5/K11）
 
@@ -23,6 +24,11 @@ export function initLocal(ctx: common.UIAbilityContext): void {
 function loadAll(): void {
   if (prefs === null) {
     return;
+  }
+  // 用户数据（库/物品/方案/清单/待办/工作台/对话/日志）：本机上次的样子，离线也能打开
+  const dataJson = prefs.getSync('userData', '') as string;
+  if (dataJson !== '') {
+    applyDataSnapshot(dataJson);
   }
   // 对话
   const chatJson = prefs.getSync('chat', '[]') as string;
@@ -221,6 +227,98 @@ export function clearChatSaved(): void {
   }
   prefs.putSync('chat', '[]');
   prefsFlush();
+}
+
+/** 用户数据落盘（库/物品/方案/清单/待办/工作台/对话/日志）：
+    与云端快照同一份 DTO（Continuation），保证"本机恢复"和"换设备拉取"走同一条路。 */
+export function saveUserData(): void {
+  if (prefs === null) {
+    return;
+  }
+  prefs.putSync('userData', buildDataSnapshot());
+  prefsFlush();
+}
+
+/** 退出登录：抹掉本机缓存（不含主题等纯外观偏好） */
+export function clearUserDataSaved(): void {
+  if (prefs === null) {
+    return;
+  }
+  prefs.putSync('userData', '');
+  prefs.putSync('chat', '[]');
+  prefs.putSync('session', '');
+  prefsFlush();
+}
+
+/* ---------- 登录会话（token 只存本机，用来免重复登录） ---------- */
+
+class SessionDto {
+  account: string = '';
+  token: string = '';
+  name: string = '';
+  role: string = '';
+  familyId: string = '';
+  familyName: string = '';
+  members: number = 0;
+  families: FamilyDto[] = [];
+}
+
+class FamilyDto {
+  id: string = '';
+  name: string = '';
+  memberCount: number = 0;
+}
+
+/** 登录成功后落盘会话：下次打开 App 不用再收一次验证码 */
+export function saveSession(): void {
+  if (prefs === null) {
+    return;
+  }
+  const s = new SessionDto();
+  s.account = store.userPhone;
+  s.token = store.authToken;
+  s.name = store.userName;
+  s.role = store.userRole;
+  s.familyId = store.family.id;
+  s.familyName = store.family.name;
+  s.members = store.family.memberCount;
+  s.families = store.families.map((f: Family): FamilyDto => {
+    const d = new FamilyDto();
+    d.id = f.id;
+    d.name = f.name;
+    d.memberCount = f.memberCount;
+    return d;
+  });
+  prefs.putSync('session', JSON.stringify(s));
+  prefsFlush();
+}
+
+/** 启动时恢复会话；返回是否已登录（true 时调用方应接着拉一次云端数据） */
+export function restoreSession(): boolean {
+  if (prefs === null) {
+    return false;
+  }
+  const raw = prefs.getSync('session', '') as string;
+  if (raw === '') {
+    return false;
+  }
+  try {
+    const s = JSON.parse(raw) as SessionDto;
+    if (s.token === '' || s.account === '') {
+      return false;
+    }
+    store.userPhone = s.account;
+    store.authToken = s.token;
+    store.userName = s.name;
+    store.userInitial = s.name === '' ? '' : s.name.slice(0, 1);
+    store.userRole = s.role;
+    store.family = new Family(s.familyId, s.familyName, s.members);
+    store.families = s.families.map((d: FamilyDto): Family => new Family(d.id, d.name, d.memberCount));
+    store.loggedIn = true;
+    return true;
+  } catch (_e) {
+    return false;
+  }
 }
 
 /* ---------- 偏好档案 ---------- */

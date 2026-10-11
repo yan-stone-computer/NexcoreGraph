@@ -1,12 +1,14 @@
-/* 启核图策 · 云端同步客户端（M2：本地优先 + 版本冲突提示，F9.10）
+/* 启核图策 · 云端同步客户端（后端为账号数据的权威存放处，F9.10）
    地址解析与 JSON 请求复用 common/Backend.ets（与 AI 网关同一套候选地址链）。
+   上传/下载共用 Continuation 的同一份快照 DTO（库+物品 / 方案 / 预警 / 采购 / 待办 /
+   工作台 / 对话 / 日志 / 设置），因此"换设备拉回来"和"本机恢复"结果完全一致。
    流程：tryUploadSync 先查云端版本（落后 → 409 冲突，返回描述供设置页提示），
    用户选择“覆盖上传”走 forceUploadSync，“改为拉取”走 downloadSync。 */
 
 import { http } from '@kit.NetworkKit';
 import { store } from './Store';
-import { Library, AlertItem, Plan, ShoppingItem, Todo } from './Db';
 import { callJson, backendBody, backendStatus } from './Backend';
+import { buildDataSnapshot, applyDataSnapshot } from './Continuation';
 
 let cloudVersion: number = 0;
 const CONNECT_MS: number = 5000;
@@ -17,22 +19,8 @@ class SyncResp {
   version: number = 0;
   error: string = '';
   updatedAt: string = '';
-  payload: Payload | null = null;
-}
-
-class Payload {
-  libraries: Library[] = [];
-  alerts: AlertItem[] = [];
-  plans: Plan[] = [];
-  shopping: ShoppingItem[] = [];
-  daily: Todo[] = [];
-  logs: LogRowLike[] = [];
-}
-
-interface LogRowLike {
-  action: string;
-  detail: string;
-  at: string;
+  /** 云端存的就是端侧快照 DTO（Continuation.DataPayload），这里只当不透明对象透传 */
+  payload: object | null = null;
 }
 
 /** 上传冲突 / 结果描述 */
@@ -56,20 +44,14 @@ function parseStatus(text: string): SyncResp {
 }
 
 function buildUploadBody(force: boolean): string {
-  const p: Record<string, Object> = {
-    'libraries': store.libraries,
-    'alerts': store.alerts,
-    'plans': store.plans,
-    'shopping': store.shopping,
-    'daily': store.daily,
-    'logs': store.logs
-  };
+  // payload 直接用与「流转」同一份快照（含物品明细），后端只当"家庭数据块"存，不自解析
+  const snapshot: object = JSON.parse(buildDataSnapshot()) as object;
   return JSON.stringify({
     familyId: store.family.id,
     version: Date.now(),
     baseVersion: cloudVersion,
     force: force,
-    payload: JSON.parse(JSON.stringify(p)) as object
+    payload: snapshot
   });
 }
 
@@ -142,23 +124,35 @@ export function downloadSync(): Promise<string> {
     if (!r.ok || r.payload === null) {
       throw new Error(r.error);
     }
-    const p = r.payload as Payload;
-    if (p.libraries !== undefined) {
-      store.libraries = p.libraries;
-    }
-    if (p.alerts !== undefined) {
-      store.alerts = p.alerts;
-    }
-    if (p.plans !== undefined) {
-      store.plans = p.plans;
-    }
-    if (p.shopping !== undefined) {
-      store.shopping = p.shopping;
-    }
-    if (p.daily !== undefined) {
-      store.daily = p.daily;
+    // 走 DTO 还原：@ObservedV2 数组里塞 JSON 纯对象会崩，必须由 applyDataSnapshot 重建实例
+    const applied: number = applyDataSnapshot(JSON.stringify(r.payload));
+    if (applied < 0) {
+      throw new Error('云端数据格式不兼容，请升级 App 后再拉取');
     }
     store.initNoSeq();
     return '已拉取云端数据（更新于 ' + r.updatedAt + '）';
   });
+}
+
+/** 登录后自动拉取：云端没有快照（404）视为"新账号"，直接从空开始，不当失败处理 */
+export function pullMyData(): Promise<boolean> {
+  if (store.family.id === '') {
+    return Promise.resolve(false);
+  }
+  return downloadSync().then((_msg: string): boolean => true)
+    .catch((e: Error): boolean => {
+      if (backendStatus() === 404) {
+        return false;
+      }
+      throw e;
+    });
+}
+
+/** 静默上传（自动保存用）：不弹冲突提示，冲突时以云端为准（下次拉取覆盖本机） */
+export function autoUpload(): Promise<boolean> {
+  if (store.family.id === '' || store.authToken === '') {
+    return Promise.resolve(false);
+  }
+  return doUpload(true).then((r: SyncConflict): boolean => r.ok)
+    .catch((): boolean => false);
 }

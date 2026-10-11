@@ -32,7 +32,10 @@ export struct LibrariesView {
          Row({ space: 12 }) {
           Column({ space: 8 }) {
             Text('资源库').fontSize(store.isWide ? 28 : 22).fontWeight(800).fontColor(T.c('text-primary'))
-            Text(`${store.libraries.length} 个库，拍照自动归类，也可自建。`).fontSize(14).fontColor(T.c('text-muted'))
+            Text(store.libraries.length === 0
+              ? '还没有库。点「新建库」建一个（如冰箱/衣柜），或直接拍照入库让 AI 帮你归类。'
+              : `${store.libraries.length} 个库，拍照自动归类，也可自建。`)
+              .fontSize(14).fontColor(T.c('text-muted'))
           }
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)

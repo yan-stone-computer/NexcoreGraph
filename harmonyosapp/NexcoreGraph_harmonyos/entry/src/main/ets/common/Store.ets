@@ -1,9 +1,10 @@
-/* 启核图策 · 全局状态（对应 web-demo app.js 的 S + DB；V2 状态管理） */
+/* 启核图策 · 全局状态（V2 状态管理）
+   首启一律为空：用户数据只来自两种途径 —— ① 用户自己输入/拍照，② 从后端按账号拉回。
+   本文件不预置任何样例库存、样例方案或样例家庭成员。 */
 
 import {
   Library, Item, Plan, AlertItem, ShoppingItem, ChatMsg, Todo, Stats, Family,
-  IntakeResult, Workbench, seedLibraries, seedAlerts, seedPlans, seedShopping,
-  seedChat, seedDaily, seedIntake, seedWorkbench, Snap, Profile
+  IntakeResult, Workbench, Snap, Profile
 } from './Db';
 import { T } from './Tokens';
 
@@ -94,12 +95,14 @@ export class Store {
   @Trace deckDraft: string[] = [];
   @Trace searchQ: string = '';
 
-  /* 数据（对应 web-demo DB） */
-  @Trace userName: string = '林夏';
-  @Trace userRole: string = '家庭管理员';
-  @Trace userInitial: string = '林';
-  @Trace family: Family = new Family('home', '幸福小家', 4);
-  @Trace families: Family[] = [new Family('home', '幸福小家', 4), new Family('personal', '林夏 · 个人', 1)];
+  /* 身份与家庭：登录成功后由后端返回真实数据填充（见 Api.login） */
+  @Trace userName: string = '';
+  @Trace userPhone: string = '';
+  @Trace authToken: string = '';
+  @Trace userRole: string = '';
+  @Trace userInitial: string = '';
+  @Trace family: Family = new Family('', '', 0);
+  @Trace families: Family[] = [];
   @Trace settings: Record<string, boolean> = {
     'private': true, 'chat': true, 'expiry': true, 'digest': true, 'low': true,
     'tts': false,                // M-9 AI 回复语音播报（默认关，设置页可开）
@@ -107,14 +110,14 @@ export class Store {
   };
   @Trace logs: LogRow[] = [];
   @Trace stats: Stats = new Stats();
-  @Trace libraries: Library[] = seedLibraries();
-  @Trace alerts: AlertItem[] = seedAlerts();
-  @Trace plans: Plan[] = seedPlans();
-  @Trace shopping: ShoppingItem[] = seedShopping();
-  @Trace chat: ChatMsg[] = seedChat();
-  @Trace daily: Todo[] = seedDaily();
-  @Trace intake: IntakeResult[] = seedIntake();
-  @Trace workbench: Workbench = seedWorkbench();
+  @Trace libraries: Library[] = [];
+  @Trace alerts: AlertItem[] = [];
+  @Trace plans: Plan[] = [];
+  @Trace shopping: ShoppingItem[] = [];
+  @Trace chat: ChatMsg[] = [];
+  @Trace daily: Todo[] = [];
+  @Trace intake: IntakeResult[] = [];
+  @Trace workbench: Workbench = new Workbench([], []);
 
   /* M2.5 AI 增强：偏好档案（仅本地）与 AI 用量 */
   @Trace profile: Profile = new Profile();
@@ -162,6 +165,8 @@ export class Store {
     this.daily = this.daily.slice();
     this.logs = this.logs.slice();
     this.aiUsage = this.aiUsage.slice();
+    // 工作台是普通类（要整块进同步 DTO，不适合被观测）：换实例才重绘
+    this.workbench = this.workbench.cloneForRender();
   }
 
   findItem(idOrName: string): Library | null {
@@ -201,34 +206,52 @@ export class Store {
     return 'NO-' + s;
   }
 
+  /** 低库存规则（与具体物品无关）：数量被改到 ≤1 且原本更多时提示补货。
+   *  旧实现写死了"鸡蛋 < 5"这一条样例规则，已删除。 */
   lowStockAlert(item: Item): void {
-    if (item.name === '鸡蛋' && item.qty < 5) {
-      const arr = this.alerts.slice();
-      arr.unshift(new AlertItem(Date.now(), 'low', 'package', 'teal',
-        `鸡蛋低于阈值（当前 ${item.qty} 个），建议补货`, '刚刚 · 规则自动化'));
-      this.alerts = arr;
+    if (item.qty > 1 || item.name === '') {
+      return;
     }
+    const text = `${item.name} 只剩 ${item.qty}${item.unit}，建议补货`;
+    const dup = this.alerts.some((a: AlertItem): boolean => a.type === 'low' && a.text.indexOf(item.name) === 0);
+    if (dup) {
+      return;
+    }
+    const arr = this.alerts.slice();
+    arr.unshift(new AlertItem(Date.now(), 'low', 'package', 'teal', text, '刚刚 · 规则自动化'));
+    this.alerts = arr;
   }
 
   snapshotItem(lib: Library, item: Item, index: number): Snap {
     return new Snap(item.id, item.name, item.qty, item.qty);
   }
 
-  /* 演示数据重置 */
-  reset(): void {
-    this.libraries = seedLibraries();
-    this.alerts = seedAlerts();
-    this.plans = seedPlans();
-    this.shopping = seedShopping();
-    this.chat = seedChat();
-    this.daily = seedDaily();
-    this.intake = seedIntake();
-    this.workbench = seedWorkbench();
+  /* 清空本机全部用户数据（退出登录 / 手动清空本机数据用）。
+     注意：这是把状态恢复成"新账号"的样子，不是恢复样例数据。 */
+  clearUserData(): void {
+    this.libraries = [];
+    this.alerts = [];
+    this.plans = [];
+    this.shopping = [];
+    this.chat = [];
+    this.daily = [];
+    this.intake = [];
+    this.workbench = new Workbench([], []);
     this.logs = [];
+    this.stats = new Stats();
     this.noSeq = 0;
     this.tabIndex = 0;
     this.libId = '';
     this.overlay = '';
+    this.intakeStep = 0;
+    this.intakeLoading = false;
+    this.userName = '';
+    this.userPhone = '';
+    this.authToken = '';
+    this.userRole = '';
+    this.userInitial = '';
+    this.family = new Family('', '', 0);
+    this.families = [];
   }
 
   initNoSeq(): void {

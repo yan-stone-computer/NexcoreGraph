@@ -8,8 +8,9 @@ import { Family, Library, Item } from '../common/Db';
 import { restoreLibrary, restoreItem } from '../common/Api';
 import { display } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
-import { initLocal, saveThemePrefs } from '../common/LocalStore';
+import { initLocal, saveThemePrefs, restoreSession } from '../common/LocalStore';
 import { startLiveSync, stopLiveSync } from '../common/LiveSync';
+import { pullMyData } from '../common/SyncApi';
 import { applyBreakpoints } from '../common/Breakpoints';
 import { AI_PANEL_WIDTH_VP } from '../common/Breakpoints';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
@@ -54,7 +55,14 @@ struct Index {
     initLocal(ctx);
     // 响应式断点：手表(compact) / 手机(normal) / 平板·2in1(wide)
     applyBreakpoints();
-    // 多端活同步：登录后本机改动会自动发给另一台设备，对端也会自动接收（模拟器/跨网段走本地中转）
+    // 免重复登录：本机存着上次的会话就直接进主界面，并在后台把云端最新数据拉回来
+    const restored: boolean = restoreSession();
+    if (restored) {
+      pullMyData().catch((): void => {
+        // 拉不到（离线/后端没起）就用本机缓存，界面不阻塞
+      });
+    }
+    // 多端同步 + 自动保存：登录后本机改动会落盘并同步到其他设备
     startLiveSync();
   }
 

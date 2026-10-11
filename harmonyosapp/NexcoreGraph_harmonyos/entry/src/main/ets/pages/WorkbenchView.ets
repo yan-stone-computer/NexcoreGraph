@@ -4,7 +4,7 @@ import { store } from '../common/Store';
 import { T, R_M, R_L, R_XL, DUR_BASE, DUR_SLOW, S8 } from '../common/Tokens';
 import { Ico, TBtn, ToneBadge, Card, CardHead, NumText } from '../components/Widgets';
 import { Seat, SeatLib, WbHistory, Snap } from '../common/Db';
-import { runBusy, sendLibrary, endCoop, runWorkbench, revokeInvite, SendResult, syncMyHand } from '../common/Api';
+import { runBusy, sendLibrary, endCoop, runWorkbench, revokeInvite, SendResult, syncMyHand, takeSeat } from '../common/Api';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 
 @ComponentV2
@@ -37,12 +37,15 @@ export struct WorkbenchView {
         Row({ space: 12 }) {
           Column({ space: 8 }) {
             Text(store.workbench.name).fontSize(store.isWide ? 24 : 20).fontWeight(800).fontColor(T.c('text-primary'))
-            Text('3 人同桌 · 斗地主式合作牌桌 · 结束后清理聚合数据').fontSize(14).fontColor(T.c('text-muted'))
+            Text(`${store.workbench.seats.length} 人同桌 · 合作牌桌：摆上自己的库、拼菜、按归属扣减 · 结束后清理聚合数据`)
+              .fontSize(14).fontColor(T.c('text-muted'))
           }
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
 
-          ToneBadge({ text: store.workbench.expires, tone: 'teal', icon: 'clock' })
+          if (store.workbench.expires !== '') {
+            ToneBadge({ text: store.workbench.expires, tone: 'teal', icon: 'clock' })
+          }
         }
         .width('100%')
         .alignItems(VerticalAlign.Bottom)
@@ -113,7 +116,7 @@ export struct WorkbenchView {
           // 对家：左右入座
           Row({ space: 0 }) {
             Column() {
-              this.SeatView(store.workbench.seats[1])
+              this.SeatOrEmpty(1, '空位 · 等家人上桌')
             }
             .layoutWeight(1)
 
@@ -124,7 +127,7 @@ export struct WorkbenchView {
               .margin({ top: 24 })
 
             Column() {
-              this.SeatView(store.workbench.seats[2])
+              this.SeatOrEmpty(2, '空位 · 等家人上桌')
             }
             .layoutWeight(1)
           }
@@ -139,7 +142,7 @@ export struct WorkbenchView {
 
         // 我的座位（地主）
         Column({ space: 10 }) {
-          this.SeatView(store.workbench.seats[0])
+          this.MySeatArea()
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 14, bottom: 14 })
@@ -154,8 +157,19 @@ export struct WorkbenchView {
             Text(store.workbench.plan.consume).fontSize(13).fontColor(T.c('text-secondary'))
             TBtn({ label: '开饭！按归属扣减', icon: 'check', kind: 'primary', small: true, busyKey: 'wb:run',
               tap: (): void => {
-                runBusy('wb:run', (): Promise<void> => runWorkbench().then((_s: Snap[]): void => {}), (): void => {
-                  store.toast('开饭啦！已按各家扣减：A 家鸡蛋 4 个、B 家番茄 2 个');
+                runBusy('wb:run', (): Promise<void> => runWorkbench().then((snaps: Snap[]): void => {
+                  // 文案只用真实扣减结果拼（原来写死了"A 家鸡蛋 4 个、B 家番茄 2 个"）
+                  const parts: string[] = [];
+                  snaps.forEach((s: Snap): void => {
+                    if (s.after < s.before) {
+                      parts.push(`${s.name} ${s.before - s.after}`);
+                    }
+                  });
+                  store.toast(parts.length === 0
+                    ? '这桌没有可扣减的库存（手牌为空或都用不上）'
+                    : '开饭啦！已按归属扣减：' + parts.slice(0, 4).join('、'));
+                }), (): void => {
+                  store.toast('开饭失败，请检查手牌');
                 });
               } })
           }
@@ -282,6 +296,50 @@ export struct WorkbenchView {
       }
     }
     .alignItems(HorizontalAlign.Center)
+  }
+
+  /** 对家座位：下标存在才画真座位，否则画空位（原来直接 seats[1]/seats[2]，
+   *  空牌桌时是 undefined → "Cannot read property color of undefined" 崩溃） */
+  @Builder
+  SeatOrEmpty(idx: number, hint: string) {
+    if (store.workbench.seats.length > idx) {
+      this.SeatView(store.workbench.seats[idx])
+    } else {
+      Column({ space: 6 }) {
+        Ico({ name: 'users', dim: 16, color: T.c('text-muted') })
+        Text(hint).fontSize(11).fontColor(T.c('text-muted')).textAlign(TextAlign.Center)
+      }
+      .width('100%')
+      .padding(12)
+      .alignItems(HorizontalAlign.Center)
+      .borderRadius(R_M)
+      .border({ width: 1, color: T.c('border'), style: BorderStyle.Dashed })
+    }
+  }
+
+  /** 我的座位：没上桌就给一个明确的"上桌"入口（不再依赖预置牌桌数据） */
+  @Builder
+  MySeatArea() {
+    if (store.workbench.seats.length === 0) {
+      Column({ space: 10 }) {
+        Text('还没上桌').fontSize(15).fontWeight(700).fontColor(T.c('text-primary'))
+        Text(store.libraries.length === 0
+          ? '先在资源库建库并录入物品，再把库摆上桌和家人凑一桌菜。'
+          : '把你的资源库摆上桌，就能和家人拼菜、按归属扣减。')
+          .fontSize(12).lineHeight(18).fontColor(T.c('text-muted')).textAlign(TextAlign.Center)
+        TBtn({ label: '上桌（用我的库）', icon: 'plus', kind: 'primary', small: true, busyKey: 'wb:seat',
+          tap: (): void => {
+            runBusy('wb:seat', (): Promise<void> => takeSeat(), (): void => {
+              store.toast(store.libraries.length === 0 ? '已上桌，但手牌还是空的，先去入库' : '已上桌');
+            });
+          } })
+      }
+      .width('100%')
+      .padding(16)
+      .alignItems(HorizontalAlign.Center)
+    } else {
+      this.SeatView(store.workbench.seats[0])
+    }
   }
 }
 
