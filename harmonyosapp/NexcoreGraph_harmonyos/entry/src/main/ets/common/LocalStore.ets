@@ -83,7 +83,9 @@ function loadAll(): void {
     try {
       const t = JSON.parse(themeJson) as Record<string, Object>;
       T.setPalette(String(t['palette'] ?? 'nexcore'));
-      T.setDark(Boolean(t['dark'] ?? true));
+      // 应用默认是亮色（T.dark 初值 false），这里缺字段时也要跟默认保持一致，
+      // 否则老版本存在 theme 但没写 dark 字段时会莫名其妙变深色
+      T.setDark(Boolean(t['dark'] ?? false));
     } catch (_e) {
       // 坏数据忽略，保留品牌默认
     }
