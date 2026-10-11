@@ -6,7 +6,7 @@
    红线与隐私：快照不含聊天正文与偏好（仅状态位），图片一律以 id/uri 引用，不随行传输。 */
 
 import { AbilityConstant, Want } from '@kit.AbilityKit';
-import { store, LogRow } from './Store';
+import { store, LogRow, stampLabel } from './Store';
 import {
   Library, Item, Plan, AlertItem, ShoppingItem, Todo, ChatMsg,
   Workbench, Seat, SeatLib, SeatItem, WbMsg, WbMember, WbHistory, WorkbenchPlan
@@ -129,6 +129,8 @@ class ChatDto {
   shopDone: boolean = false;
   srcNote: string = '';
   srcUrl: string = '';
+  /** 真实时间戳（毫秒）：跨设备同步后对端也能算出正确的时间标签 */
+  ts: number = 0;
 }
 
 class DataPayload {
@@ -250,6 +252,7 @@ export function buildDataSnapshot(): string {
       d.shopDone = m.shopDone;
       d.srcNote = m.srcNote;
       d.srcUrl = m.srcUrl;
+      d.ts = m.ts;
       return d;
     });
   }
@@ -403,6 +406,10 @@ export function applyDataSnapshot(raw: string): number {
         nm.shopDone = c.shopDone;
         nm.srcNote = c.srcNote;
         nm.srcUrl = c.srcUrl;
+        // 时间标签一律由时间戳重算：对端/本机时区或跨天都不会显示错。
+        // 老快照里没有 ts 的（当时存的是写死的"刚刚"）留空，免得一直显示假时间。
+        nm.ts = c.ts === undefined ? 0 : c.ts;
+        nm.time = nm.ts > 0 ? stampLabel(nm.ts, '') : '';
         chat.push(nm);
       });
       store.chat = chat;

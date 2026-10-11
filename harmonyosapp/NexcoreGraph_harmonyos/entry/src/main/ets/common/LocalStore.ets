@@ -3,7 +3,7 @@
 
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
-import { store, AiUsageRow, nowTime, ValueLedger } from './Store';
+import { store, AiUsageRow, nowTime, ValueLedger, stampLabel } from './Store';
 import { ChatMsg, Profile, Item, Library, Family } from './Db';
 import { T } from './Tokens';
 import { buildDataSnapshot, applyDataSnapshot } from './Continuation';
@@ -195,6 +195,7 @@ function chatToJson(): string {
   store.chat.forEach((m: ChatMsg) => {
     const r: Record<string, Object> = {
       'who': m.who, 'text': m.text, 'time': m.time,
+      'ts': m.ts,
       'adjName': m.adjName, 'adjQty': m.adjQty, 'adjDone': m.adjDone,
       'shopName': m.shopName, 'shopQty': m.shopQty, 'shopDone': m.shopDone,
       'srcNote': m.srcNote, 'srcUrl': m.srcUrl
@@ -210,6 +211,14 @@ function parseChat(json: string): ChatMsg[] {
     const out: ChatMsg[] = [];
     arr.forEach((r: Record<string, Object>) => {
       const m = new ChatMsg(String(r['who'] ?? 'ai'), String(r['text'] ?? ''), String(r['time'] ?? ''), []);
+      // 老数据可能只存了 '刚刚' 这种写死标签：有 ts 就按时间戳重算，把它纠正过来
+      m.ts = Number(r['ts'] ?? 0);
+      if (m.ts > 0) {
+        m.time = stampLabel(m.ts, m.time);
+      } else {
+        // 连 ts 都没有的历史消息：真实时间已不可知，留空（不再显示假的"刚刚"）
+        m.time = '';
+      }
       m.adjName = String(r['adjName'] ?? '');
       m.adjQty = Number(r['adjQty'] ?? -1);
       m.adjDone = Boolean(r['adjDone'] ?? false);

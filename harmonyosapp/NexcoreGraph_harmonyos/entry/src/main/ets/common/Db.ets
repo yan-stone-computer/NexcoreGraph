@@ -192,6 +192,9 @@ export class ChatMsg {
   shopDone: boolean = false;
   srcNote: string = '';     // 来源小字，如"证据：冰箱·冷藏区｜鲜牛奶 1 盒"（P0-1）
   srcUrl: string = '';      // 知识库来源链接（M-8 来源引用）：点击可复制
+  /* 真实时间戳（毫秒）。time 只是"给人看的标签"，由 stampLabel(ts) 算出来；
+     以前直接把 '刚刚' 写进 time，跨天后看起来永远是"刚刚"，是错的。 */
+  ts: number = 0;
 
   constructor(who: string, text: string, time: string, plans: number[]) {
     this.who = who;

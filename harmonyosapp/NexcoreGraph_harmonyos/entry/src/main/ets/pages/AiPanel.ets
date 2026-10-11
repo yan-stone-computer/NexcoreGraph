@@ -1,7 +1,7 @@
 /* 启核图策 · AI 对话面板（标准 IM 版式：头像+气泡、时间在气泡外、方案卡片独立成卡）
    ponytail: 语音输入未接 ASR（P1），接 CoreSpeechKit 时替换 mic 按钮 handler。 */
 
-import { store } from '../common/Store';
+import { store, stampLabel } from '../common/Store';
 import { T, R_M, R_L } from '../common/Tokens';
 import { Ico, TBtn, IconBtn, PlanCard } from '../components/Widgets';
 import { ChatMsg, Plan } from '../common/Db';
@@ -23,6 +23,14 @@ export struct AiPanel {
   private scroller: Scroller = new Scroller();
   /** 是否显示"回到顶部"（往回翻历史时才出现） */
   @Local showTop: boolean = false;
+
+  /** 造一条对话消息：时间标签一律由时间戳算出（不再写死"刚刚"） */
+  private mkMsg(who: string, text: string, plans: number[]): ChatMsg {
+    const ts: number = Date.now();
+    const m = new ChatMsg(who, text, stampLabel(ts, ''), plans);
+    m.ts = ts;
+    return m;
+  }
   /** 滚动位置跟踪：离顶超过一屏的 1/3 就显示回到顶部 */
   private trackScroll(): void {
     let off: number = 0;
@@ -86,7 +94,7 @@ export struct AiPanel {
       return;
     }
     this.input = '';
-      const mine = new ChatMsg('me', v, '刚刚', []);
+      const mine = this.mkMsg('me', v, []);
       store.chat = store.chat.concat([mine]);
       store.chatTyping = true;
       // 自由流转：这边刚问出去的问题要立刻同步到另一台设备
@@ -94,7 +102,7 @@ export struct AiPanel {
       this.scrollToBottom();
     askAI(v).then((reply): void => {
       store.chatTyping = false;
-      const replyMsg = new ChatMsg('ai', reply.text, '刚刚', []);
+      const replyMsg = this.mkMsg('ai', reply.text, []);
       replyMsg.adjName = reply.adjName;
       replyMsg.adjQty = reply.adjQty;
       replyMsg.shopName = reply.shopName;
@@ -121,7 +129,7 @@ export struct AiPanel {
       // 断网兜底：用本地事实层回答（只复述用户库里真实存在的数据，不编造）
       chatReply(v).then((reply): void => {
         store.chatTyping = false;
-          const replyMsg = new ChatMsg('ai', reply.text, '刚刚', reply.plans);
+          const replyMsg = this.mkMsg('ai', reply.text, reply.plans);
           store.chat = store.chat.concat([replyMsg]);
           scheduleLivePublish();
           store.toast('连不上模型服务，已用本地库存事实回答');
@@ -158,7 +166,7 @@ export struct AiPanel {
         TBtn({ label: '生成方案', icon: 'sparkles', kind: 'primary', small: true, busyKey: 'plans',
           tap: (): void => {
             generatePlans().then((plans: Plan[]): void => {
-              const msg = new ChatMsg('ai', `按当前库存重新生成了 ${plans.length} 个方案，优先消耗临期食材：`, '刚刚',
+              const msg = this.mkMsg('ai', `按当前库存重新生成了 ${plans.length} 个方案，优先消耗临期食材：`,
                 plans.map((p: Plan): number => p.id));
               store.chat = store.chat.concat([msg]);
               store.toast(`已生成 ${plans.length} 个新方案`);
@@ -425,7 +433,10 @@ export struct AiPanel {
 
         // 播报（M-9）：仅当设置开启时展示；系统无 TTS 引擎时自动隐藏
         Row({ space: 8 }) {
-          Text(m.time).fontSize(10).fontColor(T.c('text-muted'))
+          // 没有真实时间戳的历史消息不显示时间（宁可空着，也不显示写死的"刚刚"）
+          if (m.time !== '') {
+            Text(m.time).fontSize(10).fontColor(T.c('text-muted'))
+          }
           if (store.settings['tts'] && this.tts.isUsable()) {
             Text('播报')
               .fontSize(10)
@@ -453,11 +464,13 @@ export struct AiPanel {
         .width('100%')
         .alignItems(VerticalAlign.Top)
 
-        Text(m.time)
-          .fontSize(10)
-          .fontColor(T.c('text-muted'))
-          .width('100%')
-          .textAlign(TextAlign.End)
+        if (m.time !== '') {
+          Text(m.time)
+            .fontSize(10)
+            .fontColor(T.c('text-muted'))
+            .width('100%')
+            .textAlign(TextAlign.End)
+        }
       }
     }
     .width('100%')

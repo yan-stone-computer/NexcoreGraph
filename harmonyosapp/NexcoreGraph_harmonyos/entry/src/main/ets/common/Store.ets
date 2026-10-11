@@ -292,6 +292,35 @@ export function nowTime(): string {
   return `${h}:${m}:${s}`;
 }
 
+/**
+ * 由时间戳算"给人看的"对话时间标签：
+ *   今天 → 14:05 ／ 昨天 → 昨天 14:05 ／ 今年 → 8月20日 14:05 ／ 更早 → 2025年8月20日 14:05
+ * ts<=0（老数据没存时间戳）时回退到传入的 fallback，避免显示成空或 "00:00"。
+ */
+export function stampLabel(ts: number, fallback: string): string {
+  if (ts <= 0) {
+    return fallback;
+  }
+  const d = new Date(ts);
+  const now = new Date();
+  const hh: string = String(d.getHours()).padStart(2, '0');
+  const mm: string = String(d.getMinutes()).padStart(2, '0');
+  const clock: string = `${hh}:${mm}`;
+  const sameDay = (a: Date, b: Date): boolean =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, now)) {
+    return clock;
+  }
+  const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (sameDay(d, yest)) {
+    return `昨天 ${clock}`;
+  }
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${d.getMonth() + 1}月${d.getDate()}日 ${clock}`;
+  }
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${clock}`;
+}
+
 /** 本地日期键 yyyy-mm-dd（用于趋势按天聚合） */
 export function todayKey(offsetDays: number = 0): string {
   const d = new Date();
