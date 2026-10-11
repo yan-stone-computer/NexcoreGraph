@@ -792,7 +792,7 @@ function buildChatSystemPrompt(intent, evidence, graphEvidence) {
   }
   sys += '\n输出规则：\n' +
     '1. 涉及数量的回答，数字必须与证据一致；\n' +
-    '2. 回答控制在 150 字以内；\n' +
+    '2. 回答控制在 150 字以内，**直接给结论**：不要输出思考过程、推理步骤、"回复策略"或任何自我分析；\n' +
     '3. 如用户意图是修改库存（说了某物品还剩/用了多少），在最后一行单独输出：[调整]物品名|新数量（数字）。物品名必须来自证据；\n' +
     '4. 如用户要求把物品加入采购清单，在最后一行单独输出：[购物]物品名|数量（如"1 盒"，不确定写"适量"）；\n' +
     '5. 如用户要求创新菜谱，先给 1-2 句介绍，再在最后一行输出：[菜]菜名|预计耗时|亮点|用料1,用料2（每个用料为"名称 数量单位"，必须尽量用证据里的物品）。';
@@ -1006,6 +1006,31 @@ function normalizeVisionItems(raw) {
   return out.slice(0, 60);
 }
 
+/**
+ * 去掉模型自曝的"思考过程"。
+ * 实测（平板上的真实回答）：agnes-3.0-flash 偶尔会把推理过程一起吐出来，
+ * 形如「[思考过程：用户询问"药盒"。…回复策略：…回复内容：<正文>」，
+ * 端侧原样展示会非常难看，也会泄露内部提示的措辞。这里统一裁到正文。
+ */
+function stripReasoning(text) {
+  let s = String(text || '').trim();
+  if (/^[\s\[【]*[\s\S]{0,40}?(思考过程|思考|推理过程|thinking|reasoning)/i.test(s)) {
+    const m = s.match(/(回复内容|最终回复|最终答案|answer)\s*[:：]\s*([\s\S]*)$/i);
+    if (m) {
+      s = m[2].trim();
+    } else {
+      // 没有明确正文标记：优先砍掉第一个方括号块，其次按"回复策略/思考"等行切
+      if (/^[\s\[【]/.test(s) && /[\]】]/.test(s)) {
+        s = s.replace(/^[\s\[【][\s\S]*?[\]】]\s*/, '').trim();
+      }
+      s = s.replace(/^(思考过程|思考|推理过程|回复策略|thinking|reasoning)\s*[:：][^\n]*\n?/gim, '').trim();
+    }
+  }
+  // 结尾残留的方括号 / 多余空行
+  s = s.replace(/[\]】]\s*$/, '').replace(/\n{3,}/g, '\n\n').trim();
+  return s === '' ? String(text || '').trim() : s;
+}
+
 /** 网关未配置 Key 时返回 503，端侧据此回退到本地快答 / 演示回复 */
 function ensureKey(res) {
   if (!AI.apiKey) {
@@ -1052,6 +1077,7 @@ app.post('/api/ai/chat', async (req, res) => {
   try {
     const out = await agnesChat(messages, Number(maxTokens) || 600);
     const ms = Date.now() - t0;
+    out.text = stripReasoning(out.text);   // 模型偶尔自曝推理过程，裁到正文再回给端侧
     await logAiUsage({
       familyId, user, route: intent || 'other', model: out.model, ms, tokens: out.tokens,
       source: intent === 'community-summary' ? 'summary' : 'gateway'
