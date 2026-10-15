@@ -38,3 +38,4 @@ desktop.ini
 *.db-wal
 .env
 *.env.local
+__pycache__/
