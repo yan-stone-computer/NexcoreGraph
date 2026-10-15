@@ -14,7 +14,62 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'docs/作品介绍文档.md'
 OUT = sys.argv[2] if len(sys.argv) > 2 else 'docs/作品介绍文档.docx'
 BASE = os.path.dirname(os.path.abspath(SRC))
-IMG_WIDTH_CM = 14.5
+# 图片尺寸策略：按真实长宽比缩放，并同时受最大宽/最大高约束。
+# 之前给所有图统一 14.5cm 宽，手机截图（1320×2848）算出来高 31cm，直接超出 A4 可用高度，
+# 所以看起来"图太大"。Logo 这类小图标再单独限一份更小的尺寸。
+IMG_MAX_W_CM = 12.0
+IMG_MAX_H_CM = 15.5
+LOGO_MAX_CM = 4.5
+
+
+def image_px(path):
+    """不依赖 Pillow，直接读 PNG / JPEG 头部拿像素尺寸（读不到就返回 None）。"""
+    try:
+        with open(path, 'rb') as f:
+            head = f.read(32)
+            if head[:8] == b'\x89PNG\r\n\x1a\n':
+                w = int.from_bytes(head[16:20], 'big')
+                h = int.from_bytes(head[20:24], 'big')
+                return w, h
+            if head[:2] == b'\xff\xd8':
+                f.seek(2)
+                while True:
+                    b = f.read(1)
+                    while b and b != b'\xff':
+                        b = f.read(1)
+                    marker = f.read(1)
+                    while marker == b'\xff':
+                        marker = f.read(1)
+                    if not marker:
+                        return None
+                    code = marker[0]
+                    if code in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
+                                0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
+                        f.read(3)
+                        h = int.from_bytes(f.read(2), 'big')
+                        w = int.from_bytes(f.read(2), 'big')
+                        return w, h
+                    seg = f.read(2)
+                    if len(seg) < 2:
+                        return None
+                    f.seek(int.from_bytes(seg, 'big') - 2, os.SEEK_CUR)
+    except Exception:
+        return None
+    return None
+
+
+def layout_size(path):
+    """返回 (宽cm, 高cm)：等比缩放到不超上限；Logo/图标类用更小的上限。"""
+    name = os.path.basename(path).lower()
+    is_icon = any(k in name for k in ('logo', 'icon', 'avatar'))
+    max_w = LOGO_MAX_CM if is_icon else IMG_MAX_W_CM
+    max_h = LOGO_MAX_CM if is_icon else IMG_MAX_H_CM
+    px = image_px(path)
+    if not px or not px[0] or not px[1]:
+        return (max_w, None)
+    w, h = px
+    scale = min(max_w / w, max_h / h)       # 两个约束取更严的那个
+    return (w * scale, h * scale)
 
 
 def add_runs(par, text):
@@ -90,8 +145,11 @@ def main():
             alt, path = m.group(1), m.group(2)
             full = os.path.normpath(os.path.join(BASE, path))
             if os.path.exists(full):
-                doc.add_picture(full, width=Cm(IMG_WIDTH_CM))
+                w_cm, h_cm = layout_size(full)
+                doc.add_picture(full, width=Cm(w_cm))
                 doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                print('  图 %s -> %.1f x %s cm' % (
+                    os.path.basename(full), w_cm, ('%.1f' % h_cm) if h_cm else '?'))
             else:
                 doc.add_paragraph('[缺图] ' + alt + ' -> ' + path)
             i += 1
