@@ -125,7 +125,23 @@ def main():
         else:
             p = doc.add_paragraph()
             add_runs(p, line.strip())
+            # 抬头信息（团队名称/解决方案/版本号…）居中加粗，让首页更像正式文档
+            if p.text.startswith(('团队名称', '解决方案', '版本号', '编制日期', '技术栈')):
+                for run in p.runs:
+                    run.bold = True
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         i += 1
+
+    # 页脚页码（python-docx 无现成 API，手写字段域）
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    footer = doc.sections[0].footer
+    fp = footer.paragraphs[0]
+    fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = fp.add_run()
+    fld = OxmlElement('w:fldSimple')
+    fld.set(qn('w:instr'), 'PAGE')
+    run._r.addnext(fld)
 
     doc.save(OUT)
     print('已生成 ' + OUT + '  (%d 段, %d 表, %d 图)' % (
