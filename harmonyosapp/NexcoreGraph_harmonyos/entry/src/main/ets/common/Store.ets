@@ -92,6 +92,9 @@ export class Store {
   @Trace familyOpen: boolean = false;
   @Trace intakeLoading: boolean = false;
   @Trace intakeStep: number = 0;
+  /* 入库目标库：从某个库里点「拍照入库」就默认进那个库；首页进来默认第一个库。
+     库的类型不设限，冰箱/衣柜/工具箱/厨具走的是同一条链路。 */
+  @Trace intakeLibId: string = '';
   @Trace deckDraft: string[] = [];
   @Trace searchQ: string = '';
 
@@ -236,6 +239,7 @@ export class Store {
     this.chat = [];
     this.daily = [];
     this.intake = [];
+    this.intakeLibId = '';
     this.workbench = new Workbench([], []);
     this.logs = [];
     this.stats = new Stats();

@@ -142,7 +142,7 @@ export function saveFormSnapshot(): void {
     libNames.push(lib.name);
     total += lib.items.length;
     lib.items.forEach((it: Item) => {
-      if (it.expDays <= 7) {
+      if (it.expDays > 0 && it.expDays <= 7) {
         expiring += 1;
         exp.push(it);
       }

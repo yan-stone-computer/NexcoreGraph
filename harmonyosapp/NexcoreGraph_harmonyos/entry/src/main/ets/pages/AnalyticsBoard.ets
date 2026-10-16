@@ -217,7 +217,7 @@ export struct AnalyticsBoard {
       }
       .width('100%')
 
-      /* 一行三张：库存构成 / 食材趋势 / 本周小结 */
+      /* 一行三张：库存构成 / 消耗趋势 / 本周小结 */
       GridRow({ columns: 12, gutter: { x: 16, y: 16 } }) {
         GridCol({ span: { sm: 12, md: 6, lg: this.cardSpan() } }) {
           Card() {
@@ -239,7 +239,7 @@ export struct AnalyticsBoard {
           Card() {
             Column({ space: 12 }) {
               Column({ space: 2 }) {
-                Text('食材趋势').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
+                Text('消耗趋势').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
                 Text(`近 ${this.trendRange} 天操作记录`).fontSize(13).fontColor(T.c('text-muted'))
               }
               .width('100%')

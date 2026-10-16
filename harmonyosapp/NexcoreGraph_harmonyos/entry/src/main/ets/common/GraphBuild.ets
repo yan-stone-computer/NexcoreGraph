@@ -109,13 +109,19 @@ function sceneOf(lib: Library): string {
   const s = `${lib.name}${lib.id}`;
   // 先判"宠物/衣物"等强特征，避免"宠物食品"被"食品"关键字误判为食材场景
   if (hasAny(s, ['宠物', '猫', '狗'])) return '宠物';
+  if (hasAny(s, ['母婴', '婴儿', '宝宝', '儿童', '童装'])) return '母婴';
+  if (hasAny(s, ['厨具', '餐具', '锅具', '厨房用具'])) return '厨具餐具';
   if (hasAny(s, ['冰箱', '厨房', '食品', '储物', '零食', '食材'])) return '食材';
   if (hasAny(s, ['药', '保健'])) return '药品';
-  if (hasAny(s, ['家电', '工具', '电器'])) return '家电工具';
-  if (hasAny(s, ['衣柜', '衣', '鞋'])) return '衣物';
-  if (hasAny(s, ['健身', '运动'])) return '健身';
-  if (hasAny(s, ['书', '文具'])) return '书籍';
-  if (hasAny(s, ['清洁', '日用'])) return '清洁日用';
+  if (hasAny(s, ['家电', '工具', '电器', '五金', '电料'])) return '家电工具';
+  if (hasAny(s, ['衣柜', '衣', '鞋', '包', '帽'])) return '衣物';
+  if (hasAny(s, ['化妆', '护肤', '个护', '洗护', '美妆'])) return '个护化妆';
+  if (hasAny(s, ['健身', '运动', '球'])) return '健身';
+  if (hasAny(s, ['书', '文具', '绘本'])) return '书籍文具';
+  if (hasAny(s, ['玩具', '积木', '模型', '手办'])) return '玩具模型';
+  if (hasAny(s, ['数码', '电子', '充电', '线材'])) return '数码电子';
+  if (hasAny(s, ['清洁', '日用', '洗洁', '纸'])) return '清洁日用';
+  if (hasAny(s, ['床', '家居', '布艺', '家具', '收纳'])) return '家居布艺';
   return '其他';
 }
 

@@ -1162,6 +1162,20 @@ function normalizeVisionItems(raw) {
     const n = Number(v);
     return isFinite(n) && n > 0 ? n : d;
   };
+  /**
+   * 保质期天数：显式给 0/负数 → 0（这类物品本来没有保质期），字段缺失 → 0。
+   * 旧口径用 num(v, 7) 兜底，会把"衣柜里的毛衣""工具箱里的螺丝刀"全变成 7 天后到期，
+   * 于是只有食材类库看得出效果。现在 0 = 不适用，端侧不进临期队列。
+   */
+  const expOf = (it) => {
+    const raw = it.expDays !== undefined ? it.expDays
+      : (it.shelfLifeDays !== undefined ? it.shelfLifeDays : it.expireDays);
+    if (raw === undefined || raw === null || raw === '') {
+      return 0;
+    }
+    const n = Number(raw);
+    return isFinite(n) && n > 0 ? Math.round(n) : 0;
+  };
   const out = [];
   list.forEach((it) => {
     if (it === null || it === undefined) {
@@ -1170,7 +1184,7 @@ function normalizeVisionItems(raw) {
     if (typeof it === 'string') {
       const name = it.trim();
       if (name !== '') {
-        out.push({ name, category: '', qty: 1, unit: '个', pos: '', expDays: 7, price: 0, partial: true });
+        out.push({ name, category: '', qty: 1, unit: '个', pos: '', expDays: 0, price: 0, partial: true });
       }
       return;
     }
@@ -1187,7 +1201,7 @@ function normalizeVisionItems(raw) {
       qty: num(it.qty || it.quantity || it.count, 1),
       unit: String(it.unit || '个'),
       pos: String(it.pos || it.position || it.location || ''),
-      expDays: num(it.expDays || it.shelfLifeDays || it.expireDays, 7),
+      expDays: expOf(it),
       price: num(it.price, 0)
     });
   });
@@ -1299,11 +1313,17 @@ const VISION_RULES = '你是「启核图策」家庭库存识别引擎。只输�
   '不要输出任何解释、前后缀文字或 ``` 代码块标记。\n' +
   '数组元素格式：{"name":"鸡蛋","category":"蛋类","qty":8,"unit":"个","pos":"冷藏区","expDays":30,"price":15.9}\n' +
   '规则：\n' +
-  '1. 只收录"家里会入库的物品"：食物、饮品、日用品、清洁用品、药品、工具、家居耗材；\n' +
-  '2. 不要收录场景元素：屏幕、窗户、家具、人物、宠物、文字、图标、图表、logo、天空、建筑等；\n' +
+  '1. 收录"家里会入库的物品"，不限库的类型（用户建的库可以是任何一类）：' +
+  '食物、饮品、调味、药品保健品、日用品、清洁洗护、衣物鞋帽包、床品布艺、' +
+  '厨具餐具、工具箱与五金电料、文具书籍、玩具、宠物用品、健身器材、数码配件、母婴用品；\n' +
+  '2. 不要收录场景元素：屏幕、窗户、家具本身、人物、文字、图标、图表、logo、天空、建筑等' +
+  '（但衣柜里的衣服、工具箱里的工具、厨具架上的锅碗瓢盆都要收）；\n' +
   '3. 如果图中没有第 1 类物品（比如截图、风景、人像、文档、商品海报），直接返回 []，不要解释；\n' +
-  '4. qty 必须是数字；单位用中文（个/瓶/袋/盒/把/斤）；识别不到价格填 0，识别不到保质期填 7；\n' +
-  '5. 不要输出 bbox、confidence、坐标等额外字段。';
+  '4. qty 必须是数字；单位用中文（个/瓶/袋/盒/把/件/斤）；识别不到价格填 0；\n' +
+  '5. expDays 只对有保质期的物品给天数（牛奶 7、鸡蛋 30、药品按包装），' +
+  '衣物、鞋、工具、厨具、家具、书籍、数码这类没有保质期的必须填 0，不要填 7；\n' +
+  '6. category 用 2-4 个字的中文短词（如 蛋类/叶菜/上衣/鞋/手工具/锅具/耗材），供入库时归类；\n' +
+  '7. 不要输出 bbox、confidence、坐标等额外字段。';
 
 /* 视觉识别：端侧压缩后的 base64 JPEG → 结构化物品数组（F1.1/F1.5） */
 app.post('/api/ai/vision', async (req, res) => {

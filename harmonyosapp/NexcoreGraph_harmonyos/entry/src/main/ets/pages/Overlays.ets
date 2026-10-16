@@ -10,7 +10,7 @@ import {
 import {
   runBusy, addItems, mergeIntakeResults, resetIntake, generatePlans, resolveAlert, shoppingList, search, SearchHit,
   createLibrary, renameLibrary, addItem, updateItem, deleteItem, restoreItem,
-  setDeck, sendChat, setSetting, ItemForm, kbSrc, recordIntakeMs, valueMetrics, ValueMetrics, logout
+  setDeck, sendChat, setSetting, ItemForm, kbSrc, recordIntakeMs, valueMetrics, ValueMetrics, logout, parseExpDays
 } from '../common/Api';
 import { AiPanel } from './AiPanel';
 import { GraphPanel } from './GraphPanel';
@@ -309,7 +309,7 @@ struct AlertsPanel {
         Column({ space: 2 }) {
           Text(this.state() === 'danger' ? '有紧急情况' : this.state() === 'warn' ? '有临期 / 待处理' : '库存健康')
             .fontSize(15).fontWeight(800).fontColor(T.c('text-primary'))
-          Text(this.state() === 'danger' ? '红色预警请立即处理' : this.state() === 'warn' ? '优先消耗临期食材，黄色灯在闪' : '一切正常，继续保持')
+          Text(this.state() === 'danger' ? '红色预警请立即处理' : this.state() === 'warn' ? '优先消耗临期物品，黄色灯在闪' : '一切正常，继续保持')
             .fontSize(12).fontColor(T.c('text-muted'))
         }
         .alignItems(HorizontalAlign.Start)
@@ -679,28 +679,33 @@ struct NewLibPanel {
   build() {
     Column({ space: 16 }) {
       Text('新建资源库').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).width('100%')
-      Field({ label: '库名称', text: this.name, placeholder: '如：零食柜、鞋柜',
+      Field({ label: '库名称', text: this.name, placeholder: '库名自己定：厨具柜、工具箱、鞋柜、药盒…',
         change: (v: string): void => {
           this.name = v;
         },
         // 键盘回车 = 点"创建库"：软键盘会盖住底部按钮，用户不必先收键盘
         submit: (): void => this.doCreate() })
       Text('图标').fontSize(11).fontWeight(600).fontColor(T.c('text-muted')).width('100%')
-      Row({ space: 8 }) {
-        ForEach(['package', 'fridge', 'shirt', 'pill', 'wrench', 'dumbbell', 'book', 'paw', 'plug'], (ic: string) => {
-          Column() {
-            Ico({ name: ic, dim: 16, color: this.icon === ic ? T.c('on-primary') : T.c('text-secondary') })
-          }
-          .width(36)
-          .height(36)
-          .borderRadius(R_M)
-          .justifyContent(FlexAlign.Center)
-          .backgroundColor(this.icon === ic ? T.c('primary') : T.c('surface-overlay'))
-          .onClick(() => {
-            this.icon = ic;
-          })
-        }, (ic: string) => ic)
+      Scroll() {
+        Row({ space: 8 }) {
+          ForEach(['package', 'fridge', 'utensils', 'shirt', 'pill', 'wrench', 'dumbbell', 'book', 'paw', 'plug'], (ic: string) => {
+            Column() {
+              Ico({ name: ic, dim: 16, color: this.icon === ic ? T.c('on-primary') : T.c('text-secondary') })
+            }
+            .width(36)
+            .height(36)
+            .borderRadius(R_M)
+            .justifyContent(FlexAlign.Center)
+            .backgroundColor(this.icon === ic ? T.c('primary') : T.c('surface-overlay'))
+            .onClick(() => {
+              this.icon = ic;
+            })
+          }, (ic: string) => ic)
+        }
       }
+      .width('100%')
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
       Text('主色调').fontSize(11).fontWeight(600).fontColor(T.c('text-muted')).width('100%')
       Row({ space: 8 }) {
         ForEach(['teal', 'indigo', 'red', 'slate', 'lime', 'brown', 'orange', 'violet'], (tn: string) => {
@@ -804,7 +809,7 @@ struct ItemAddPanel {
           change: (v: string): void => {
             this.form.price = v;
           } }).layoutWeight(1)
-        Field({ label: '保质期（天）', text: this.form.expDays, num: true,
+        Field({ label: '保质期（天）', text: this.form.expDays, num: true, placeholder: '留空＝不适用',
           change: (v: string): void => {
             this.form.expDays = v;
           } }).layoutWeight(1)
@@ -904,7 +909,7 @@ struct ItemEditPanel {
           change: (v: string): void => {
             this.form.price = v;
           } }).layoutWeight(1)
-        Field({ label: '保质期（天）', text: this.form.expDays, num: true,
+        Field({ label: '保质期（天）', text: this.form.expDays, num: true, placeholder: '留空＝不适用',
           change: (v: string): void => {
             this.form.expDays = v;
           } }).layoutWeight(1)
@@ -1102,6 +1107,40 @@ struct IntakePanel {
     this.scanTimer = setInterval((): void => {
       this.scanY = this.scanY === 0 ? this.frameH - 44 : 0;
     }, 1450);
+    // 默认入库目标：从哪个库点进来的就进哪个库；首页进来则第一个库
+    if (store.intakeLibId === '' && store.libraries.length > 0) {
+      store.intakeLibId = store.libraries[0].id;
+    }
+  }
+
+  /** 入库到哪个库：库的类型不设限，冰箱/衣柜/工具箱/厨具/书架都是自建的普通库 */
+  @Builder
+  LibPicker() {
+    Column({ space: 8 }) {
+      Row({ space: 8 }) {
+        Text('入库到').fontSize(12).fontWeight(600).fontColor(T.c('text-muted'))
+        Text(store.libraries.length === 0
+          ? '还没有库：确认时按识别出的类别自动建一个'
+          : `${store.libraries.length} 个库，默认是你打开的那个，可切换`)
+          .fontSize(11).fontColor(T.c('text-muted')).layoutWeight(1).textAlign(TextAlign.End)
+      }
+      .width('100%')
+
+      Scroll() {
+        Row({ space: 8 }) {
+          ForEach(store.libraries, (l: Library) => {
+            Chip({ text: l.name, active: store.intakeLibId === l.id, tap: (): void => {
+              store.intakeLibId = l.id;
+            } })
+          }, (l: Library) => l.id)
+        }
+      }
+      .width('100%')
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   aboutToDisappear(): void {
@@ -1252,7 +1291,7 @@ struct IntakePanel {
               Text('这张图里没有可入库的家庭物品')
                 .fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
             }
-            Text(this.intakeNote === '' ? '换成冰箱、衣柜、货架、购物袋这类照片更准。' : this.intakeNote)
+            Text(this.intakeNote === '' ? '换成冰箱、衣柜、工具箱、厨具架、购物袋这类照片更准。' : this.intakeNote)
               .fontSize(13).fontColor(T.c('text-secondary'))
             Row({ space: 12 }) {
               TBtn({ label: '重新拍照', icon: 'camera', kind: 'primary', tap: (): void => {
@@ -1272,6 +1311,8 @@ struct IntakePanel {
           .backgroundColor(T.c('surface-raised'))
         } else {
           Column({ space: 12 }) {
+            this.LibPicker()
+
             ForEach(store.intake, (r: IntakeResult, ri: number) => {
               RecogCard({ r: r, ri: ri })
             }, (r: IntakeResult) => r.id)
@@ -1302,7 +1343,11 @@ struct IntakePanel {
                 } })
                 TBtn({ label: '确认入库', icon: 'check', kind: 'primary', busyKey: 'intake:confirm',
                   tap: (): void => {
-                    runBusy('intake:confirm', (): Promise<void> => addItems(store.intake).then((): void => {
+                    // 条数与目标库要在 resetIntake 之前取，否则提示会变成"已入库 0 项"
+                    const n = store.intake.filter((x: IntakeResult): boolean => x.name !== '').length;
+                    const target = store.findLib(store.intakeLibId);
+                    const where = target !== null ? `到「${target.name}」` : '';
+                    runBusy('intake:confirm', (): Promise<void> => addItems(store.intake, store.intakeLibId).then((): void => {
                       // M-11 指标③：记录本次盘点耗时（成功入库才算一次）
                       if (this.intakeStartMs > 0) {
                         recordIntakeMs(Date.now() - this.intakeStartMs);
@@ -1312,9 +1357,8 @@ struct IntakePanel {
                       saveFormSnapshot();
                       resetIntake();
                     }), (): void => {
-                      const n = store.intake.filter((x: IntakeResult): boolean => x.name !== '').length;
                       store.overlay = '';
-                      store.toast(`已入库 ${n} 项，价格来源已标注`);
+                      store.toast(`已入库 ${n} 项${where}`);
                     });
                   } })
               }
@@ -1403,7 +1447,7 @@ struct IntakePanel {
         store.intake = [];
         store.intakeLoading = false;
         this.intakeEmpty = true;
-        this.intakeNote = `这 ${uris.length} 张图里都没有可入库的家庭物品，换成冰箱/衣柜/货架/购物袋再试。`;
+        this.intakeNote = `这 ${uris.length} 张图里都没有可入库的家庭物品，换成冰箱/衣柜/工具箱/厨具架/购物袋再试。`;
         store.toast('这些图里没有识别到家庭物品，换一批再试试');
         return;
       }
@@ -1605,9 +1649,11 @@ struct RecogCard {
                 } }).layoutWeight(1)
             }
             Column({ space: 4 }) {
-              Field({ label: '保质期', text: this.r.exp,
+              Field({ label: '保质期', text: this.r.exp, placeholder: '留空＝不适用',
                 change: (v: string): void => {
                   this.r.exp = v;
+                  // 改了就算数：留空/填"不适用"＝0，这件物品不进临期队列
+                  this.r.expDays = parseExpDays(v);
                 } })
               if (kbSrc(this.r.kbKey) !== '') {
                 Text(kbSrc(this.r.kbKey)).fontSize(11).fontColor(T.c('text-muted'))
@@ -2183,7 +2229,7 @@ export struct SettingsView {
             Text('提醒').fontSize(17).fontWeight(700).fontColor(T.c('text-primary')).margin({ bottom: 8 })
             SwitchRow({
               title: '临期预警推送',
-              desc: '食材提前 3 / 7 天提醒（F8.1）',
+              desc: '有保质期的物品提前 3 / 7 天提醒，衣物工具这类自动跳过（F8.1）',
               on: store.settings['expiry'],
               tap: (): void => this.toggleSetting('expiry')
             })

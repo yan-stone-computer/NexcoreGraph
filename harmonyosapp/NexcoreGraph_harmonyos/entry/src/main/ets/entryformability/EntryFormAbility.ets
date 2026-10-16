@@ -51,7 +51,7 @@ function snapshot(): Record<string, Object> {
   store.libraries.forEach((lib) => {
     total += lib.items.length;
     lib.items.forEach((it) => {
-      if (it.expDays <= 7) {
+      if (it.expDays > 0 && it.expDays <= 7) {
         expiring += 1;
         exp.push(it);
       }

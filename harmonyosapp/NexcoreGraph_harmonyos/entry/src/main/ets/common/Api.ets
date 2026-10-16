@@ -217,30 +217,56 @@ export function mergeIntakeResults(batches: IntakeResult[][]): IntakeResult[] {
   return out;
 }
 
-export function addItems(results: IntakeResult[]): Promise<void> {
-  return sleep().then((): Promise<void> => {
-    const fridge = store.libraries[0];
-    const newItems: Item[] = [];
-    results.forEach((r: IntakeResult) => {
-      if (r.name === '') {
-        return;
-      }
-      const expDays = r.expDays > 0 ? r.expDays : 7;
-      const item = new Item(r.id, r.name, r.emoji, r.img, r.kbKey,
-        parseFloat(r.qty) || 1, r.unit || '个', parseFloat(r.price) || 0, r.priceSrc || '手动',
-        expDays, r.pos || '冷藏区', expDays <= 3);
-      fridge.items.push(item);
-      newItems.push(item);
-    });
-    const newAlerts: AlertItem[] = newItems.map((it: Item): AlertItem => {
-      return new AlertItem(Date.now() + Math.random(), 'expiring', 'clock', 'amber',
-        `${it.name} ${it.expDays} 天后到期`, '刚刚 · 知识库推算');
-    });
-    store.alerts = newAlerts.concat(store.alerts);
-    touchLib(fridge);
-    store.pushLog('intake', `拍照入库 ${newItems.length} 项`);
+/**
+ * 确认入库（F1.1）：写进哪个库由调用方指定（libId，缺省用第一个库），
+ * 一个库都没有时按识别出的类别自动建库 —— 库的类型不影响这条链路，
+ * 冰箱、衣柜、工具箱、厨具、书架都走同一段代码。
+ */
+export function addItems(results: IntakeResult[], libId: string = ''): Promise<void> {
+  const named: IntakeResult[] = results.filter((r: IntakeResult): boolean => r.name !== '');
+  if (named.length === 0) {
     return Promise.resolve();
+  }
+  return sleep().then((): Promise<void> => {
+    // 目标库找不到时（比如那个库刚被删）退到第一个库，而不是放弃入库
+    const first: Library | null = store.libraries[0] ?? null;
+    const picked: Library | null = libId !== '' ? (store.findLib(libId) ?? first) : first;
+    if (picked !== null) {
+      placeItems(picked, named);
+      return Promise.resolve();
+    }
+    // 还没有任何库：用识别出的类别当库名（如"衣物""工具"），而不是硬塞进"冰箱"
+    const guess = named[0].category !== '' ? named[0].category : '我的库';
+    return createLibrary(guess, 'package', 'teal').then((lib: Library): void => {
+      placeItems(lib, named);
+    });
   });
+}
+
+/** 把识别结果写进目标库：expDays = 0 表示"不适用"（衣物/工具/厨具这类没有保质期） */
+function placeItems(lib: Library, named: IntakeResult[]): void {
+  const newItems: Item[] = [];
+  named.forEach((r: IntakeResult) => {
+    const expDays = r.expDays > 0 ? r.expDays : 0;
+    const item = new Item(r.id, r.name, r.emoji, r.img, r.kbKey,
+      parseFloat(r.qty) || 1, r.unit || '个', parseFloat(r.price) || 0, r.priceSrc || '手动',
+      expDays, r.pos === '' ? '未设置' : r.pos, expDays > 0 && expDays <= 3);
+    lib.items.push(item);
+    newItems.push(item);
+  });
+  // 只有真有保质期的物品才进预警队列；衣物/工具这类不适用，不会冒出"N 天后到期"
+  const newAlerts: AlertItem[] = [];
+  newItems.forEach((it: Item) => {
+    if (it.expDays > 0) {
+      newAlerts.push(new AlertItem(Date.now() + Math.random(), 'expiring', 'clock', 'amber',
+        `${it.name} ${it.expDays} 天后到期`, '刚刚 · 知识库推算'));
+    }
+  });
+  if (newAlerts.length > 0) {
+    store.alerts = newAlerts.concat(store.alerts);
+  }
+  touchLib(lib);
+  store.pushLog('intake', `入库 ${newItems.length} 项到「${lib.name}」`);
 }
 
 export function updateItemQty(id: string, delta: number): Promise<void> {
@@ -263,7 +289,7 @@ export function setItemQtyByName(name: string, qty: number): Promise<void> {
       throw new Error('库存中没有「' + name + '」');
     }
     // M-11 指标①：临期物品被消耗计数（消耗 = 数量下降）
-    if (qty < hit[1].qty && hit[1].expDays <= 7) {
+    if (qty < hit[1].qty && hit[1].expDays > 0 && hit[1].expDays <= 7) {
       store.ledger.expiringConsumed += 1;
       saveLedger();
     }
@@ -503,16 +529,24 @@ export function verifyCoop(): Promise<boolean> {
 }
 
 /* ---------- 物品管理（F2.2） ---------- */
+/** 保质期文本 → 天数：留空 / "不适用" / 非数字 / ≤0 一律归 0（0 = 不适用，不进临期） */
+export function parseExpDays(text: string): number {
+  const digits = String(text).replace(/[^0-9]/g, '');
+  const n = parseInt(digits, 10);
+  return isNaN(n) || n <= 0 ? 0 : n;
+}
+
 export function addItem(libId: string, data: ItemForm): Promise<void> {
   return sleep().then((): void => {
     const lib = store.findLib(libId);
     if (lib === null) {
       throw new Error('库不存在');
     }
-    const expDays = parseInt(data.expDays, 10) || 7;
+    // 保质期留空/填 0 = 不适用（衣物、工具、厨具这类库本来就没有保质期）
+    const expDays = parseExpDays(data.expDays);
     const item = new Item(nid('it'), data.name, data.emoji, data.img, '',
       parseFloat(data.qty) || 1, data.unit || '个', parseFloat(data.price) || 0, data.priceSrc || '手动',
-      expDays, data.pos === '' ? '未设置' : data.pos, expDays <= 3);
+      expDays, data.pos === '' ? '未设置' : data.pos, expDays > 0 && expDays <= 3);
     item.no = data.no === '' ? store.nextNo() : data.no;
     item.isPrivate = data.isPrivate;
     lib.items.push(item);
@@ -527,7 +561,7 @@ export class ItemForm {
   qty: string = '1';
   unit: string = '个';
   price: string = '0';
-  expDays: string = '7';
+  expDays: string = '';
   pos: string = '';
   isPrivate: boolean = false;
   emoji: string = '📦';
@@ -558,8 +592,8 @@ export function updateItem(libId: string, itemId: string, data: ItemForm): Promi
     target.qty = Math.max(0, parseFloat(data.qty) || 0);
     target.unit = data.unit;
     target.price = parseFloat(data.price) || 0;
-    target.expDays = parseInt(data.expDays, 10) || 7;
-    target.expiring = target.expDays <= 3;
+    target.expDays = parseExpDays(data.expDays);
+    target.expiring = target.expDays > 0 && target.expDays <= 3;
     target.pos = data.pos;
     target.isPrivate = data.isPrivate;
     store.pushLog('item', `编辑物品「${target.name}」`);
@@ -682,7 +716,7 @@ export function executePlan(id: number, selected: string[]): Promise<void> {
       snap.push(new Snap(hit[1].id, hit[1].name, hit[1].qty, after));
       hit[1].qty = after;
       // M-11 指标①：临期消耗率分子（临期期间被消耗的物品数）
-      if (hit[1].expDays <= 7) {
+      if (hit[1].expDays > 0 && hit[1].expDays <= 7) {
         store.ledger.expiringConsumed += 1;
       }
       store.lowStockAlert(hit[1]);
@@ -1143,7 +1177,7 @@ export function syncExpiring(): void {
   let changed = false;
   store.libraries.forEach((lib: Library) => {
     lib.items.forEach((it: Item) => {
-      if (it.expDays <= 7 && store.ledger.expiringIds.indexOf(it.id) < 0) {
+      if (it.expDays > 0 && it.expDays <= 7 && store.ledger.expiringIds.indexOf(it.id) < 0) {
         store.ledger.expiringIds = store.ledger.expiringIds.concat([it.id]);
         store.ledger.expiringTotal += 1;
         changed = true;

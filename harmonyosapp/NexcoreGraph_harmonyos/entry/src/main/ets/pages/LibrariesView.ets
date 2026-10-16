@@ -46,6 +46,8 @@ export struct LibrariesView {
               store.overlay = 'flow';
             } })
             TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
+              // 从库详情进来：识别结果默认入这个库（衣柜、工具箱、厨具都适用）
+              store.intakeLibId = store.libId;
               store.overlay = 'intake';
             } })
         }
@@ -348,6 +350,7 @@ export struct LibraryDetailView {
           .layoutWeight(1)
 
             TBtn({ label: '拍照入库', icon: 'camera', kind: 'primary', tap: (): void => {
+              store.intakeLibId = store.libId;
               store.overlay = 'intake';
             } })
             TBtn({ label: '流转', icon: 'share', kind: 'ghost', tap: (): void => {
@@ -378,9 +381,12 @@ export struct LibraryDetailView {
                 Chip({ text: `临期 ${this.counts()[1]}`, active: store.itemFilter === 'expiring', tap: (): void => {
                   store.itemFilter = 'expiring';
                 } })
-                Chip({ text: `冷藏 ${this.counts()[2]}`, active: store.itemFilter === 'cold', tap: (): void => {
-                  store.itemFilter = 'cold';
-                } })
+                // 冷藏/冷冻只对冷链类库有意义：衣柜、工具箱这类库不自建这两个筛选项
+                if (this.counts()[2] > 0) {
+                  Chip({ text: `冷藏 ${this.counts()[2]}`, active: store.itemFilter === 'cold', tap: (): void => {
+                    store.itemFilter = 'cold';
+                  } })
+                }
                 if (this.counts()[3] > 0) {
                   Chip({ text: `冷冻 ${this.counts()[3]}`, active: store.itemFilter === 'frozen', tap: (): void => {
                     store.itemFilter = 'frozen';
@@ -455,6 +461,9 @@ struct ItemRow {
           Text(this.it.pos).fontSize(12).fontColor(T.c('text-muted'))
           if (this.it.expiring) {
             ToneBadge({ text: `${this.it.expDays} 天到期`, tone: 'red', pulse: true })
+          } else if (this.it.expDays <= 0) {
+            // 衣物、工具、厨具这类没有保质期的物品：不显示"0 天"
+            ToneBadge({ text: '无保质期', tone: 'muted' })
           } else {
             ToneBadge({ text: `${this.it.expDays} 天`, tone: 'muted' })
           }
@@ -526,6 +535,8 @@ struct ItemRow {
           Text(this.it.pos).fontSize(12).fontColor(T.c('text-muted'))
           if (this.it.expiring) {
             ToneBadge({ text: `${this.it.expDays} 天到期`, tone: 'red', pulse: true })
+          } else if (this.it.expDays <= 0) {
+            ToneBadge({ text: '无保质期', tone: 'muted' })
           } else {
             ToneBadge({ text: `${this.it.expDays} 天`, tone: 'muted' })
           }

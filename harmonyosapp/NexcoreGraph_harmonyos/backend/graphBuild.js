@@ -119,13 +119,19 @@ function sceneOf(lib) {
   const s = `${lib.name || ''}${lib.id || ''}`;
   // 先判强特征，避免"宠物食品"被"食品"关键字误判为食材场景（与端侧同口径）
   if (/宠物|猫|狗/.test(s)) return '宠物';
+  if (/母婴|婴儿|宝宝|儿童|童装/.test(s)) return '母婴';
+  if (/厨具|餐具|锅具|厨房用具/.test(s)) return '厨具餐具';
   if (/冰箱|厨房|食品|储物|零食|食材/.test(s)) return '食材';
   if (/药|保健/.test(s)) return '药品';
-  if (/家电|工具|电器/.test(s)) return '家电工具';
-  if (/衣柜|衣|鞋|帽/.test(s)) return '衣物';
-  if (/健身|运动/.test(s)) return '健身';
-  if (/书|文具/.test(s)) return '书籍';
-  if (/清洁|日用/.test(s)) return '清洁日用';
+  if (/家电|工具|电器|五金|电料/.test(s)) return '家电工具';
+  if (/衣柜|衣|鞋|包|帽/.test(s)) return '衣物';
+  if (/化妆|护肤|个护|洗护|美妆/.test(s)) return '个护化妆';
+  if (/健身|运动|球/.test(s)) return '健身';
+  if (/书|文具|绘本/.test(s)) return '书籍文具';
+  if (/玩具|积木|模型|手办/.test(s)) return '玩具模型';
+  if (/数码|电子|充电|线材/.test(s)) return '数码电子';
+  if (/清洁|日用|洗洁|纸/.test(s)) return '清洁日用';
+  if (/床|家居|布艺|家具|收纳/.test(s)) return '家居布艺';
   return '其他';
 }
 

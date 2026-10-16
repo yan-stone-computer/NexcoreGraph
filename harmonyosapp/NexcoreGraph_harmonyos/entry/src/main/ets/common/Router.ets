@@ -109,7 +109,9 @@ function libOfItem(it: Item): Library | null {
 
 /* ---------- 证据行（带来源，模型只可见这些） ---------- */
 function itemLine(lib: Library, it: Item): string {
-  return `${lib.name}·${it.pos}｜${it.name} ${it.qty}${it.unit}｜约${it.expDays}天后到期｜¥${it.price}（${it.priceSrc}）`;
+  // expDays = 0 表示这类物品没有保质期（衣物/工具/厨具等），证据里如实写，不让模型看到"0 天后到期"
+  const exp = it.expDays > 0 ? `约${it.expDays}天后到期` : '无保质期';
+  return `${lib.name}·${it.pos}｜${it.name} ${it.qty}${it.unit}｜${exp}｜¥${it.price}（${it.priceSrc}）`;
 }
 
 function inventoryLines(limit: number, expiringFirst: boolean): string[] {
@@ -118,7 +120,7 @@ function inventoryLines(limit: number, expiringFirst: boolean): string[] {
   store.libraries.forEach((lib: Library) => {
     lib.items.forEach((it: Item) => {
       const line = itemLine(lib, it);
-      if (expiringFirst && it.expDays <= 7) {
+      if (expiringFirst && it.expDays > 0 && it.expDays <= 7) {
         exp.push(line);
       } else {
         all.push(line);
@@ -232,10 +234,10 @@ export function directAnswer(intent: Intent, q: string): AIReply | null {
     } else if (intent === 'qty') {
       r.text = `「${it.name}」还剩 ${it.qty}${it.unit}（${where}）。`;
       r.srcNote = `证据：${where}｜${it.name} ${it.qty}${it.unit}`;
-    } else {
+    } else if (it.expDays > 0) {
       r.text = `「${it.name}」约 ${it.expDays} 天后到期（${where}）。`;
       if (it.expDays <= 3) {
-        r.text += '建议这两天优先吃掉，我可以排进今日方案。';
+        r.text += '建议这两天优先用掉，我可以排进今日方案。';
       }
       if (hit !== null) {
         r.text += `知识库（${hit.row.name}）：${kbAdvice(hit.row)}。`;
@@ -249,6 +251,10 @@ export function directAnswer(intent: Intent, q: string): AIReply | null {
           r.srcUrl = rules[0].url;
         }
       }
+    } else {
+      // 衣物、工具、厨具这类库本来就没有保质期：如实说明，不拿 0 天糊弄
+      r.text = `「${it.name}」这类物品没有保质期，当前 ${it.qty}${it.unit}，放在 ${where}。`;
+      r.srcNote = `证据：${where}｜${it.name} ${it.qty}${it.unit}`;
     }
     return r;
   }
@@ -282,7 +288,7 @@ export function statsEvidence(): string {
   const expNames: string[] = [];
   store.libraries.forEach((lib: Library) => {
     lib.items.forEach((it: Item) => {
-      if (it.expDays <= 7) {
+      if (it.expDays > 0 && it.expDays <= 7) {
         expiring += 1;
         expNames.push(`${it.name}（${it.expDays}天）`);
       }

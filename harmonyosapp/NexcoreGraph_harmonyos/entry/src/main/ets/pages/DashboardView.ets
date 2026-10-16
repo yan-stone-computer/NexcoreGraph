@@ -232,7 +232,7 @@ export struct DashboardView {
     const exp = this.expiringItems().length;
     let s = `近 7 天消耗动作 ${c} 次、入库 ${b} 次。`;
     if (exp > 0) {
-      s += `当前有 ${exp} 项临期食材，建议优先排进近日餐单；`;
+      s += `当前有 ${exp} 项临期物品，建议优先排进近日安排；`;
     }
     const low = this.lowStockNames();
     if (low.length > 0) {
@@ -496,13 +496,13 @@ export struct DashboardView {
             }
           }
 
-          // 食材趋势
+          // 消耗/采购趋势（按操作记录聚合，不限于食材）
           GridCol({ span: { sm: 12, md: 12, lg: 7 } }) {
             Card() {
               Column({ space: 12 }) {
                 Row() {
                   Column({ space: 2 }) {
-                    Text('食材趋势').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
+                    Text('消耗趋势').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
                     Text(`按近 ${store.trendRange} 天操作记录聚合`).fontSize(13).fontColor(T.c('text-muted'))
                   }
                   .alignItems(HorizontalAlign.Start)

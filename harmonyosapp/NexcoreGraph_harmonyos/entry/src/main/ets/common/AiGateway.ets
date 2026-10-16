@@ -14,6 +14,7 @@ import { routeIntent, directAnswer, evidenceFor, AIReply } from './Router';
 import { recordUsage } from './LocalStore';
 import { callJson } from './Backend';
 import { ragEvidence, modeForIntent } from './GraphQuery';
+import { lookup } from './KnowledgeIndex';
 import { RagEvidence } from './GraphModel';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
@@ -64,7 +65,8 @@ class GatewayItem {
   qty: number = 1;
   unit: string = '个';
   pos: string = '';
-  expDays: number = 7;
+  /* 0 = 这类物品没有保质期（衣物/工具/厨具等），不是"填错" */
+  expDays: number = 0;
   price: number = 0;
 }
 
@@ -299,14 +301,23 @@ export function recognizeImage(base64Jpeg: string): Promise<IntakeResult[]> {
           return;
         }
         const q = it.qty === undefined || isNaN(it.qty) ? 1 : it.qty;
-        const days = it.expDays === undefined || isNaN(it.expDays) ? 7 : it.expDays;
+        // 保质期：模型没给（或明确给 0）时，先查内置知识库；查不到就按"不适用"处理。
+        // 旧代码在这里硬塞 7 天，于是衣柜里的毛衣、工具箱里的螺丝刀全变成"7 天后到期"。
+        let days = it.expDays === undefined || isNaN(it.expDays) || it.expDays <= 0 ? 0 : it.expDays;
+        if (days <= 0) {
+          const kb = lookup(it.name);
+          if (kb !== null) {
+            const r = kb.row;
+            days = r.fridgeDays > 0 ? r.fridgeDays : (r.pantryDays > 0 ? r.pantryDays : (r.freezerDays > 0 ? r.freezerDays : 0));
+          }
+        }
         const p = it.price === undefined || isNaN(it.price) ? 0 : it.price;
         results.push(new IntakeResult('ai-' + i, '📦', '', it.name,
           it.category === undefined ? '' : it.category,
           String(q),
           it.unit === undefined || it.unit === '' ? '个' : it.unit,
           it.pos === undefined ? '' : it.pos,
-          `${days} 天`, days, '',
+          days > 0 ? `${days} 天` : '不适用', days, '',
           p === 0 ? '' : String(p),
           '拍照识别（AI 生成）', false));
       });
