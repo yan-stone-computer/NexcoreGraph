@@ -6,6 +6,11 @@
 # signatures live in capture_targets.json and are read back as UTF-8.
 #
 # Usage: powershell -ExecutionPolicy Bypass -File tools/capture_shots.ps1 -Dev 127.0.0.1:5555 -Kind phone
+#
+# Gotcha (verified 2026-10-16): `uitest uiInput click` only reaches the app's own window.
+# The system photo picker runs in its own window (hostWindowId != app window), so taps on it
+# are swallowed -- use `hdc shell uinput -T -c <x> <y>` for those, and `uitest dumpLayout -i`
+# (nodes carry hostWindowId) to find the real coordinates.
 param(
   [Parameter(Mandatory = $true)][string]$Dev,
   [Parameter(Mandatory = $true)][ValidateSet('phone', 'tablet')][string]$Kind
