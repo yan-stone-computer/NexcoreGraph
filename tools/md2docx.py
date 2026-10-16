@@ -22,6 +22,10 @@ IMG_MAX_H_CM = 15.5
 LOGO_MAX_CM = 4.5
 CERT_MAX_W_CM = 7.0
 CERT_MAX_H_CM = 9.5
+# 全宽技术图（架构图这类）：文档里字要看得清，实际磅值 ≈ 字号px × 图宽cm ÷ 画布宽px × 28.35，
+# 12cm 宽时 26px 字只有 7pt 多。架构图按页面可用宽度 16.5cm 排，正文才到 10pt 左右。
+WIDE_FIG_MAX_W_CM = 16.5
+WIDE_FIGS = ('arch-diagram',)
 
 
 def image_px(path):
@@ -69,6 +73,8 @@ def layout_size(path):
         max_w, max_h = LOGO_MAX_CM, LOGO_MAX_CM
     elif is_cert:
         max_w, max_h = CERT_MAX_W_CM, CERT_MAX_H_CM
+    elif any(k in name for k in WIDE_FIGS):
+        max_w, max_h = WIDE_FIG_MAX_W_CM, IMG_MAX_H_CM
     else:
         max_w, max_h = IMG_MAX_W_CM, IMG_MAX_H_CM
     px = image_px(path)
