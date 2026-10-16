@@ -222,7 +222,7 @@ export struct AiPanel {
               this.AiAvatar()
               Row({ space: 8 }) {
                 Ico({ name: 'fridge', dim: 14, color: T.c('primary-ink') })
-                Text('正在翻冰箱找食材').fontSize(12).fontWeight(600).fontColor(T.c('text-muted'))
+                Text('正在翻你的库存').fontSize(12).fontWeight(600).fontColor(T.c('text-muted'))
                 TypingDots()
               }
               .padding({ left: 14, right: 14, top: 12, bottom: 12 })

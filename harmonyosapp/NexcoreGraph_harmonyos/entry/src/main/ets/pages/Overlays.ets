@@ -542,7 +542,7 @@ struct SearchPanel {
             Text('鸡蛋在冷藏区中层').fontSize(15).fontWeight(700).fontColor(T.c('text-primary'))
             Text('当前 8 个，3 天后到期。价格 ¥15.9（拍照识别）。建议优先安排到今晚的番茄炒蛋。')
               .fontSize(13).fontColor(T.c('text-secondary'))
-            TBtn({ label: '去冰箱看看', icon: 'arrow-right', kind: 'ghost', small: true, tap: (): void => {
+            TBtn({ label: '去库存看看', icon: 'arrow-right', kind: 'ghost', small: true, tap: (): void => {
               store.overlay = '';
               store.tabIndex = 1;
               store.libId = 'fridge';
@@ -1185,7 +1185,7 @@ struct IntakePanel {
 
             Row({ space: 6 }) {
               Ico({ name: 'scan', dim: 13, color: T.c('text-primary') })
-              Text('对准货架/冰箱 · AI 自动识别').fontSize(12).fontWeight(600).fontColor(T.c('text-primary'))
+              Text('对准货架 / 柜子 · AI 自动识别').fontSize(12).fontWeight(600).fontColor(T.c('text-primary'))
             }
             .padding({ left: 14, right: 14, top: 6, bottom: 6 })
             .borderRadius(999)
@@ -1199,7 +1199,7 @@ struct IntakePanel {
             this.frameH = Number(n.height);
           })
 
-          Text('拍一张冰箱里的照片').fontSize(18).fontWeight(700).fontColor(T.c('text-primary'))
+          Text('拍一张照片 · 冰箱 / 衣柜 / 工具箱都可以').fontSize(18).fontWeight(700).fontColor(T.c('text-primary'))
           Text('AI 自动识别物品、数量、保质期与价格，缺失字段你只补缺')
             .fontSize(13).fontColor(T.c('text-muted')).textAlign(TextAlign.Center)
 
@@ -1252,7 +1252,7 @@ struct IntakePanel {
               Text('这张图里没有可入库的家庭物品')
                 .fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
             }
-            Text(this.intakeNote === '' ? '换成冰箱、货架、购物袋这类照片更准。' : this.intakeNote)
+            Text(this.intakeNote === '' ? '换成冰箱、衣柜、货架、购物袋这类照片更准。' : this.intakeNote)
               .fontSize(13).fontColor(T.c('text-secondary'))
             Row({ space: 12 }) {
               TBtn({ label: '重新拍照', icon: 'camera', kind: 'primary', tap: (): void => {
@@ -1314,7 +1314,7 @@ struct IntakePanel {
                     }), (): void => {
                       const n = store.intake.filter((x: IntakeResult): boolean => x.name !== '').length;
                       store.overlay = '';
-                      store.toast(`已入库 ${n} 项到「冰箱」，价格来源已标注`);
+                      store.toast(`已入库 ${n} 项，价格来源已标注`);
                     });
                   } })
               }
@@ -1403,7 +1403,7 @@ struct IntakePanel {
         store.intake = [];
         store.intakeLoading = false;
         this.intakeEmpty = true;
-        this.intakeNote = `这 ${uris.length} 张图里都没有可入库的家庭物品，换成冰箱/货架/购物袋再试。`;
+        this.intakeNote = `这 ${uris.length} 张图里都没有可入库的家庭物品，换成冰箱/衣柜/货架/购物袋再试。`;
         store.toast('这些图里没有识别到家庭物品，换一批再试试');
         return;
       }

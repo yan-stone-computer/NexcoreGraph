@@ -197,7 +197,7 @@ export struct AiWorkbench {
             Text(store.libraries.length === 0 ? '还没有资源库' : '库建好了，但里面还没有物品')
               .fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
             Text((store.libraries.length === 0
-              ? '拍一张冰箱/货架的照片让 AI 识别入库，或者在资源库里手动建一个库（如冰箱、药盒）。'
+              ? '拍一张照片让 AI 识别入库（冰箱、衣柜、工具箱、购物袋都可以），或者在资源库里手动建一个库（如冰箱、衣柜、药盒、工具箱）。'
               : '打开「' + (store.libraries.length > 0 ? store.libraries[0].name : '') +
                 '」手动添加，或拍照让 AI 识别后确认入库。') +
               '入库后这里会出现临期提醒、可执行方案和数据分析。')
