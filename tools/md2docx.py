@@ -20,6 +20,8 @@ BASE = os.path.dirname(os.path.abspath(SRC))
 IMG_MAX_W_CM = 12.0
 IMG_MAX_H_CM = 15.5
 LOGO_MAX_CM = 4.5
+CERT_MAX_W_CM = 7.0
+CERT_MAX_H_CM = 9.5
 
 
 def image_px(path):
@@ -62,8 +64,13 @@ def layout_size(path):
     """返回 (宽cm, 高cm)：等比缩放到不超上限；Logo/图标类用更小的上限。"""
     name = os.path.basename(path).lower()
     is_icon = any(k in name for k in ('logo', 'icon', 'avatar'))
-    max_w = LOGO_MAX_CM if is_icon else IMG_MAX_W_CM
-    max_h = LOGO_MAX_CM if is_icon else IMG_MAX_H_CM
+    is_cert = 'cert' in name
+    if is_icon:
+        max_w, max_h = LOGO_MAX_CM, LOGO_MAX_CM
+    elif is_cert:
+        max_w, max_h = CERT_MAX_W_CM, CERT_MAX_H_CM
+    else:
+        max_w, max_h = IMG_MAX_W_CM, IMG_MAX_H_CM
     px = image_px(path)
     if not px or not px[0] or not px[1]:
         return (max_w, None)
