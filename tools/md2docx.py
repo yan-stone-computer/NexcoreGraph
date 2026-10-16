@@ -10,6 +10,8 @@ import sys
 from docx import Document
 from docx.shared import Cm, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'docs/作品介绍文档.md'
 OUT = sys.argv[2] if len(sys.argv) > 2 else 'docs/作品介绍文档.docx'
@@ -26,6 +28,111 @@ CERT_MAX_H_CM = 9.5
 # 12cm 宽时 26px 字只有 7pt 多。架构图按页面可用宽度 16.5cm 排，正文才到 10pt 左右。
 WIDE_FIG_MAX_W_CM = 16.5
 WIDE_FIGS = ('arch-diagram',)
+
+# 表格：正文可用宽度 16.5cm，列宽必须显式给定并固定布局。
+# 之前用 python-docx 默认的自动布局 + 'Light Grid Accent 1'，遇到 2.1 这种中间列很长的表，
+# Word 会把列排到页面外（读者看到的就是"空列 + 被截断的尾巴"）。
+TABLE_MAX_W_CM = 16.5
+TABLE_FS_PT = 9            # 表格正文
+TABLE_CAPTION_PT = 9.5     # 表题
+# 文档实际可用文字宽度：python-docx 默认模板左右页边距不对称（左 3.17cm / 右 2.5cm），
+# 正文只有约 15.9cm。表格与全宽图都按它排版，否则右边会顶出正文边界、最后一列被压扁。
+USABLE_CM = 15.9
+
+
+def _el(tag, **attrs):
+    e = OxmlElement(tag)
+    for k, v in attrs.items():
+        e.set(qn('w:' + k), str(v))
+    return e
+
+
+def _tbl_layout_fixed(t):
+    """固定表格布局，防止 Word 自行伸缩把列挤出页面。"""
+    tblPr = t._tbl.tblPr
+    for tag in ('w:tblLayout',):
+        old = tblPr.find(qn(tag))
+        if old is not None:
+            tblPr.remove(old)
+    tblPr.append(_el('w:tblLayout', type='fixed'))
+    # 单元格内边距：默认贴边很难看
+    mar = OxmlElement('w:tblCellMar')
+    for side, w in (('top', 40), ('left', 80), ('bottom', 40), ('right', 80)):
+        mar.append(_el('w:' + side, w=w, type='dxa'))
+    tblPr.append(mar)
+
+
+def _three_line_borders(t):
+    """三线表：去网格，只留顶线、表头下线、底线（学术文档惯例，也是"去 AI 味"的一步）。"""
+    tblPr = t._tbl.tblPr
+    borders = OxmlElement('w:tblBorders')
+    for edge in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
+        if edge in ('top', 'bottom'):
+            borders.append(_el('w:' + edge, val='single', sz=12, space=0, color='000000'))
+        else:
+            borders.append(_el('w:' + edge, val='none', sz=0, space=0, color='auto'))
+    tblPr.append(borders)
+
+
+def _row_bottom_rule(row, sz=6):
+    for cell in row.cells:
+        tcPr = cell._tc.get_or_add_tcPr()
+        b = OxmlElement('w:tcBorders')
+        b.append(_el('w:bottom', val='single', sz=sz, space=0, color='000000'))
+        tcPr.append(b)
+
+
+def _row_repeat_header(row):
+    trPr = row._tr.get_or_add_trPr()
+    trPr.append(_el('w:tblHeader', val='true'))
+
+
+def _set_widths(t, rows, ncol):
+    """按各列最长内容分配列宽（上限 16.5cm），并写进 tblGrid 与每个单元格。"""
+    weights = []
+    for ci in range(ncol):
+        longest = 0
+        for cells in rows:
+            txt = cells[ci] if ci < len(cells) else ''
+            # 全角按 2 计、半角按 1 计，粗略反映视觉宽度
+            w = sum(2 if ord(ch) > 0x2000 else 1 for ch in txt)
+            longest = max(longest, w)
+        weights.append(max(8, min(longest, 60)))
+    total = float(sum(weights))
+    total_cm = min(TABLE_MAX_W_CM, USABLE_CM)
+    cm = [total_cm * w / total for w in weights]
+
+    # 窄列兜底：像"图"这种内容很短的列，按比例分只会得到 1.5cm 左右，文字会竖着排。
+    # 把低于下限的列抬到下限，再从其余列按权重扣回来。
+    MIN_CM = 2.4
+    for _ in range(8):
+        short = [i for i, w in enumerate(cm) if w < MIN_CM]
+        if not short:
+            break
+        rest = [i for i in range(ncol) if i not in short]
+        rest_w = sum(weights[i] for i in rest)
+        avail = total_cm - MIN_CM * len(short)
+        if rest_w <= 0 or avail <= 0:
+            break
+        for i in rest:
+            cm[i] = avail * weights[i] / rest_w
+        for i in short:
+            cm[i] = MIN_CM
+    widths = [Cm(x) for x in cm]
+
+    tblPr = t._tbl.tblPr
+    old = tblPr.find(qn('w:tblInd'))
+    if old is not None:
+        tblPr.remove(old)
+    tblPr.append(_el('w:tblInd', w=0, type='dxa'))
+
+    grid = t._tbl.find(qn('w:tblGrid'))
+    cols = grid.findall(qn('w:gridCol')) if grid is not None else []
+    for gc, w in zip(cols, widths):
+        gc.set(qn('w:w'), str(int(w.twips)))
+    for row in t.rows:
+        for cell, w in zip(row.cells, widths):
+            cell.width = w
 
 
 def image_px(path):
@@ -74,7 +181,8 @@ def layout_size(path):
     elif is_cert:
         max_w, max_h = CERT_MAX_W_CM, CERT_MAX_H_CM
     elif any(k in name for k in WIDE_FIGS):
-        max_w, max_h = WIDE_FIG_MAX_W_CM, IMG_MAX_H_CM
+        # 全宽技术图也按正文可用宽度排，避免右边顶出页边
+        max_w, max_h = min(WIDE_FIG_MAX_W_CM, USABLE_CM), IMG_MAX_H_CM
     else:
         max_w, max_h = IMG_MAX_W_CM, IMG_MAX_H_CM
     px = image_px(path)
@@ -111,10 +219,21 @@ def main():
     from docx.oxml.ns import qn
     style.element.rPr.rFonts.set(qn('w:eastAsia'), '微软雅黑')
 
+    CN_NUM = {'一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8}
+    chapter = 0        # 当前章号（用于"表 N-M"编号）
+    tbl_no = 0         # 本章第几张表
+    pending_cap = ''   # 表题（markdown 里写成 "表：xxx" 放在表格上一行）
+
     i = 0
     in_code = False
     while i < len(lines):
         line = lines[i].rstrip()
+
+        # 表题（表例）：单独一行 "表：说明"，由脚本补上"表 N-M"编号
+        if line.startswith('表：'):
+            pending_cap = line[2:].strip()
+            i += 1
+            continue
 
         # 代码块
         if line.startswith('```'):
@@ -138,18 +257,42 @@ def main():
                     rows.append(cells)
                 i += 1
             ncol = max(len(r) for r in rows)
+
+            tbl_no += 1
+            cap = '表 %s-%d' % (chapter, tbl_no)
+            if pending_cap != '':
+                cap += '　' + pending_cap
+            pending_cap = ''
+            cp = doc.add_paragraph()
+            cr = cp.add_run(cap)
+            cr.bold = True
+            cr.font.size = Pt(TABLE_CAPTION_PT)
+            cp.paragraph_format.space_before = Pt(8)
+            cp.paragraph_format.space_after = Pt(2)
+            cp.paragraph_format.keep_with_next = True
+
             t = doc.add_table(rows=0, cols=ncol)
-            t.style = 'Light Grid Accent 1'
+            t.autofit = False
             for ri, cells in enumerate(rows):
                 cr = t.add_row().cells
                 for ci in range(ncol):
                     txt = cells[ci] if ci < len(cells) else ''
                     cr[ci].text = ''
                     add_runs(cr[ci].paragraphs[0], txt)
-                    if ri == 0:
-                        for run in cr[ci].paragraphs[0].runs:
+                    for run in cr[ci].paragraphs[0].runs:
+                        run.font.size = Pt(TABLE_FS_PT)
+                        if ri == 0:
                             run.bold = True
-            doc.add_paragraph()
+                    cr[ci].paragraphs[0].paragraph_format.space_before = Pt(1)
+                    cr[ci].paragraphs[0].paragraph_format.space_after = Pt(1)
+            _tbl_layout_fixed(t)
+            _three_line_borders(t)
+            _set_widths(t, rows, ncol)
+            if len(t.rows) > 0:
+                _row_bottom_rule(t.rows[0])
+                _row_repeat_header(t.rows[0])
+            sp = doc.add_paragraph()
+            sp.paragraph_format.space_after = Pt(6)
             continue
 
         # 图片
@@ -174,7 +317,18 @@ def main():
         elif line.startswith('### '):
             doc.add_heading(line[4:].strip(), level=2)
         elif line.startswith('## '):
-            doc.add_heading(line[3:].strip(), level=1)
+            title = line[3:].strip()
+            doc.add_heading(title, level=1)
+            # 章号用于"表 N-M / 图 N-M"编号；换章时表格计数归零
+            mch = re.match(r'^([一二三四五六七八])、', title)
+            if mch:
+                chapter = CN_NUM[mch.group(1)]
+                tbl_no = 0
+            else:
+                mch = re.match(r'^附录 ([A-Z])', title)
+                if mch:
+                    chapter = mch.group(1)
+                    tbl_no = 0
         elif line.startswith('# '):
             h = doc.add_heading(line[2:].strip(), level=0)
             h.alignment = WD_ALIGN_PARAGRAPH.CENTER
