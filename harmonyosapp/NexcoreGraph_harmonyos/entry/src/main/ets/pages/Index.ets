@@ -12,6 +12,7 @@ import { initLocal, saveThemePrefs, restoreSession } from '../common/LocalStore'
 import { startLiveSync, stopLiveSync } from '../common/LiveSync';
 import { pullMyData } from '../common/SyncApi';
 import { applyBreakpoints } from '../common/Breakpoints';
+import { cmdSelfCheckLog } from '../common/Commands';
 import { AI_PANEL_WIDTH_VP } from '../common/Breakpoints';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { LoginView } from './LoginView';
@@ -55,6 +56,8 @@ struct Index {
     initLocal(ctx);
     // 响应式断点：手表(compact) / 手机(normal) / 平板·2in1(wide)
     applyBreakpoints();
+    // 自然语言指令手册自检：手册里的句子必须都能被解析到（结果只写 hilog，不打扰用户）
+    cmdSelfCheckLog();
     // 免重复登录：本机存着上次的会话就直接进主界面，并在后台把云端最新数据拉回来
     const restored: boolean = restoreSession();
     if (restored) {

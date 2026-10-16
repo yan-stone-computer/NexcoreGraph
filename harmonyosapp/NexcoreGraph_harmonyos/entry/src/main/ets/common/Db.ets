@@ -190,6 +190,13 @@ export class ChatMsg {
   shopName: string = '';    // [购物] 工具行：待确认的加购名称（M2.5 P0-2）
   shopQty: string = '';     // 数量文本，如"1 盒"（可为空=适量）
   shopDone: boolean = false;
+  /* 自然语言指令的待确认写操作（删库 / 删物品 / 移动 / 改名） */
+  opKind: string = '';
+  opArg: string = '';
+  opLabel: string = '';
+  opDone: boolean = false;
+  /* 消息版本号：改完一条消息（按钮点过、追加结果）后 +1，界面靠它判断要不要重绘 */
+  ver: number = 0;
   srcNote: string = '';     // 来源小字，如"证据：冰箱·冷藏区｜鲜牛奶 1 盒"（P0-1）
   srcUrl: string = '';      // 知识库来源链接（M-8 来源引用）：点击可复制
   /* 真实时间戳（毫秒）。time 只是"给人看的标签"，由 stampLabel(ts) 算出来；

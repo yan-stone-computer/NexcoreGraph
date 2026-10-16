@@ -15,6 +15,7 @@ import { recordUsage } from './LocalStore';
 import { callJson } from './Backend';
 import { ragEvidence, modeForIntent } from './GraphQuery';
 import { lookup } from './KnowledgeIndex';
+import { matchCommand, runCommand, CmdReply } from './Commands';
 import { RagEvidence } from './GraphModel';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
@@ -192,6 +193,29 @@ function parseToolLines(content: string, reply: AIReply): string {
 
 /* ---------- AI 对话（F5.1/F5.2/F5.5） ---------- */
 export function askAI(question: string): Promise<AIReply> {
+  /* 先过自然语言指令层：能确定性命中的操作不花模型调用（断网也能建库、加物品、换主题）。
+     开放式提问（今晚吃什么、营养、为什么）命中不到，照常走模型路。 */
+  const cmd = matchCommand(question);
+  if (cmd !== null) {
+    recordUsage('cmd:' + cmd.id, '本地指令', 0);
+    fastSinceReport += 1;
+    return runCommand(cmd).then((r: CmdReply): AIReply => {
+      const out = new AIReply();
+      out.text = r.text;
+      out.route = r.route;
+      out.srcNote = r.srcNote;
+      out.opKind = r.opKind;
+      out.opArg = r.opArg;
+      out.opLabel = r.opLabel;
+      return out;
+    }).catch((e: Error): AIReply => {
+      const out = new AIReply();
+      out.route = 'cmd:error';
+      out.srcNote = '本地指令 · 0 次模型调用';
+      out.text = '这条没做成：' + (e.message !== undefined && e.message !== '' ? e.message : '换个说法再试一次');
+      return out;
+    });
+  }
   const route = routeIntent(question);
 
   // 快路：greet / where / qty / expiry —— 代码直答，0 次模型调用（断网可用）

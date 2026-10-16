@@ -7,6 +7,7 @@ import { Ico, TBtn, IconBtn, PlanCard } from '../components/Widgets';
 import { ChatMsg, Plan } from '../common/Db';
 import { chatReply, generatePlans, setItemQtyByName, addAIPlan, addShoppingByAI } from '../common/Api';
 import { askAI } from '../common/AiGateway';
+import { CMD_GROUPS, CMD_HELP, CmdSpec, applyCmdOp } from '../common/Commands';
 import { saveChat, clearChatSaved } from '../common/LocalStore';
 import { scheduleLivePublish } from '../common/LiveSync';
 import { AsrSession } from '../common/Asr';
@@ -23,6 +24,8 @@ export struct AiPanel {
   private scroller: Scroller = new Scroller();
   /** 是否显示"回到顶部"（往回翻历史时才出现） */
   @Local showTop: boolean = false;
+  /** 指令手册（点了问号就在对话区里展开，不再叠一层弹层） */
+  @Local showHelp: boolean = false;
 
   /** 造一条对话消息：时间标签一律由时间戳算出（不再写死"刚刚"） */
   private mkMsg(who: string, text: string, plans: number[]): ChatMsg {
@@ -107,6 +110,9 @@ export struct AiPanel {
       replyMsg.adjQty = reply.adjQty;
       replyMsg.shopName = reply.shopName;
       replyMsg.shopQty = reply.shopQty;
+      replyMsg.opKind = reply.opKind;
+      replyMsg.opArg = reply.opArg;
+      replyMsg.opLabel = reply.opLabel;
       replyMsg.srcNote = reply.srcNote;
       replyMsg.srcUrl = reply.srcUrl;
         store.chat = store.chat.concat([replyMsg]);
@@ -147,6 +153,35 @@ export struct AiPanel {
     }, 60);
   }
 
+  /**
+   * 改完一条消息后要让它真的重绘：ChatMsg 是普通类（要整块进同步 DTO，不适合加观测），
+   * 所以按项目里一贯的做法"换实例 + 版本号 +1"，ForEach 的 key 里带 ver，变了就重建这一条。
+   */
+  private replaceMsg(idx: number, m: ChatMsg): void {
+    const n = new ChatMsg(m.who, m.text, m.time, m.plans);
+    n.ts = m.ts;
+    n.img = m.img;
+    n.adjName = m.adjName;
+    n.adjQty = m.adjQty;
+    n.adjDone = m.adjDone;
+    n.shopName = m.shopName;
+    n.shopQty = m.shopQty;
+    n.shopDone = m.shopDone;
+    n.opKind = m.opKind;
+    n.opArg = m.opArg;
+    n.opLabel = m.opLabel;
+    n.opDone = m.opDone;
+    n.srcNote = m.srcNote;
+    n.srcUrl = m.srcUrl;
+    n.ver = m.ver + 1;
+    const arr = store.chat.slice();
+    if (idx >= 0 && idx < arr.length) {
+      arr[idx] = n;
+    }
+    store.chat = arr;
+    saveChat();
+  }
+
   build() {
     Column() {
       // 头部：品牌 + 主操作
@@ -162,6 +197,20 @@ export struct AiPanel {
         .alignItems(HorizontalAlign.Start)
 
         Blank()
+
+        // 指令手册：告诉用户"能说什么"，点一条直接发出去
+        IconBtn({ icon: 'help', dim: 17, tap: (): void => {
+          this.showHelp = !this.showHelp;
+          // 手册从第一组看起：打开时把视角拉回顶部（关掉时再落回最新消息）
+          setTimeout((): void => {
+            if (this.showHelp) {
+              this.scroller.scrollEdge(Edge.Top);
+            } else {
+              this.scroller.scrollEdge(Edge.Bottom);
+            }
+          }, 80);
+        } })
+          .width(34).height(34)
 
         TBtn({ label: '生成方案', icon: 'sparkles', kind: 'primary', small: true, busyKey: 'plans',
           tap: (): void => {
@@ -192,6 +241,9 @@ export struct AiPanel {
       Stack({ alignContent: Alignment.TopEnd }) {
       Scroll(this.scroller) {
         Column({ space: 20 }) {
+          if (this.showHelp) {
+            this.CmdManual()
+          }
           if (this.listening) {
             Row({ space: 8 }) {
               Ico({ name: 'mic', dim: 14, color: T.c('danger') })
@@ -214,8 +266,8 @@ export struct AiPanel {
             .alignItems(HorizontalAlign.Center)
           }
           ForEach(store.chat, (m: ChatMsg, i: number) => {
-            this.MsgGroup(m)
-          }, (m: ChatMsg, i: number) => `${i}-${m.plans.length}`)
+            this.MsgGroup(m, i)
+          }, (m: ChatMsg, i: number) => `${i}-${m.plans.length}-${m.ver}`)
 
           if (store.chatTyping) {
             Row({ space: 10 }) {
@@ -336,9 +388,70 @@ export struct AiPanel {
       .backgroundColor(T.c('accent-container'))
   }
 
+  /** 点手册里的一条：填进输入框并直接发出去 */
+  private runExample(ex: string): void {
+    this.showHelp = false;
+    this.input = ex;
+    this.send();
+  }
+
+  /** 指令手册：内容来自 Commands.CMD_HELP，和解析器是同一份定义，不会"帮助里能说、实际听不懂" */
+  @Builder
+  CmdManual() {
+    Column({ space: 14 }) {
+      Row({ space: 8 }) {
+        Ico({ name: 'help', dim: 16, color: T.c('primary-ink') })
+        Text('指令手册').fontSize(16).fontWeight(800).fontColor(T.c('text-primary'))
+        Blank()
+        IconBtn({ icon: 'x', dim: 15, tap: (): void => {
+          this.showHelp = false;
+        } })
+          .width(28).height(28)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Text('点一条直接发给我。库名、物品名、数量都能换成你自己的说法，比如把"牛奶"换成"螺丝刀"。')
+        .fontSize(12).fontColor(T.c('text-muted'))
+
+      ForEach(CMD_GROUPS, (g: string) => {
+        Column({ space: 8 }) {
+          Text(g).fontSize(12).fontWeight(700).fontColor(T.c('text-secondary'))
+          ForEach(CMD_HELP.filter((c: CmdSpec): boolean => c.group === g), (c: CmdSpec) => {
+            Row({ space: 10 }) {
+              Column({ space: 2 }) {
+                Text(c.example).fontSize(13).fontWeight(600).fontColor(T.c('primary-ink'))
+                Text(c.note).fontSize(11).fontColor(T.c('text-muted'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+
+              IconBtn({ icon: 'arrow-right', dim: 14, tap: (): void => this.runExample(c.example) })
+                .width(28).height(28)
+            }
+            .width('100%')
+            .padding({ left: 12, right: 8, top: 10, bottom: 10 })
+            .borderRadius(R_M)
+            .backgroundColor(T.c('surface-raised'))
+            .border({ width: 1, color: T.c('border') })
+            .onClick((): void => this.runExample(c.example))
+          }, (c: CmdSpec) => c.example)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+      }, (g: string) => g)
+    }
+    .width('100%')
+    .padding(16)
+    .borderRadius(R_M)
+    .backgroundColor(T.c('surface'))
+    .border({ width: 1, color: T.c('border') })
+    .alignItems(HorizontalAlign.Start)
+  }
+
   /* 一条消息：气泡 +（AI 附带方案卡）+ 气泡外时间 */
   @Builder
-  MsgGroup(m: ChatMsg) {
+  MsgGroup(m: ChatMsg, idx: number) {
     Column({ space: 6 }) {
       if (m.who === 'ai') {
         Row({ space: 10 }) {
@@ -380,8 +493,7 @@ export struct AiPanel {
               tap: (): void => {
                 setItemQtyByName(m.adjName, m.adjQty).then((): void => {
                   m.adjDone = true;
-                  store.chat = store.chat.slice();
-                  saveChat();
+                  this.replaceMsg(idx, m);
                   store.toast(`已调整「${m.adjName}」数量为 ${m.adjQty}`);
                 }).catch((e: Error): void => {
                   store.toast(e.message);
@@ -401,9 +513,28 @@ export struct AiPanel {
               tap: (): void => {
                 addShoppingByAI(m.shopName, m.shopQty).then((): void => {
                   m.shopDone = true;
-                  store.chat = store.chat.slice();
-                  saveChat();
+                  this.replaceMsg(idx, m);
                   store.toast(`已把「${m.shopName}」加入采购清单`);
+                }).catch((e: Error): void => {
+                  store.toast(e.message);
+                });
+              }
+            })
+          }
+          .width('88%')
+          .margin({ left: 42, top: 4 })
+        }
+
+        // 自然语言指令里的破坏性操作（删库 / 删物品 / 移动 / 改名）：点确认才落库
+        if (m.who === 'ai' && m.opKind !== '' && !m.opDone) {
+          Row({ space: 8 }) {
+            TBtn({
+              label: m.opLabel, icon: 'check', kind: 'soft', small: true,
+              tap: (): void => {
+                applyCmdOp(m.opKind, m.opArg).then((res: string): void => {
+                  m.opDone = true;
+                  m.text = m.text + '\n' + res;
+                  this.replaceMsg(idx, m);
                 }).catch((e: Error): void => {
                   store.toast(e.message);
                 });

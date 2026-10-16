@@ -21,6 +21,10 @@ export class AIReply {
   dishTime: string = '';
   dishNote: string = '';
   dishIngredients: string[] = [];
+  /* 自然语言指令的待确认写操作（删库/删物品/移动/改名）：由对话里的确认按钮落地 */
+  opKind: string = '';
+  opArg: string = '';
+  opLabel: string = '';
 }
 
 export type Intent = 'greet' | 'where' | 'qty' | 'expiry' | 'cook' | 'creative'

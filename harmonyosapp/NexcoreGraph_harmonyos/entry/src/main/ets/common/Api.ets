@@ -649,6 +649,33 @@ export function restoreItem(lib: Library, item: Item, index: number): Promise<vo
   });
 }
 
+/** 物品跨库移动（自然语言指令用）：从原库取出、塞进目标库，数量/单位/位置/保质期/价格原样带走 */
+export function moveItemToLib(itemIdOrName: string, targetLibId: string): Promise<string> {
+  return sleep().then((): string => {
+    const hit = store.findItemHit(itemIdOrName);
+    if (hit === null) {
+      throw new Error('库存里没有「' + itemIdOrName + '」');
+    }
+    const from: Library = hit[0];
+    const it: Item = hit[1];
+    const target = store.findLib(targetLibId);
+    if (target === null) {
+      throw new Error('目标库不存在');
+    }
+    if (from.id === target.id) {
+      throw new Error('它已经在「' + target.name + '」里了');
+    }
+    const arr = from.items.slice();
+    arr.splice(arr.indexOf(it), 1);
+    from.items = arr;
+    target.items.push(it);
+    touchLib(from);
+    touchLib(target);
+    store.pushLog('item', `把「${it.name}」从「${from.name}」移到「${target.name}」`);
+    return `已把「${it.name}」从「${from.name}」移到「${target.name}」`;
+  });
+}
+
 /* ---------- 生成新方案（F3.1） ---------- */
 export function generatePlans(): Promise<Plan[]> {
   return sleep().then((): Plan[] => {
