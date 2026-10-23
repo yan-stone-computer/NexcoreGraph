@@ -1,0 +1,56 @@
+{
+  "name": "nexcoregraph-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "启核图策 NexcoreGraph · 家庭资源智能管家（桌面版）",
+  "author": "天枢序列",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.tianshu.nexcoregraph",
+    "productName": "启核图策",
+    "copyright": "天枢序列",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "server.js",
+      "setup.html",
+      "web/**/*",
+      "build/icon.png"
+    ],
+    "asar": false,
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "启核图策",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
+  }
+}
