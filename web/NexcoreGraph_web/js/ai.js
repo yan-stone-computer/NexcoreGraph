@@ -1,5 +1,6 @@
 /* 启核图策 · AI 编排层（完整文档第 3 篇 M2.5，Web 端落地）
-   - P0-1 意图路由：greet/where/qty/expiry 本地快答（0 次模型调用）；cook/creative/nutrition/summary/兜底走模型（此处为本地模拟，正式版 POST /api/ai/chat）
+   - P0-1 意图路由：greet/where/qty/expiry 本地快答（0 次模型调用）；cook/creative/nutrition/summary 走 /api/ai/chat（Agnes），
+     Agnes 不可用时退回本地降级回答，并在回复里注明"0 次模型调用"，不冒充模型结果
    - P0-2 受约束工具协议 v2：[调整] 库存、shopping_add，白名单执行，先预览后生效
    - P0-3 营养标注（约，估算）+ AI 创新菜谱
    - P0-6 看板简报：统计由代码计算，模型仅润色
@@ -132,40 +133,87 @@
     return { type: "shopping_add", name: name, qty: numAfter(text, 1) + " " + ((text.match(/(个|盒|瓶|袋|把|罐|份|包)/) || ["单位"])[0]) };
   }
 
-  /* ---------- 模型类回复（本地模拟，正式版为 /api/ai/chat 单次调用） ---------- */
-  function modelReply(intent, text) {
+  /* ---------- 模型类回复：Agnes + GraphRAG（单次调用，失败降级本地回答） ----------
+     红线 3：单请求 ≤2 次模型调用（本链路仅 1 次；社区摘要为离线预计算，不在对话请求内） */
+  function agnesReply(intent, text) {
+    return window.GRAPHRAG.ask(text).then(function (r) {
+      if (r.ok) {
+        window.API.logAiUsage("/api/ai/chat", r.ms, r.model, {
+          mode: r.mode, evidenceN: r.evidence.lines.length,
+          summaryHit: (r.evidence.usedSummary || 0) > 0 ? 1 : 0
+        });
+        var out = { text: r.text, model: true, src: r.src, mode: r.mode, evidenceN: r.evidence.lines.length };
+        if (intent === "cook") out.action = "generatePlans";
+        if (intent === "creative") out.action = "creative";
+        if (intent === "shopping_add") {
+          var card = parseShoppingAdd(text);
+          if (card) { out.card = card; out.text = "确认后我会把该项加入采购清单（预览如下，Agnes 已理解需求）："; }
+        }
+        return out;
+      }
+      /* 降级：global 类用图谱事实直接回答；其余回退本地降级文案（modelReply 内已记用量，勿双记） */
+      return modelReply(intent, text, true).then(function (out) {
+        if (r.mode === "global" && r.evidence.lines.length) {
+          out = {
+            text: "按图谱实时统计：" + r.evidence.lines.join("；") + "。建议优先消耗临期食材，并把低库存项加入采购清单。",
+            model: false
+          };
+          if (intent === "cook") out.action = "generatePlans";
+        }
+        out.text += "（Agnes 暂不可用：" + (r.error || "网络异常") + "，已降级本地回答；图谱事实仍可查）";
+        out.src = "本地降级 · GraphRAG " + r.mode + "（0 次模型调用）";
+        return out;
+      });
+    }).catch(function () {
+      return modelReply(intent, text, true).then(function (out) {
+        out.src = "本地降级（Agnes 未接入，0 次模型调用）";
+        return out;
+      });
+    });
+  }
+
+  /* ---------- 本地降级回复（Agnes 不可用时的兜底；内容全部来自本地数据，不冒充模型） ---------- */
+  function modelReply(intent, text, degraded) {
     var t0 = Date.now();
     var p = new Promise(function (resolve) {
       setTimeout(function () {
         var out = null;
         if (intent === "cook") {
-          out = { text: "按「临期优先 > 清库存 > 营养均衡」从你的库存排了 3 个方案（营养为每份估算）：", action: "generatePlans", model: true };
+          out = { text: "按「临期优先 > 清库存 > 营养均衡」从你的库存排了 3 个方案（营养为每份估算）：", action: "generatePlans", model: false };
         } else if (intent === "creative") {
-          out = { text: "我优先挑了快到期的食材，编了一道新菜谱（已加入方案列表，走正常核销链路）：", action: "creative", model: true };
+          out = { text: "我优先挑了快到期的食材，编了一道新菜谱（已加入方案列表，走正常核销链路）：", action: "creative", model: false };
         } else if (intent === "nutrition") {
-          var st = window.API.getStats();
           var prof = DB.profile || {};
           var goal = prof.goal || "均衡";
+          /* 热量只能来自方案里的真实标注，不能写死一个固定的估算值 */
+          var kcals = (DB.plans || []).filter(function (p) { return p.status !== "done"; })
+            .map(function (p) { return Number(p.kcal) || 0; })
+            .filter(function (n) { return n > 0; });
+          var sum = kcals.reduce(function (a, b) { return a + b; }, 0);
+          var head = kcals.length
+            ? "现有 " + kcals.length + " 个待执行方案带热量标注，合计约 " + sum + " kcal，平均每份约 " + Math.round(sum / kcals.length) + " kcal（方案里的估算值相加）。"
+            : "现有方案还没有热量标注，暂时算不出总量；等方案里带上热量后我再合计。";
           out = {
-            text: "按当前方案估算：今天 3 个方案合计约 900 kcal / 蛋白 60g（每份约 300 kcal，估算值）。你的饮食目标是「" + goal +
+            text: head + "你的饮食目标是「" + goal +
               "」" + (prof.enabled !== false && prof.dislikes ? "，已避开忌口：" + prof.dislikes : "") + "。建议晚餐选低脂的黄瓜炒虾仁或香煎鸡胸肉。",
-            model: true
+            model: false
           };
         } else if (intent === "summary") {
-          out = { text: briefingText(), model: true };
+          out = { text: briefingText(), model: false };
         } else if (intent === "shopping_add") {
           var card = parseShoppingAdd(text);
-          out = card ? { text: "确认后我会把该项加入采购清单：", card: card, model: true }
-                     : { text: "告诉我要买什么，比如「想买 2 盒牛奶」，确认后加入采购清单。", model: true };
+          out = card ? { text: "确认后我会把该项加入采购清单：", card: card, model: false }
+                     : { text: "告诉我要买什么，比如「想买 2 盒牛奶」，确认后加入采购清单。", model: false };
         } else {
           var st2 = window.API.getStats();
           out = {
             text: "当前库存 " + st2.totalItems + " 件，临期 " + st2.expiringN + " 件、低库存 " + st2.lowN +
               " 件。可以问我物品位置、数量、保质期，也可以说「今晚吃什么」或「鸡蛋只剩 5 个」来改库存。",
-            model: true
+            model: false
           };
         }
-        window.API.logAiUsage("/api/ai/chat", Date.now() - t0 + 500);
+        /* 本地降级也记一笔（方便看降级比例），但耗时用真实值、模型名标"本地降级"，成本按 0 计 */
+        window.API.logAiUsage("/api/ai/chat", Date.now() - t0, "本地降级");
         resolve(out);
       }, 700 + Math.random() * 500);
     });
@@ -174,23 +222,26 @@
 
   /* ---------- 统一入口 ---------- */
   function reply(text) {
+    /* 0) 自然语言指令层（与鸿蒙端 Commands.ets 同规则）：命中即本地执行，不再走意图路由与模型 */
+    var cmd = window.COMMANDS ? window.COMMANDS.match(text) : null;
+    if (cmd) {
+      var cmdOut = window.COMMANDS.run(cmd);
+      if (cmdOut) {
+        window.API.logAiUsage("/api/ai/chat", 0, "本地指令");
+        return cmdOut;
+      }
+    }
     var intent = route(text);
     var fast = fastReply(intent, text);
     if (fast) {
       window.API.logAiUsage("/api/ai/chat", 0, "本地快答");
       return Promise.resolve(fast);
     }
-    if (intent === "cook") return modelReply("cook", text);
-    if (intent === "creative") return modelReply("creative", text);
-    if (intent === "nutrition") return modelReply("nutrition", text);
-    if (intent === "summary") return modelReply("summary", text);
-    if (intent === "shopping_add") return modelReply("shopping_add", text);
     if (intent === "adjust") {
       var card = parseAdjust(text);
-      if (card) return Promise.resolve({ text: "检测到库存调整请求，请确认（不直接写库，F5.5）：", card: card, model: false });
-      return modelReply("fallback", text);
+      if (card) return Promise.resolve({ text: "检测到库存调整请求，请确认（不直接写库，F5.5）：", card: card, model: false, src: "本地解析 · 0 次模型调用" });
     }
-    return modelReply("fallback", text);
+    return agnesReply(intent, text);
   }
 
   /* P0-6 简报：数字全部来自 computeStats，文案为固定模板润色（模型仅润色） */
