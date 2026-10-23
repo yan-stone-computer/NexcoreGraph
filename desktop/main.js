@@ -18,7 +18,8 @@ let port = 0;
 
 function startServer() {
   return new Promise((resolve, reject) => {
-    const dataDir = path.join(app.getPath('userData'), 'data');
+    /* 默认放用户目录；NXG_DATA_DIR 可指定别的目录（便携/测试用） */
+    const dataDir = process.env.NXG_DATA_DIR || path.join(app.getPath('userData'), 'data');
     child = fork(path.join(__dirname, 'server.js'), [], {
       env: Object.assign({}, process.env, {
         ELECTRON_RUN_AS_NODE: '1',   /* 关键：让 fork 出来的进程按 Node 跑，而不是又开一个 Electron 应用 */

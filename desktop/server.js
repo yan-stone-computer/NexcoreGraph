@@ -23,11 +23,15 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
+const { sendMail } = require('./mailer');
 
 const PORT = Number(process.env.PORT || 0);
 const DATA_DIR = process.env.NXG_DATA_DIR || path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'nexcoregraph.sqlite');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+/* 打安装包时可以把作者自己的 Key 放进 config.seed.json（不进仓库），
+   首次启动自动复制到应用数据目录，省掉首次设置页。 */
+const SEED_CONFIG = path.join(__dirname, 'config.seed.json');
 const WEB_DIR = process.env.NXG_WEB_DIR || (fs.existsSync(path.join(__dirname, 'web', 'index.html'))
   ? path.join(__dirname, 'web')
   : path.join(__dirname, '..', 'web', 'NexcoreGraph_web'));
@@ -55,6 +59,10 @@ db.exec(`
     id INTEGER PRIMARY KEY CHECK (id = 1), rev INTEGER, from_who TEXT, at INTEGER, summary TEXT, data TEXT
   );
   CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
+  CREATE TABLE IF NOT EXISTS email_codes (
+    email TEXT PRIMARY KEY, code_hash TEXT, exp_at INTEGER, sent_at INTEGER,
+    attempts INTEGER, locked_until INTEGER
+  );
 `);
 
 const q = {
@@ -71,7 +79,10 @@ const q = {
   flowGet: db.prepare('SELECT * FROM flow WHERE id = 1'),
   flowPut: db.prepare('INSERT OR REPLACE INTO flow (id,rev,from_who,at,summary,data) VALUES (1,?,?,?,?,?)'),
   kvGet: db.prepare('SELECT v FROM kv WHERE k = ?'),
-  kvPut: db.prepare('INSERT OR REPLACE INTO kv (k,v) VALUES (?,?)')
+  kvPut: db.prepare('INSERT OR REPLACE INTO kv (k,v) VALUES (?,?)'),
+  codeGet: db.prepare('SELECT * FROM email_codes WHERE email = ?'),
+  codePut: db.prepare('INSERT OR REPLACE INTO email_codes (email,code_hash,exp_at,sent_at,attempts,locked_until) VALUES (?,?,?,?,?,?)'),
+  codeDel: db.prepare('DELETE FROM email_codes WHERE email = ?')
 };
 
 const now = () => Date.now();
@@ -80,6 +91,14 @@ const hash = (s) => crypto.createHash('sha256').update(String(s) + '|nxg').diges
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return fallback; }
 }
+function ensureConfig() {
+  try {
+    if (!fs.existsSync(CONFIG_FILE) && fs.existsSync(SEED_CONFIG)) {
+      fs.copyFileSync(SEED_CONFIG, CONFIG_FILE);
+    }
+  } catch (e) { /* 读不到种子就退回首次设置页 */ }
+}
+ensureConfig();
 function writeJson(file, obj) {
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf8');
@@ -93,6 +112,22 @@ function aiConfig() {
     baseUrl: (process.env.AGNES_BASE_URL || cfg.baseUrl || 'https://api.agnes-ai.cn/v1').replace(/\/+$/, ''),
     visionModel: cfg.visionModel || process.env.AGNES_VISION_MODEL || 'agnes-2.5-flash'
   };
+}
+function smtpConfig() {
+  const cfg = readJson(CONFIG_FILE, {});
+  const seed = readJson(SEED_CONFIG, {});
+  const s = cfg.smtp || seed.smtp || {};
+  return {
+    host: process.env.MAIL_HOST || s.host || 'smtp.163.com',
+    port: Number(process.env.MAIL_PORT || s.port || 465),
+    user: process.env.MAIL_USER || s.user || '',
+    pass: process.env.MAIL_PASS || s.pass || '',
+    from: process.env.MAIL_FROM || s.from || process.env.MAIL_USER || s.user || ''
+  };
+}
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+function codeHash(email, code) {
+  return crypto.createHash('sha256').update(email + '|' + code + '|nxg-code').digest('hex');
 }
 
 function send(res, code, obj) {
@@ -201,21 +236,66 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    /* ---- 账号（本机模式，不依赖邮箱） ---- */
+    /* ---- 账号：只支持邮箱；验证码真实发信（163 SMTP over TLS） ---- */
     if (p === '/api/auth/code' && req.method === 'POST') {
       const b = await body(req);
-      if (!b.account) { send(res, 400, { ok: false, error: '请输入账号' }); return; }
-      send(res, 200, { ok: true, hint: '本机模式验证码：123456' });
+      const email = String(b.account || '').trim().toLowerCase();
+      if (!EMAIL_RE.test(email)) {
+        send(res, 400, { ok: false, error: '只支持邮箱登录/注册，请输入邮箱地址' });
+        return;
+      }
+      const cur = q.codeGet.get(email);
+      if (cur && cur.sent_at && now() - cur.sent_at < 60 * 1000) {
+        send(res, 429, { ok: false, error: '刚刚已发过，请 60 秒后再试' });
+        return;
+      }
+      const smtp = smtpConfig();
+      if (!smtp.user || !smtp.pass) {
+        send(res, 503, { ok: false, error: '未配置发信邮箱（SMTP_USER / SMTP_PASS）' });
+        return;
+      }
+      const code = String(crypto.randomInt(100000, 1000000));
+      const expAt = now() + 5 * 60 * 1000;
+      try {
+        await sendMail({
+          host: smtp.host, port: smtp.port, user: smtp.user, pass: smtp.pass, from: smtp.from,
+          to: email,
+          subject: '启核图策登录验证码',
+          text: '你的验证码是 ' + code + '，5 分钟内有效。\n如果不是你本人操作，请忽略这封邮件。'
+        });
+      } catch (e) {
+        send(res, 502, { ok: false, error: '邮件发送失败：' + (e.message || 'SMTP 异常') });
+        return;
+      }
+      q.codePut.run(email, codeHash(email, code), expAt, now(), 0, 0);
+      send(res, 200, { ok: true, hint: '验证码已发送到 ' + email + '，5 分钟内有效' });
       return;
     }
     if (p === '/api/auth/login' && req.method === 'POST') {
       const b = await body(req);
-      const account = String(b.account || '').trim();
-      if (!account) { send(res, 400, { ok: false, error: '请输入账号' }); return; }
-      if (String(b.code || '').trim() !== '123456') {
-        send(res, 400, { ok: false, error: '验证码不正确（本机模式固定 123456）' });
+      const account = String(b.account || '').trim().toLowerCase();
+      const code = String(b.code || '').trim();
+      if (!EMAIL_RE.test(account)) {
+        send(res, 400, { ok: false, error: '只支持邮箱登录/注册，请输入邮箱地址' });
         return;
       }
+      const row = q.codeGet.get(account);
+      if (!row || !row.exp_at || row.exp_at < now()) {
+        send(res, 400, { ok: false, error: '验证码已过期，请重新获取' });
+        return;
+      }
+      if (row.locked_until && row.locked_until > now()) {
+        send(res, 429, { ok: false, error: '尝试次数过多，请 15 分钟后再试' });
+        return;
+      }
+      if (codeHash(account, code) !== row.code_hash) {
+        const attempts = Number(row.attempts || 0) + 1;
+        const lock = attempts >= 5 ? now() + 15 * 60 * 1000 : 0;
+        q.codePut.run(account, row.code_hash, row.exp_at, row.sent_at, attempts, lock);
+        send(res, 400, { ok: false, error: lock ? '验证码错误次数过多，已锁定 15 分钟' : '验证码不正确' });
+        return;
+      }
+      q.codeDel.run(account);
       let user = q.userGet.get(account);
       if (!user) {
         const famId = 'fam-' + hash(account).slice(0, 10);

@@ -22,7 +22,7 @@
 桌面版为了「装完即用」改成：
 
 - 存储：SQLite（单文件，自动建表）
-- 登录：本机模式，验证码固定 `123456`（不需要邮箱）
+- 登录 / 注册：**只支持邮箱**；验证码真实发到该邮箱（163 SMTP over TLS，5 分钟有效、60 秒防重发、错 5 次锁 15 分钟），首次登录即注册
 - AI：本地服务转发 Agnes，Key 存在本机；没有 Key 时明确报错，不返回模拟数据
 - 同步 / 协作池 / 流转：同一台电脑上的本地实现，接口契约与正式后端一致
 
@@ -58,6 +58,12 @@ node server.js        # 打开 http://127.0.0.1:3311
 
 `AGNES_API_KEY` 环境变量存在时优先使用，便于本机调试；正常安装包走首次设置页写入的 `config.json`。
 
+发信账号同样放在 `config.seed.json` 的 `smtp` 字段（或环境变量 `MAIL_HOST / MAIL_PORT / MAIL_USER / MAIL_PASS / MAIL_FROM`），
+打进安装包后首次启动会复制到应用数据目录的 `config.json`。这个文件已在 `.gitignore` 里，不会进仓库。
+
+> 提醒：`config.seed.json` 里同时有 AI Key 和邮箱授权码。把安装包发给别人时，对方用的是同一个 Key 和发信账号，
+> 额度和邮件都会算在你头上；对外分发时建议删掉 `config.seed.json` 重新打包，让对方在首次设置页填自己的。
+
 ## 端到端自检
 
 安装/解包后带调试端口启动：
@@ -67,5 +73,5 @@ node server.js        # 打开 http://127.0.0.1:3311
 node ..\tools\electron_e2e.js --port 9222 --file ..\tools\desktop_e2e_check.js
 ```
 
-检查项：页面标题与 URL、本机登录（123456）、用 `assets/img/fridge.jpg` 走真实 `/api/ai/vision`
+检查项：页面标题与 URL、邮箱验证码登录、用 `assets/img/fridge.jpg` 走真实 `/api/ai/vision`
 （返回模型名、耗时、识别条目）。实测：7 项、agnes-2.5-flash、约 3.6s。

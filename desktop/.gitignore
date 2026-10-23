@@ -4,3 +4,4 @@ web/
 data/
 *.log
 build/icon-preview.png
+config.seed.json

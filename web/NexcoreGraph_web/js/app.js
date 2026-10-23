@@ -528,10 +528,11 @@
       var phone = document.getElementById("login-phone").value.trim();
       var code = document.getElementById("login-code").value.trim();
       var err = document.getElementById("login-err");
-      var okPhone = /^1\d{10}$/.test(phone) || /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(phone);
+      /* 只支持邮箱登录/注册（不接收手机号） */
+      var okPhone = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(phone);
       if (!okPhone) {
         err.hidden = false;
-        err.textContent = "请输入手机号或邮箱";
+        err.textContent = "请输入邮箱地址（本项目只支持邮箱登录）";
         return;
       }
       if (!/^\d{6}$/.test(code)) {
@@ -1646,7 +1647,7 @@
       '<p class="login-sub">NexcoreGraph · 家庭资源智能管家</p>' +
       '<p class="login-sub">家里的东西，AI 帮你想 · 拍照建库 / 智能规划 / 家庭协作</p>' +
       '<form class="login-form" id="login-form" novalidate>' +
-      '<div class="field"><label for="login-phone">手机号 / 邮箱</label><input id="login-phone" value="' + esc(S.loginPhone || "") + '" placeholder="输入手机号或邮箱" aria-label="手机号或邮箱"/><div class="login-err" id="login-err" hidden></div></div>' +
+      '<div class="field"><label for="login-phone">邮箱</label><input id="login-phone" type="email" value="' + esc(S.loginPhone || "") + '" placeholder="输入邮箱地址" aria-label="邮箱" autocomplete="email"/><div class="login-err" id="login-err" hidden></div></div>' +
       '<div class="field"><label for="login-code">验证码</label><div class="code-row"><input id="login-code" value="' + esc(S.loginCode || "") + '" inputmode="numeric" maxlength="6" placeholder="6 位验证码" aria-label="验证码"/><button class="btn btn-ghost btn-sm" type="button" data-action="login:code" id="login-code-btn">' + (S.loginCd > 0 ? S.loginCd + "s 后重发" : "获取验证码") + '</button></div></div>' +
       '<button class="btn btn-primary login-submit" type="submit">登录</button>' +
       "</form>" +
@@ -2892,9 +2893,9 @@
       case "login:code":
         {
           var lp = ((document.getElementById("login-phone") || {}).value || "").trim();
-          var lok = /^1\d{10}$/.test(lp) || /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(lp);
+          var lok = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(lp);
           if (!lok) {
-            toast("先填手机号或邮箱");
+            toast("先填邮箱地址（只支持邮箱登录）");
             break;
           }
           if (S.loginCd > 0) break;

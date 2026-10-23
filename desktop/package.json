@@ -25,7 +25,9 @@
     "files": [
       "main.js",
       "server.js",
+      "mailer.js",
       "setup.html",
+      "config.seed.json",
       "web/**/*",
       "build/icon.png"
     ],
