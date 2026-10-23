@@ -5,7 +5,7 @@
    同步（F9.10/D1 全量快照+版本号 409 冲突二选一）、邀请码（F9.3）、AI 用量（F10.5）、预算（D6）。 */
 (function () {
   "use strict";
-  var LS_KEY = "nexcore_web_db_v2";
+  var LS_KEY = "nexcore_web_db_v3";   /* v3 起不再带演示数据，旧键里的种子数据一并弃用 */
   var LS_CLOUD = "nexcore_cloud_v1";
   var LATENCY = 200;
 
@@ -74,10 +74,11 @@
   }
 
   /* AI 用量（F10.5）：route/model/耗时/费用，管理员端聚合展示 */
-  function aiLog(route, model, ms) {
+  function aiLog(route, model, ms, extra) {
     var cfg = db.config || {};
     var unit = route.indexOf("vision") > -1 ? (cfg.visionPrice || 0.01) : (cfg.unitPrice || 0.002);
-    db.aiUsage.unshift({ route: route, model: model || cfg.model || "DeepSeek-V3", ms: Math.round(ms), cost: model === "本地快答" ? 0 : unit, at: new Date().toLocaleString("zh-CN", { hour12: false }), day: todayStr() });
+    var local = typeof model === "string" && model.indexOf("本地") > -1;
+    db.aiUsage.unshift(Object.assign({ route: route, model: model || cfg.model || "Agnes-2.5-flash", ms: Math.round(ms), cost: local ? 0 : unit, at: new Date().toLocaleString("zh-CN", { hour12: false }), day: todayStr() }, extra || {}));
     if (db.aiUsage.length > 300) db.aiUsage.length = 300;
   }
 
@@ -102,10 +103,9 @@
     db.libraries.forEach(function (lib) {
       (lib.items || []).forEach(function (it) {
         var where = lib.name + " · " + (it.pos || "未设置");
-        if (it.expDays != null && it.expDays < 9000) {
-          if (it.expDays <= 0) {
-            out.push({ id: it.id + "-exp0", type: "expiring", icon: "alert", tone: "red", text: it.name + " 已过期，请立即处理", meta: "今天 · " + where });
-          } else if (it.med && it.expDays <= crit) {
+        /* expDays = 0/空 表示"不适用"（衣物、工具、厨具这类没有保质期），不参与临期与过期判断 */
+        if (it.expDays != null && it.expDays > 0 && it.expDays < 9000) {
+          if (it.med && it.expDays <= crit) {
             out.push({ id: it.id + "-med", type: "medicine", icon: "pill", tone: "red", text: it.name + " " + it.expDays + " 天后到期，请确认库存（F3.12）", meta: "刚刚 · " + where });
           } else if (it.expDays <= crit) {
             out.push({ id: it.id + "-c", type: "expiring", icon: "clock", tone: "red", text: it.name + " " + it.expDays + " 天后到期，建议优先消耗", meta: "刚刚 · " + where });
@@ -119,7 +119,7 @@
         if ((it.lowAt || 0) > 0 && it.qty <= it.lowAt) {
           out.push({ id: it.id + "-low", type: "low", icon: "package", tone: "teal", text: it.name + " 低于阈值（阈值 " + it.lowAt + " " + it.unit + "，当前 " + it.qty + " " + it.unit + "）", meta: "刚刚 · 规则自动化（D4 lowAt）" });
         }
-        it.expiring = it.expDays != null && it.expDays <= soon && it.expDays < 9000;
+        it.expiring = it.expDays != null && it.expDays > 0 && it.expDays <= soon && it.expDays < 9000;
       });
     });
     var order = { red: 0, amber: 1, teal: 2, muted: 3 };
@@ -210,6 +210,35 @@
   var pristine = JSON.parse(JSON.stringify(db));
 
   /* ---------- 对外 API ---------- */
+  /**
+   * 模型返回的一条 → 端侧入库卡片。
+   * expDays = 0 表示"不适用"（衣物、工具、厨具这类没有保质期），不能当成"已过期"。
+   */
+  function intakeItem(it, thumb) {
+    var name = String((it && it.name) || "").trim();
+    var days = Number(it && it.expDays);
+    var expDays = isNaN(days) || days < 0 ? 0 : Math.round(days);
+    var price = Number(it && it.price);
+    var qty = Number(it && it.qty);
+    return {
+      id: nid("r"),
+      emoji: "📦",
+      img: thumb || "",
+      name: name,
+      category: String((it && it.category) || ""),
+      qty: String(isNaN(qty) || qty <= 0 ? 1 : qty),
+      unit: String((it && it.unit) || "个"),
+      pos: String((it && it.pos) || ""),
+      exp: expDays > 0 ? expDays + " 天" : "不适用",
+      expSrc: expDays > 0 ? "拍照识别" : "不适用",
+      expDays: expDays,
+      kbKey: "",
+      price: price > 0 ? (Math.round(price * 10) / 10).toFixed(1) : "",
+      priceSrc: price > 0 ? "拍照识别" : "待补",
+      attention: name === ""
+    };
+  }
+
   window.API = {
     getState: function () { return db; },
     getStats: function () { return computeStats(); },
@@ -221,53 +250,52 @@
       return db;
     },
 
-    /* ===== 登录（契约 POST /api/auth/login，严格 123456 / A1-A3） ===== */
-    login: function (phone, code) {
-      return sleep().then(function () {
-        if (code !== "123456") throw new Error("验证码错误（演示码 123456）");
-        var u = db.users.filter(function (x) { return x.phone === phone; })[0];
-        if (!u) throw new Error("账号不存在，请使用家庭内注册的手机号");
-        if (u.disabled) throw new Error("该账号已被管理员禁用");
-        var fam = db.families.filter(function (f) { return f.id === u.familyId; })[0] || db.families[0];
-        db.user = { name: u.name, phone: u.phone, role: u.role, initial: u.name.charAt(0) };
-        db.familyId = u.familyId;
-        db.family = { name: fam.name, memberCount: (db.members[u.familyId] || []).length };
-        pushLog("auth", u.name + "（" + u.role + "）登录");
-        save();
-        return { user: db.user, family: db.family, role: u.role };
-      });
+    /* 本机模拟登录已移除：账号与验证码一律走后端 /api/auth/*（见 js/agnes.js 的 window.AUTH） */
+    login: function () {
+      return Promise.reject(new Error("本机模拟登录已移除，请使用后端验证码登录"));
     },
 
-    /* ===== 拍照识别（F1：正式版为 POST /api/ai/vision，此处本地模拟 + 明确标注） ===== */
-    recognize: function (imgs) {
+    /* ===== 拍照识别（F1）：真实调用 /api/ai/vision（网关优先，厂商直连兜底）
+       这里以前是"本地模拟"：按图片长度从固定池里挑几样（鸡蛋/牛奶/番茄…）冒充识别结果。
+       现在每张图都真的走模型；模型不可用时直接报错，不再拿假数据糊弄用户。 ===== */
+    recognize: function (imgs, fulls) {
+      var thumbs = Array.isArray(imgs) ? imgs : [];
+      var shots = Array.isArray(fulls) && fulls.length === thumbs.length ? fulls : thumbs;
+      if (!shots.length) return Promise.reject(new Error("先拍摄或选择至少 1 张图片"));
+      if (!window.AGNES || typeof window.AGNES.vision !== "function") {
+        return Promise.reject(new Error("视觉模块未加载，请刷新页面"));
+      }
       var t0 = Date.now();
-      return sleep().then(function () {
-        var pool = [
-          { name: "鸡蛋", kbKey: "egg", emoji: "🥚", unit: "个" }, { name: "鲜牛奶", kbKey: "milk", emoji: "🥛", unit: "盒" },
-          { name: "番茄", kbKey: "tomato", emoji: "🍅", unit: "个" }, { name: "上海青", kbKey: "greens", emoji: "🥬", unit: "把" },
-          { name: "五花肉", kbKey: "pork", emoji: "🥩", unit: "克" }, { name: "酸奶", kbKey: "yogurt", emoji: "🥤", unit: "杯" },
-          { name: "黄瓜", kbKey: "cucumber", emoji: "🥒", unit: "根" }, { name: "香蕉", kbKey: "banana", emoji: "🍌", unit: "把" },
-          { name: "面包", kbKey: "bread", emoji: "🍞", unit: "袋" }, { name: "蘑菇", kbKey: "mushroom", emoji: "🍄", unit: "盒" }
-        ];
-        var results = imgs.map(function (img, i) {
-          var p = pool[(i * 3 + img.length) % pool.length];
-          if ((img.length + i) % 5 === 4) {
-            /* F1.4 无法判类 → 待归类，attention 提示补缺 */
-            return { id: nid("r"), emoji: "❔", img: img, name: "", category: "", qty: "", unit: "个", pos: "", exp: "", expSrc: "", expDays: 0, kbKey: "", price: "", priceSrc: "待补", attention: true };
-          }
-          var kb = window.KB.foods[p.kbKey];
-          var qty = 1 + ((img.length + i) % 5);
-          return {
-            id: nid("r"), emoji: p.emoji, img: img, name: p.name,
-            category: kb && kb.days >= 90 ? "干货" : "生鲜", qty: String(qty), unit: p.unit,
-            pos: "冷藏区", exp: kb ? kb.days + " 天" : "7 天", expSrc: "知识库默认", expDays: kb ? kb.days : 7,
-            kbKey: p.kbKey, price: (Math.round((3 + ((img.length * 7 + i * 13) % 40)) * 10) / 10).toFixed(1), priceSrc: "拍照识别", attention: false
-          };
+      var out = [];
+      var trail = [];
+      var chain = Promise.resolve();
+      shots.forEach(function (url, i) {
+        chain = chain.then(function () {
+          var b64 = String(url || "").replace(/^data:[^;]+;base64,/, "");
+          if (!b64) throw new Error("第 " + (i + 1) + " 张图片读取失败，请重新选择");
+          return window.AGNES.vision({
+            imageBase64: b64,
+            familyId: (db.family && db.family.id) || db.familyId || "",
+            user: (db.user && (db.user.name || db.user.account)) || ""
+          }).then(function (res) {
+            var items = (res && res.items) || [];
+            trail.push({ model: (res && res.model) || "gateway", ms: (res && res.ms) || 0, n: items.length });
+            items.forEach(function (it) { out.push(intakeItem(it, thumbs[i])); });
+          });
         });
-        aiLog("/api/ai/vision", db.config.visionModel, Date.now() - t0 + 900);
-        pushLog("intake", "AI 识别 " + imgs.length + " 张图片（模拟识别，正式版接 Agnes /api/ai/vision）");
+      });
+      return chain.then(function () {
+        var ms = Date.now() - t0;
+        var model = trail.length && trail[0].model ? trail[0].model : "gateway";
+        var via = window.AGNES.lastVia ? window.AGNES.lastVia() : "";
+        db.intake.meta = {
+          model: model, ms: ms, images: shots.length, items: out.length, via: via,
+          trail: trail, at: new Date().toISOString()
+        };
+        aiLog("/api/ai/vision", model, ms);
+        pushLog("intake", "AI 识别 " + shots.length + " 张图片 → " + out.length + " 项（" + model + " · " + ms + "ms）");
         save();
-        return results;
+        return out;
       });
     },
 
@@ -299,7 +327,9 @@
           lib.items.push({
             id: nid("it"), no: nextNo(), name: r.name, emoji: r.emoji || "📦", img: r.img || "", kbKey: r.kbKey || "",
             qty: parseFloat(r.qty) || 1, unit: r.unit || "个", price: parseFloat(r.price) || 0, priceSrc: r.priceSrc || "手动",
-            expDays: parseInt(r.expDays, 10) || 7, pos: r.pos || "未设置", lowAt: (window.KB.foods[r.kbKey] || {}).lowAt || 0,
+            /* 0 = 不适用；不要用 `|| 7` 把衣物/工具硬变成 7 天后到期 */
+            expDays: (function () { var d = parseInt(r.expDays, 10); return isNaN(d) || d < 0 ? 0 : d; })(),
+            pos: r.pos || "未设置", lowAt: (window.KB.foods[r.kbKey] || {}).lowAt || 0,
             addedAt: new Date().getDate(), private: !!r.private
           });
           added++;
@@ -675,6 +705,55 @@
       catch (e) { return { version: 1, updatedAt: null, payload: null }; }
     },
     _cloudSave: function (c) { localStorage.setItem(LS_CLOUD, JSON.stringify(c)); },
+    /* 活同步 / 跨设备流转：给自建后端用（真实网络），不经过 localStorage 云端 */
+    snapshotPayload: function () {
+      return {
+        libraries: JSON.parse(JSON.stringify(db.libraries || [])),
+        plans: JSON.parse(JSON.stringify(db.plans || [])),
+        shopping: JSON.parse(JSON.stringify(db.shopping || [])),
+        alerts: JSON.parse(JSON.stringify(db.alerts || [])),
+        daily: JSON.parse(JSON.stringify(db.daily || [])),
+        logs: JSON.parse(JSON.stringify((db.logs || []).slice(0, 50)))
+      };
+    },
+    applyPayload: function (p) {
+      if (!p) return db;
+      if (p.libraries) db.libraries = p.libraries;
+      if (p.plans) db.plans = p.plans;
+      if (p.shopping) db.shopping = p.shopping;
+      if (p.daily) db.daily = p.daily;
+      if (p.logs) db.logs = p.logs;
+      save();
+      return db;
+    },
+    localVersion: function () { return db.syncVersion || 1; },
+    setLocalVersion: function (v) { db.syncVersion = Number(v) || 1; save(); return db.syncVersion; },
+    /* 登录成功后写入真实账号/家庭；clearContent 清掉上一账号的本地演示数据 */
+    applyLogin: function (u) {
+      if (u && u.user) db.user = u.user;
+      if (u && u.family) db.family = u.family;
+      db.familyId = (u && u.familyId) || (u && u.family && u.family.id) || "";
+      if (u && u.families) db.families = u.families;
+      if (u && u.members) db.members = u.members;
+      if (u && u.invite !== undefined) db.invite = u.invite;
+      save();
+      return db;
+    },
+    clearContent: function () {
+      db.libraries = [];
+      db.plans = [];
+      db.alerts = [];
+      db.shopping = [];
+      db.chat = [];
+      db.logs = [];
+      db.daily = [];
+      db.history7 = [];
+      db.workbench = null;
+      db.intake = { step: 0, results: [] };
+      save();
+      return db;
+    },
+    saveState: function () { save(); return db; },
     syncStatus: function () {
       return sleep().then(function () {
         var c = API._cloud();
@@ -985,7 +1064,7 @@
       });
     },
     aiUsageList: function () { return Promise.resolve(db.aiUsage); },
-    logAiUsage: function (route, ms) { aiLog(route, db.config.model, ms); },
+    logAiUsage: function (route, ms, model, extra) { aiLog(route, model || (db.config && db.config.model) || "agnes-2.5-flash", ms, extra); },
 
     /* ===== 知识库管理（F10.4）：草稿保存与版本发布，发布后启动时回放 ===== */
     knowledgeSaveDraft: function () {

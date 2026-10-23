@@ -66,7 +66,8 @@
     door: '<path d="M4 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4V3Z"/><circle cx="13.5" cy="12" r="1.2"/>',
     flame: '<path d="M12 3c.8 1.8 3.5 3.2 3.5 6.3a3.5 3.5 0 0 1-7 0C8.5 6.2 11.2 4.8 12 3Z"/><path d="M10.5 9.5c1.2 1.6 3 2.2 3 4a2 2 0 0 1-4 0c0-1.4.7-2.4 1-4Z"/>',
     thermometer: '<path d="M12 3a2.2 2.2 0 0 1 2.2 2.2v7.8a4.5 4.5 0 1 1-4.4 0V5.2A2.2 2.2 0 0 1 12 3Z"/><path d="M12 9v6"/>',
-    shuffle: '<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>'
+    shuffle: '<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>',
+    graph: '<circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M6.8 7.6l4 8.2M17.2 7.6l-4 8.2M7.2 6h9.6"/>'
   };
 
   function icon(name, size) {
@@ -76,13 +77,42 @@
 
   /* ---------- 状态 ---------- */
   var DB = window.DB;
-  var S = { view: "dashboard", intakeLoading: false, search: "", busy: "", chatTyping: false, itemFilter: "all", familyOpen: false, overlay: null, libMenu: null, itemEdit: null, cabinetOpen: true, flipPlans: false, dragId: null, suppressClick: false, aiOpen: false, aiEnter: false, ball: { x: 24, y: 24 }, ballDragged: false, trendRange: "7", passMenu: null, flipCard: null, dragCard: null, dealFlag: false, shots: [], camOn: false, stream: null, intakeLib: null, mergedCount: 0, syncConflict: null };
+  var S = { view: "aiwork", intakeLoading: false, search: "", busy: "", chatTyping: false, itemFilter: "all", familyOpen: false, overlay: null, libMenu: null, itemEdit: null, cabinetOpen: true, flipPlans: false, dragId: null, suppressClick: false, aiOpen: false, aiEnter: false, ball: { x: 24, y: 24 }, ballDragged: false, trendRange: "7", passMenu: null, flipCard: null, dragCard: null, dealFlag: false, shots: [], shotsFull: [], camOn: false, stream: null, intakeLib: null, mergedCount: 0, syncConflict: null, aiStatus: null };
+  S.loginCd = 0;   /* 登录页验证码倒计时（秒） */
+  /* 色板（启核绿青蓝 / 经典橙）：与深浅色解耦，存本机；默认启核 */
+  var PALETTE_KEY = "nexcore_palette";
+  function palette() {
+    try {
+      return localStorage.getItem(PALETTE_KEY) === "classic" ? "classic" : "nexcore";
+    } catch (e) { return "nexcore"; }
+  }
+  /** 把 深浅色 + 色板 落到 <html> 上（token 层据此切换，页面里不再写死颜色） */
+  function applyTheme() {
+    var el = document.documentElement;
+    el.setAttribute("data-theme", DB.theme === "dark" ? "dark" : "light");
+    el.setAttribute("data-palette", palette());
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute("content", DB.theme === "dark" ? "#13172B" : "#F5F9FB");
+    }
+  }
+  /* 指令层（js/commands.js）需要的最小钩子：写操作落地后刷新、切主题 / 色板。
+     让指令不重复实现业务逻辑，只驱动已有视图与 API。 */
+  window.NXG_RENDER = function () { render(); };
+  window.NXG_APPLY_THEME = applyTheme;
+  window.NXG_SET_PALETTE = function (p) {
+    try { localStorage.setItem(PALETTE_KEY, p === "classic" ? "classic" : "nexcore"); } catch (e) { /* ignore */ }
+    applyTheme();
+    render();
+  };
   try {
     var bp = JSON.parse(localStorage.getItem("nexcore_ball") || "null");
     if (bp && typeof bp.x === "number") S.ball = bp;
   } catch (e) {}
   var lastViewKey = "", lastOvKey = "";
-  var loggedIn = localStorage.getItem("nexcore_logged_in") === "1";
+  /* 必须有真实账号与家庭才算登录态；旧缓存里只有演示数据的，回到登录页重新登录 */
+  var loggedIn = localStorage.getItem("nexcore_logged_in") === "1" &&
+    !!(DB.user && DB.user.phone && DB.familyId);
   var INTAKE_SEED = [];
 
   /* ---------- 相机（F1：MediaDevices.getUserMedia，HTTPS/localhost 环境可用） ---------- */
@@ -117,39 +147,49 @@
       }
     }
   }
+  /**
+   * 把一张图按最大边长缩到 maxW，返回 dataURL。
+   * 缩略图（300px）只用于界面与本地存储；送模型的图（1024px/q0.8）单独留一份，
+   * 300px 喂给视觉模型会把小字和数量细节糊掉，识别自然不准。
+   */
+  function fitCanvas(src, maxW, quality) {
+    var sw = src.videoWidth || src.naturalWidth || src.width || 1;
+    var sh = src.videoHeight || src.naturalHeight || src.height || 1;
+    var w = Math.min(maxW, sw);
+    var h = Math.max(1, Math.round(sh / sw * w));
+    var c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    c.getContext("2d").drawImage(src, 0, 0, w, h);
+    return c.toDataURL("image/jpeg", quality);
+  }
   function grabFrame() {
     var v = document.getElementById("cam-video");
     if (!v || !v.videoWidth) return null;
-    var w = 300, h = Math.max(120, Math.round(v.videoHeight / v.videoWidth * w));
-    var c = document.createElement("canvas");
-    c.width = w; c.height = h;
-    c.getContext("2d").drawImage(v, 0, 0, w, h);
-    return c.toDataURL("image/jpeg", 0.6); /* ponytail: 压缩缩略图适配 localStorage（≈5MB），容量吃紧升级 IndexedDB */
+    return { thumb: fitCanvas(v, 300, 0.6), full: fitCanvas(v, 1024, 0.8) };
   }
-  function addShots(urls) {
-    urls.forEach(function (u) {
+  function addShots(thumbs, fulls) {
+    thumbs.forEach(function (u, i) {
       if (S.shots.length >= 6) return; /* D3：单次连拍 ≤6 张 */
       S.shots.push(u);
+      S.shotsFull.push(fulls[i] || u);
     });
-    if (urls.length && S.shots.length >= 6) toast("单次盘点最多 6 张（D3），超出部分已忽略");
+    if (thumbs.length && S.shots.length >= 6) toast("单次盘点最多 6 张（D3），超出部分已忽略");
     render();
   }
   function fileToShots(files) {
-    var urls = [];
+    var thumbs = [];
+    var fulls = [];
     var list = Array.prototype.slice.call(files).slice(0, 6);
     var done = 0;
     if (!list.length) return;
-    list.forEach(function (f) {
+    list.forEach(function (f, i) {
       var img = new Image();
       img.onload = function () {
-        var w = 300, h = Math.max(120, Math.round(img.height / img.width * w));
-        var c = document.createElement("canvas");
-        c.width = w; c.height = h;
-        c.getContext("2d").drawImage(img, 0, 0, w, h);
-        urls.push(c.toDataURL("image/jpeg", 0.6));
-        if (++done === list.length) addShots(urls);
+        thumbs[i] = fitCanvas(img, 300, 0.6);
+        fulls[i] = fitCanvas(img, 1024, 0.8);
+        if (++done === list.length) addShots(thumbs.filter(Boolean), fulls.filter(Boolean));
       };
-      img.onerror = function () { if (++done === list.length) addShots(urls); };
+      img.onerror = function () { if (++done === list.length) addShots(thumbs.filter(Boolean), fulls.filter(Boolean)); };
       img.src = URL.createObjectURL(f);
     });
   }
@@ -339,6 +379,7 @@
 
   function aiFollowUp(toSeat) {
     setTimeout(function () {
+      if (!DB.workbench) return;
       var target = DB.workbench.seats.filter(function (s) { return s.id === toSeat; })[0];
       if (target && target.libs.length) {
         API.sendLibrary(toSeat, "me", target.libs[0].id).then(function (r2) {
@@ -350,7 +391,7 @@
   }
 
   function showSpeech(name, text) {
-    if (!text || !DB.workbench.seats) return;
+    if (!text || !DB.workbench || !DB.workbench.seats) return;
     var seat = DB.workbench.seats.filter(function (s) { return s.name === name; })[0];
     var el = document.querySelector(".seat-" + (seat ? seat.id : "me"));
     if (!el) return;
@@ -415,36 +456,112 @@
       });
   }
 
+  /* 登录成功后：写入真实账号/家庭，清掉本机旧内容，再从该家庭的后端快照恢复。
+     没有快照 = 新家庭，保持空库，由用户拍照入库或新建资源库开始。 */
+  function hydrateFromBackend(a, account) {
+    var fam = (a.families && a.families[0]) || null;
+    var name = a.nickname || String(account).split("@")[0];
+    var user = {
+      name: name,
+      phone: account,
+      role: (fam && fam.role) || a.role || "管理员",
+      initial: name.slice(0, 1)
+    };
+    var family = fam
+      ? { id: fam.id, name: fam.name, memberCount: fam.member_count || 1 }
+      : { name: name + "的家", memberCount: 1 };
+    API.clearContent();
+    if (!fam) {
+      API.applyLogin({ user: user, family: family, familyId: "" });
+      return Promise.resolve();
+    }
+    var jobs = [
+      window.AUTH.get("/api/families?phone=" + encodeURIComponent(account)).catch(function () { return null; }),
+      window.AUTH.get("/api/families/" + encodeURIComponent(fam.id) + "/members").catch(function () { return null; }),
+      window.AUTH.get("/api/sync/download/" + encodeURIComponent(fam.id)).catch(function () { return null; })
+    ];
+    return Promise.all(jobs).then(function (rs) {
+      var mine = rs[0] || null;
+      var mem = rs[1] || null;
+      var snap = rs[2] || null;
+      var invite = null;
+      var row = mine && mine.families
+        ? mine.families.filter(function (f) { return f.id === fam.id; })[0]
+        : null;
+      if (row && row.invite_code) {
+        invite = { code: row.invite_code, familyId: fam.id, expiresInDays: 7, used: 0, max: 3, revoked: false };
+      }
+      var members = {};
+      if (mem && mem.members) {
+        members[fam.id] = mem.members.map(function (m) {
+          return { phone: m.phone, name: m.nickname || m.phone, role: m.role || "成员" };
+        });
+      }
+      API.applyLogin({
+        user: user, family: family, familyId: fam.id,
+        families: a.families, members: members, invite: invite
+      });
+      if (snap && snap.payload) API.applyPayload(snap.payload);
+      return null;
+    });
+  }
+
   function bindLoginForm() {
     var form = document.getElementById("login-form");
     if (!form) return;
+    /* 标明连接目标：登录走的是你自己电脑上的局域网服务器，不是云端（与鸿蒙端登录页同口径） */
+    var srv = document.getElementById("login-server");
+    /* 输入值存进 S：倒计时/提示会触发 render 重建登录视图，不存就会把用户填的内容清空 */
+    var _ph = document.getElementById("login-phone");
+    var _cd = document.getElementById("login-code");
+    if (_ph) _ph.addEventListener("input", function (e) { S.loginPhone = e.target.value; });
+    if (_cd) _cd.addEventListener("input", function (e) { S.loginCode = e.target.value; });
+    if (srv && window.AUTH) {
+      window.AUTH.ready().then(function (base) {
+        srv.textContent = base
+          ? "已连接 " + base + "（局域网自建服务器）"
+          : "未找到本机后端：请先在电脑上启动 backend（tools\\start-lan.ps1），可在「设置 → 服务器连接」改地址";
+      });
+    }
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var phone = document.getElementById("login-phone").value.trim();
       var code = document.getElementById("login-code").value.trim();
       var err = document.getElementById("login-err");
-      if (!/^1\d{10}$/.test(phone)) {
+      var okPhone = /^1\d{10}$/.test(phone) || /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(phone);
+      if (!okPhone) {
         err.hidden = false;
-        err.textContent = "请输入 11 位手机号";
+        err.textContent = "请输入手机号或邮箱";
         return;
       }
       if (!/^\d{6}$/.test(code)) {
         err.hidden = false;
-        err.textContent = "请输入 6 位验证码（演示码 123456）";
+        err.textContent = "请输入 6 位验证码";
         return;
       }
       err.hidden = true;
       runBusy("login", function () {
-        return API.login(phone, code).then(function (r) {
+        /* 只走真实后端：验证码由后端下发/校验，不再有固定演示码与本地登录兜底 */
+        return window.AUTH.login(phone, code).then(function (a) {
+          if (!a || !a.ok) {
+            throw new Error((a && a.error) || "登录失败：请检查验证码，或后端是否已启动");
+          }
+          return hydrateFromBackend(a, phone);
+        }).then(function () {
           loggedIn = true;
           localStorage.setItem("nexcore_logged_in", "1");
-          S.view = "dashboard";
+          S.view = "aiwork";
           lastViewKey = "";
-          return r;
+          return null;
         });
-      }, function (r) {
+      }, function () {
         render();
-        toast("欢迎回来，" + r.user.name + "（" + r.role + "）");
+        if (window.LIVEFLOW && DB.familyId) {
+          window.LIVEFLOW.start(DB.familyId);
+          /* 新家庭没有快照：先把空快照落一份，之后由活同步接管 */
+          setTimeout(function () { window.LIVEFLOW.upload(true).catch(function () {}); }, 800);
+        }
+        toast("欢迎回来，" + DB.user.name + "（" + DB.user.role + "）");
       });
     });
   }
@@ -484,7 +601,7 @@
       })
       .join("");
     return (
-      '<svg class="chart-wrap line-chart" viewBox="0 0 ' + w + " " + h + '" role="img" aria-label="近 7 天食材趋势（演示数据）" ' +
+      '<svg class="chart-wrap line-chart" viewBox="0 0 ' + w + " " + h + '" role="img" aria-label="近 7 天消耗与入库趋势" ' +
       'data-a="' + a.join(",") + '" data-b="' + b.join(",") + '" data-labels="' + labels.join(",") + '">' +
       grid +
       '<path class="fade-area" style="--ao:0.1" d="' + s2.area + '" fill="' + s2.color + '" opacity="0.1"/>' +
@@ -513,7 +630,7 @@
       off += frac * circ;
     });
     return (
-      '<svg class="donut" viewBox="0 0 180 180" role="img" aria-label="库存构成占比（演示数据）" ' +
+      '<svg class="donut" viewBox="0 0 180 180" role="img" aria-label="库存构成占比" ' +
       'data-labels="' + segs.map(function (s) { return s.label; }).join(",") + '" data-values="' + segs.map(function (s) { return s.value; }).join(",") + '">' +
       parts +
       '<text class="donut-top" x="90" y="86" text-anchor="middle">' + centerTop + "</text>" +
@@ -654,7 +771,7 @@
         : '<div class="plan-foot"><button class="btn btn-primary btn-sm" data-action="plan:run" data-busy="plan:run" data-id="' + p.id + '">' + icon("check", 15) + ' 勾选执行</button></div>';
     return (
       '<div class="' + cls + '">' +
-      '<div class="plan-head"><span class="badge badge-' + tone + '">' + icon("flame", 12) + " " + fire + "</span><span class='plan-title'>" + esc(p.title) + "</span>" + (p.creative ? '<span class="badge badge-teal">' + icon("sparkles", 12) + " AI 创新</span>" : "") + "</div>" +
+      '<div class="plan-head"><span class="badge badge-' + tone + '">' + icon("flame", 12) + " " + fire + "</span><span class='plan-title'>" + esc(p.title) + "</span><span class='badge badge-teal'>AI 生成</span>" + (p.creative ? '<span class="badge badge-teal">' + icon("sparkles", 12) + " AI 创新</span>" : "") + "</div>" +
       '<div class="plan-meta"><span>' + icon("clock", 14) + " " + esc(p.time) + "</span><span>" + icon("sparkles", 14) + " " + esc(p.source) + "</span><span>" + esc(p.reason) + "</span></div>" +
       '<div class="consume-list">' + consume + "</div>" +
       nutri +
@@ -707,7 +824,7 @@
       '<div class="view">' +
       '<div class="view-head"><div><h1 class="view-title">' + greetWord() + "，" + esc(DB.user.name) + "</h1>" +
       '<p class="view-sub">' + (new Date().getMonth() + 1) + " 月 " + new Date().getDate() + " 日 · 多云 26°C（示例天气） · 家庭空间：" + esc(DB.family.name) + "</p></div>" +
-      '<span class="demo-note">' + icon("sparkles", 14) + " 本地模拟后端 · 数据实时计算</span></div>" +
+      '<span class="demo-note">' + icon("sparkles", 14) + " 自建后端 · 数据实时计算</span></div>" +
       '<div class="bento">' +
       stats4
         .map(function (s) {
@@ -792,7 +909,7 @@
       "</div></div>" +
       '<div class="cell cell-12 rv"><div class="card"><div class="card-head"><div><div class="card-title">智能洞察</div><div class="card-sub">看板 AI 简报（P0-6 · 统计代码计算，AI 仅润色）</div></div><button class="btn btn-soft btn-sm" data-action="briefing:gen" data-busy="briefing">' + icon("sparkles", 12) + (briefing ? " 重新生成" : " 生成简报") + "</button></div>" +
       (briefing
-        ? '<p style="font-size:14px;color:var(--text-secondary)">' + esc(briefing) + "</p>"
+        ? '<p style="font-size:14px;color:var(--text-secondary)"><span class="badge badge-teal" style="margin-right:6px">AI 生成</span>' + esc(briefing) + "</p>"
         : '<p style="font-size:14px;color:var(--text-muted)">点击「生成简报」，AI 会基于近 7 天消耗 / 入库 / 临期 / 低库存统计生成一份周报摘要。</p>') +
       '<button class="btn btn-soft btn-sm" style="margin-top:16px" data-action="overlay:open" data-type="shopping">查看采购清单 ' + icon("arrow-right", 14) + "</button></div></div>" +
       "</div></div>"
@@ -981,7 +1098,7 @@
               '<div class="recog-head"><span class="recog-thumb">' + (r.img ? '<img src="' + r.img + '" alt="' + esc(r.name || "识别物品") + '" width="72" height="72" loading="lazy"/>' : r.emoji) + "</span>" +
               '<div><div class="recog-name">' + (r.name || "待归类（F1.4）") + "</div>" +
               '<div class="recog-meta" style="font-size:12px;color:var(--text-muted);display:flex;gap:8px;align-items:center">' +
-              '<span class="field-confirmed">' + icon("check", 12) + (r.name ? " 已识别" : " 缺失，请补全") + "</span>" +
+              '<span class="field-confirmed">' + icon("check", 12) + (r.name ? " 已识别" : " 缺失，请补全") + '</span><span class="badge badge-teal">AI 生成</span>' +
               '<span class="badge badge-' + srcTone + '">价格 · ' + esc(r.priceSrc || "待补") + "</span></div></div></div>" +
               '<div class="recog-fields">' +
               '<div class="field"><label for="f-name-' + r.id + '">名称</label><input id="f-name-' + r.id + '" class="' + att + '" value="' + esc(r.name) + '" data-field="name" data-id="' + r.id + '"/></div>' +
@@ -997,7 +1114,11 @@
         body =
           cards +
           '<div class="card" style="margin-top:24px"><div class="card-title" style="margin-bottom:12px">入库到</div>' + libSel +
-          '<div class="card-sub" style="margin-top:8px">共 ' + DB.intake.results.length + " 项 · 已识别 " + named + " 项" + (unknown ? " · 待补缺 " + unknown + " 项（缺名称将跳过）" : "") + (S.mergedCount ? " · 连拍同名合并 " + S.mergedCount + " 项（D3）" : "") + " · 识别为本地模拟，正式版经 /api/ai/vision 调 Agnes</div></div>" +
+          '<div class="card-sub" style="margin-top:8px">共 ' + DB.intake.results.length + " 项 · 已识别 " + named + " 项" + (unknown ? " · 待补缺 " + unknown + " 项（缺名称将跳过）" : "") + (S.mergedCount ? " · 连拍同名合并 " + S.mergedCount + " 项（D3）" : "") +
+          " · " + (DB.intake.meta
+            ? "AI 识别：" + esc(DB.intake.meta.model) + " · " + (DB.intake.meta.ms / 1000).toFixed(1) + "s · " + esc(DB.intake.meta.via || "gateway") + " · 共 " + DB.intake.meta.images + " 张"
+            : "AI 识别完成") +
+          "</div></div>" +
           '<div class="card" style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:16px">' +
           '<button class="btn btn-ghost" data-action="intake:cancel">' + icon("undo", 15) + " 返回重拍</button>" +
           '<button class="btn btn-primary" data-action="intake:confirm" data-busy="intake:confirm">' + icon("check", 16) + " 确认入库</button></div>";
@@ -1024,6 +1145,11 @@
       body =
         '<div class="chat-card-title">' + icon("cart", 13) + " 加入采购清单预览（P0-2 shopping_add）</div>" +
         '<div class="chat-card-row">' + esc(c.name) + " · " + esc(c.qty) + "</div>";
+    } else if (c.type === "cmd") {
+      /* 自然语言指令层的写操作预览（红线 2：先预览后生效） */
+      body =
+        '<div class="chat-card-title">' + icon("sparkles", 13) + " 指令预览 · " + esc(c.opLabel || "") + "</div>" +
+        '<div class="chat-card-row">' + esc(c.result || "确认后执行，可撤销") + "</div>";
     } else return "";
     var actions = c.done
       ? '<span class="badge badge-success">' + icon("check", 12) + " 已生效</span>"
@@ -1048,7 +1174,9 @@
         return (
           '<div class="msg ' + (m.who === "me" ? "user" : "ai") + '">' +
           '<div class="msg-avatar ' + m.who + '">' + (m.who === "me" ? esc(DB.user.initial) : icon("sparkles", 15)) + "</div>" +
-          '<div class="msg-body">' + (m.img ? '<img class="chat-img" src="' + m.img + '" alt="图片" width="220" height="160"/>' : "") + esc(m.text) + chatCardHTML(m, mi) + '<div class="plan-stack' + (S.flipPlans && m === DB.chat[DB.chat.length - 1] ? " flip" : "") + '">' + plans + "</div>" + '<div class="msg-time">' + esc(m.time) + "</div></div></div>"
+          '<div class="msg-body">' + (m.img ? '<img class="chat-img" src="' + m.img + '" alt="图片" width="220" height="160"/>' : "") + esc(m.text) + chatCardHTML(m, mi) + '<div class="plan-stack' + (S.flipPlans && m === DB.chat[DB.chat.length - 1] ? " flip" : "") + '">' + plans + "</div>" +
+          (m.who === "ai" ? '<button class="btn btn-ghost btn-sm" data-action="tts:say" data-text="' + esc(m.text) + '">' + icon("bell", 13) + " 播报</button>" : "") +
+          '<div class="msg-time">' + esc(m.time) + "</div></div></div>"
         );
       })
       .join("");
@@ -1175,6 +1303,24 @@
 
   function viewWorkbench() {
     var wb = DB.workbench;
+    if (!wb) {
+      /* 空态：真实协作池由后端创建/加入（/api/coop/*），不再预置演示牌桌 */
+      return (
+        '<div class="view">' +
+        '<div class="view-head"><div><h1 class="view-title">协作工作台</h1>' +
+        '<p class="view-sub">创建一个协作池，家人用 6 位邀请码入桌；结束后按归属扣减</p></div></div>' +
+        '<div class="card" style="max-width:560px">' +
+        '<div class="field"><label for="coop-name">协作池名称</label>' +
+        '<input id="coop-name" placeholder="例如：周末聚餐" /></div>' +
+        '<button class="btn btn-primary" data-action="coop:create" data-busy="coop">创建协作池</button>' +
+        '<div style="height:20px"></div>' +
+        '<div class="field"><label for="coop-code">已有邀请码</label>' +
+        '<input id="coop-code" maxlength="8" placeholder="例如：ABC123" /></div>' +
+        '<button class="btn btn-ghost" data-action="coop:join" data-busy="coop">加入协作池</button>' +
+        '<p class="login-note" style="margin-top:12px">协作池、邀请码与成员记录在自建后端；库存明细与聊天不上云。</p>' +
+        "</div></div>"
+      );
+    }
     var deckIds = (DB.workbench.myDeck || []).filter(function (id) {
       return DB.libraries.some(function (l) { return l.id === id; });
     });
@@ -1342,12 +1488,14 @@
 
   function viewSettings() {
     var theme = DB.theme === "dark";
+    var curPalette = palette();
     var members = DB.members[DB.familyId] || [];
     var inv = DB.invite;
     var prof = DB.profile || {};
     var isAdmin = DB.user.role === "管理员";
     var readOnly = DB.user.role === "只读";
     var st = window.API.getStats();
+    var acfg = window.AGNES ? window.AGNES.cfg() : {};
     var memberRows = members
       .map(function (m) {
         var removable = isAdmin && m.phone !== DB.user.phone && m.role !== "管理员";
@@ -1414,9 +1562,52 @@
       '<div class="setting-row"><div><div class="setting-title">低库存补货提醒</div><div class="setting-desc">低于 lowAt 阈值自动提醒（F8.3/D4）</div></div><button class="switch on" data-action="setting:toggle" data-key="low" aria-label="切换低库存提醒" role="switch" aria-checked="true"></button></div>' +
       "</div>" +
 
+      /* AI 通道与服务器连接（对齐鸿蒙端「我的 → 服务器连接」） */
+      '<div class="card" style="margin-top:24px"><div class="card-title" style="margin-bottom:8px">服务器连接 · AI 通道</div>' +
+      '<div class="card-sub" style="margin-bottom:10px">快答与构图 0 次模型调用；仅模型类问题与社区摘要走大模型（单请求 ≤2 次，红线 3）。调用失败自动降级本地回答。</div>' +
+      '<div class="setting-row"><div><div class="setting-title">当前连接</div><div class="setting-desc">' +
+      (S.aiStatus
+        ? (S.aiStatus.ok
+            ? '已连接 <span class="num">' + esc(S.aiStatus.base) + "</span> · " +
+              (S.aiStatus.mode === "lan-self-hosted" ? "局域网自建服务器（数据不出局域网）" : "自建服务器") +
+              (S.aiStatus.ai === "ready" ? " · 网关就绪" : S.aiStatus.ai === "no-key" ? " · 网关未配 Key（后端设 AGNES_API_KEY）" : "")
+            : "未连接自建服务器 · " + esc(S.aiStatus.error || "AI 走厂商直连"))
+        : "未检测；点击「测试连接」探测本机后端") + "</div></div>" +
+      '<span class="badge ' + (S.aiStatus && S.aiStatus.ok ? "badge-teal" : "badge-muted") + '">' +
+      (S.aiStatus && S.aiStatus.ok ? "自建网关" : (acfg.prefer === "direct" ? "厂商直连" : "未探测")) + "</span></div>" +
+      '<div class="field"><label for="gw-base">后端地址（留空自动探测本机 3000 端口）</label><input id="gw-base" value="' + esc(acfg.baseUrl || "") + '" placeholder="http://192.168.x.x:3000"/></div>' +
+      '<div class="field"><label for="agnes-prefer">通道策略</label><select id="agnes-prefer">' +
+      '<option value="gateway"' + (acfg.prefer !== "direct" ? " selected" : "") + ">自建网关优先，连不上回落到厂商直连</option>" +
+      '<option value="direct"' + (acfg.prefer === "direct" ? " selected" : "") + ">只用厂商直连（本机 Key）</option>" +
+      "</select></div>" +
+      '<div class="card-sub" style="margin:12px 0 8px">厂商直连通道（自建网关不可用时使用，Key 仅存本机 localStorage）</div>' +
+      '<div class="field"><label for="agnes-key">API Key</label><input id="agnes-key" value="' + esc(acfg.apiKey || "") + '" placeholder="sk-…"/></div>' +
+      '<div class="grid-2"><div class="field"><label for="agnes-model">模型</label><input id="agnes-model" value="' + esc(acfg.model || "agnes-2.5-flash") + '"/></div>' +
+      '<div class="field"><label for="agnes-base">厂商 Base URL</label><input id="agnes-base" value="' + esc(acfg.vendorBase || "") + '"/></div></div>' +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+      '<button class="btn btn-primary btn-sm" data-action="agnes:save" data-busy="agnes">保存配置</button>' +
+      '<button class="btn btn-ghost btn-sm" data-action="agnes:test" data-busy="agnes">测试连接</button>' +
+      '<span class="badge badge-muted" style="align-self:center">platform.agnes-ai.cn</span></div></div>' +
+
       '<div class="card" style="margin-top:24px"><div class="card-title" style="margin-bottom:8px">外观</div>' +
-      '<div class="setting-row"><div><div class="setting-title">深色模式</div><div class="setting-desc">默认深色，可手动切换</div></div><button class="switch' + (theme ? " on" : "") + '" data-action="theme:toggle" data-busy="theme" aria-label="切换深色模式" role="switch" aria-checked="' + theme + '"></button></div>' +
+      '<div class="setting-row"><div><div class="setting-title">深色模式</div><div class="setting-desc">默认浅色（冷白底 + 启核绿），与鸿蒙端一致</div></div><button class="switch' + (theme ? " on" : "") + '" data-action="theme:toggle" data-busy="theme" aria-label="切换深色模式" role="switch" aria-checked="' + theme + '"></button></div>' +
+      '<div class="setting-row"><div><div class="setting-title">主题色板</div><div class="setting-desc">三端同一套设计令牌：启核绿青蓝（默认）/ 经典橙</div></div>' +
+      '<div style="display:flex;gap:8px">' +
+      '<button class="btn ' + (curPalette === "nexcore" ? "btn-primary" : "btn-ghost") + ' btn-sm" data-action="palette:set" data-palette-value="nexcore">启核绿青蓝</button>' +
+      '<button class="btn ' + (curPalette === "classic" ? "btn-primary" : "btn-ghost") + ' btn-sm" data-action="palette:set" data-palette-value="classic">经典橙</button>' +
+      "</div></div>" +
       "</div>" +
+
+      /* 活同步 + 跨设备流转（对齐鸿蒙端 LiveSync / FlowBridge） */
+      '<div class="card" style="margin-top:24px"><div class="card-title" style="margin-bottom:8px">多端活同步 · 跨设备流转</div>' +
+      '<div class="card-sub" style="margin-bottom:10px">改完自动发、对端 2 秒内自动收；流转把当前库存 / 方案 / 采购快照推到中转，另一台设备一键接收。</div>' +
+      '<div class="setting-row"><div><div class="setting-title">活同步状态</div><div class="setting-desc" id="live-state">' +
+      esc(window.LIVEFLOW ? window.LIVEFLOW.state() : "未启用") + '</div></div>' +
+      '<button class="btn btn-ghost btn-sm" data-action="sync:live-now" data-busy="live">立即同步</button></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+      '<button class="btn btn-primary btn-sm" data-action="flow:publish" data-busy="flow">发送流转</button>' +
+      '<button class="btn btn-ghost btn-sm" data-action="flow:pull" data-busy="flow">接收流转</button>' +
+      '<span class="badge badge-muted num">设备 ' + esc(window.LIVEFLOW ? window.LIVEFLOW.deviceId() : "-") + '</span></div></div>' +
 
       '<div class="card" style="margin-top:24px"><div class="card-head"><div><div class="card-title">操作日志</div><div class="card-sub">所有写操作留痕（F6.4）· 可撤销最近一次数量变更（F6.3）</div></div>' +
       '<button class="btn btn-ghost btn-sm" data-action="settings:undo" data-busy="undo">' + icon("undo", 14) + " 撤销最近操作</button></div>" +
@@ -1438,7 +1629,7 @@
       '<button class="btn btn-ghost" data-action="lib:export" data-busy="shop">' + icon("download", 15) + " 导出 CSV</button>" +
       '<button class="btn btn-ghost" data-action="lib:import">' + icon("upload", 15) + " 导入 CSV</button>" +
       '<button class="btn btn-ghost" data-action="chat:clear">' + icon("trash", 15) + " 清空对话</button>" +
-      '<button class="btn btn-ghost" data-action="settings:reset" data-busy="reset">重置演示数据</button></div></div>' +
+      '<button class="btn btn-ghost" data-action="settings:reset" data-busy="reset">清空本机缓存（云端保留）</button></div></div>' +
       '<input type="file" id="import-file" accept=".csv,text/csv" hidden/>' +
       (readOnly ? '<div class="card" style="margin-top:16px"><div class="card-sub">当前为只读账号：可查看与对话，库存写操作会被拒绝（F9.2 权限角色）。</div></div>' : "") +
       "</div>"
@@ -1452,14 +1643,15 @@
       '<div class="login-card">' +
       '<img class="login-logo" src="assets/img/logo.png" alt="启核图策" width="96" height="96"/>' +
       '<h1 class="login-title">启核图策</h1>' +
+      '<p class="login-sub">NexcoreGraph · 家庭资源智能管家</p>' +
       '<p class="login-sub">家里的东西，AI 帮你想 · 拍照建库 / 智能规划 / 家庭协作</p>' +
       '<form class="login-form" id="login-form" novalidate>' +
-      '<div class="field"><label for="login-phone">手机号</label><input id="login-phone" inputmode="numeric" maxlength="11" placeholder="输入手机号" aria-label="手机号"/><div class="login-err" id="login-err" hidden></div></div>' +
-      '<div class="field"><label for="login-code">验证码</label><div class="code-row"><input id="login-code" inputmode="numeric" maxlength="6" placeholder="6 位验证码" aria-label="验证码"/><button class="btn btn-ghost btn-sm" type="button" data-action="login:code">获取验证码</button></div></div>' +
-      '<button class="btn btn-primary login-submit" type="submit">登录 / 进入演示</button>' +
+      '<div class="field"><label for="login-phone">手机号 / 邮箱</label><input id="login-phone" value="' + esc(S.loginPhone || "") + '" placeholder="输入手机号或邮箱" aria-label="手机号或邮箱"/><div class="login-err" id="login-err" hidden></div></div>' +
+      '<div class="field"><label for="login-code">验证码</label><div class="code-row"><input id="login-code" value="' + esc(S.loginCode || "") + '" inputmode="numeric" maxlength="6" placeholder="6 位验证码" aria-label="验证码"/><button class="btn btn-ghost btn-sm" type="button" data-action="login:code" id="login-code-btn">' + (S.loginCd > 0 ? S.loginCd + "s 后重发" : "获取验证码") + '</button></div></div>' +
+      '<button class="btn btn-primary login-submit" type="submit">登录</button>' +
       "</form>" +
-      '<button class="link-btn login-skip" data-action="login:skip">直接进入演示</button>' +
-      '<p class="login-note">演示账号：13800138000（管理员）/ 13900139000（成员）/ 13600136000（只读） · 验证码 123456<br/>数据仅存本机 · localStorage 持久化</p>' +
+      '<p class="login-note" id="login-server">正在探测本机后端…</p>' +
+      '<p class="login-note">账号、家庭与库存都来自你自己电脑上的自建后端 · 聊天记录仅存本机</p>' +
       "</div>" +
       '<div id="toasts" class="toast-wrap" aria-live="polite"></div>' +
       "</div>"
@@ -1528,14 +1720,18 @@
   /* ---------- 渲染 ---------- */
   var VIEWS = {
     login: viewLogin,
+    aiwork: function () { return window.WORKBENCH ? window.WORKBENCH.view() : viewDashboard(); },
+    graph: function () { return window.GRAPHVIEW ? window.GRAPHVIEW.view() : viewDashboard(); },
     dashboard: viewDashboard,
     libraries: viewLibraries,
     workbench: viewWorkbench
   };
 
   var NAV = [
+    { id: "aiwork", label: "AI 工作台", icon: "sparkles" },
     { id: "dashboard", label: "首页看板", icon: "dashboard" },
     { id: "libraries", label: "资源库", icon: "library" },
+    { id: "graph", label: "资源图谱", icon: "graph" },
     { id: "workbench", label: "协作工作台", icon: "users" }
   ];
 
@@ -1553,7 +1749,7 @@
       '<div class="app">' +
       '<aside class="sidebar">' +
       '<div class="brand"><div class="brand-mark"><img src="assets/img/logo.png" alt="启核图策 logo" width="40" height="40"/></div>' +
-      "<div><div class='brand-name'>启核图策</div><div class='brand-sub'>家庭资源智能管家</div></div></div>" +
+      "<div><div class='brand-name'>启核图策</div><div class='brand-sub'>NexcoreGraph · 家庭资源智能管家</div></div></div>" +
       '<nav class="nav" aria-label="主导航"><span class="nav-pill" aria-hidden="true"></span><div class="nav-label">工作台</div>' + nav + "</nav>" +
       '<div class="sidebar-foot">' +
       '<div class="user-chip" data-action="overlay:open" data-type="settings" role="button" tabindex="0"><div class="avatar">' + esc(DB.user.initial) + "</div><div><div class='user-name'>" + esc(DB.user.name) + "</div><div class='user-role'>" + esc(DB.user.role) + "</div></div>" +
@@ -1662,7 +1858,7 @@
     S.pillRect = prevPill
       ? { left: prevPill.offsetLeft, top: prevPill.offsetTop, width: prevPill.offsetWidth, height: prevPill.offsetHeight }
       : null;
-    if (S.view === "login") S.view = "dashboard";
+    if (S.view === "login") S.view = "aiwork";
     var prevScroll = window.scrollY || 0;
     var sameView = S.view + "|" + (S.libId || "") === lastViewKey;
     document.body.innerHTML =
@@ -1676,6 +1872,11 @@
     var viewEl = document.getElementById("view");
     var fn = VIEWS[S.view] || viewDashboard;
     viewEl.innerHTML = S.view === "libraries" && S.libId ? viewLibraryDetail(S.libId) : fn();
+    /* AI 工作台 / 图谱页：挂载交互（W-A1 / WX3-WX4） */
+    if ((S.view === "aiwork" || S.view === "graph") && window.WORKBENCH) {
+      try { window.WORKBENCH.bind(viewEl, render); } catch (e) {}
+      if (S.view === "graph" && window.GRAPHVIEW) { try { window.GRAPHVIEW.bind(viewEl, render); } catch (e) {} }
+    }
     var viewKey = S.view + "|" + (S.libId || "");
     var ovKey = S.overlay || "";
     var enteringView = viewKey !== lastViewKey;
@@ -1756,6 +1957,11 @@
             render();
           });
         });
+        if (window.__WB_ASK) {
+          var ci = document.getElementById("chat-text");
+          if (ci) { ci.value = window.__WB_ASK; ci.focus(); }
+          window.__WB_ASK = "";
+        }
       }
     }
 
@@ -1774,7 +1980,7 @@
     if (S.dealFlag) {
       setTimeout(function () { S.dealFlag = false; }, 1400);
       setTimeout(function () {
-        var msgs = (DB.workbench.chat || []).filter(function (m) { return !m.sys; });
+      var msgs = ((DB.workbench && DB.workbench.chat) || []).filter(function (m) { return !m.sys; });
         if (msgs.length) showSpeech(msgs[msgs.length - 1].from, msgs[msgs.length - 1].text);
       }, 1100);
     }
@@ -1798,11 +2004,12 @@
         break;
       case "overlay:open":
         if (el.getAttribute("data-type") === "deckpick") {
-          S.deckDraft = (DB.workbench.myDeck || []).slice();
+      S.deckDraft = ((DB.workbench && DB.workbench.myDeck) || []).slice();
         }
         if (el.getAttribute("data-type") === "intake") {
           DB.intake.step = 0;
           S.shots = [];
+          S.shotsFull = [];
           S.mergedCount = 0;
           S.intakeLib = S.intakeLib || (DB.libraries.filter(function (l) { return !l.coopAddOnly; })[0] || {}).id;
         }
@@ -1874,13 +2081,14 @@
         break;
       }
       case "intake:shoot": {
-        var d = grabFrame();
-        if (!d) {
+        var pair = grabFrame();
+        if (!pair) {
           if (!S.camOn) startCam();
           else toast("画面未就绪，稍候再试");
           break;
         }
-        S.shots.push(d);
+        S.shots.push(pair.thumb);
+        S.shotsFull.push(pair.full);
         if (S.shots.length >= 6) toast("已达单次上限 6 张（D3）");
         render();
         break;
@@ -1899,7 +2107,9 @@
         break;
       }
       case "intake:remove": {
-        S.shots.splice(Number(el.getAttribute("data-idx")) || 0, 1);
+        var idx = Number(el.getAttribute("data-idx")) || 0;
+        S.shots.splice(idx, 1);
+        S.shotsFull.splice(idx, 1);
         render();
         break;
       }
@@ -1907,6 +2117,7 @@
         DB.intake.step = 0;
         DB.intake.results = [];
         S.shots = [];
+        S.shotsFull = [];
         S.mergedCount = 0;
         stopCam();
         render();
@@ -1920,7 +2131,8 @@
         DB.intake.step = 1;
         render();
         var raw = S.shots.slice();
-        API.recognize(raw)
+        var rawFull = S.shotsFull.slice();
+        API.recognize(raw, rawFull)
           .then(function (results) {
             var before = results.length;
             var merged = API.mergeIntake(results);
@@ -1928,6 +2140,7 @@
             DB.intake.results = merged;
             S.intakeLoading = false;
             S.shots = [];
+            S.shotsFull = [];
             stopCam();
             render();
           })
@@ -1952,6 +2165,7 @@
           confetti();
           DB.intake.results = [];
           S.shots = [];
+          S.shotsFull = [];
           S.overlay = null;
           stopCam();
           toast("已入库 " + n + " 项到「" + libName + "」，价格与保质期来源已标注");
@@ -2375,6 +2589,50 @@
         });
         break;
       }
+      case "coop:create": {
+        var coopName = (document.getElementById("coop-name") || {}).value || "家庭协作牌桌";
+        runBusy("coop", function () {
+          return window.COOP.create(coopName).then(function (r) {
+            DB.workbench = {
+              name: r.name,
+              code: r.code,
+              expires: new Date(r.expiresAt).toLocaleString("zh-CN"),
+              myDeck: [],
+              seats: [{ id: "me", name: DB.user.name, color: "teal", libs: [] }],
+              chat: []
+            };
+            API.saveState();
+          });
+        }, function () {
+          render();
+          toast("协作池已创建，邀请码 " + DB.workbench.code);
+        });
+        break;
+      }
+      case "coop:join": {
+        var coopCode = ((document.getElementById("coop-code") || {}).value || "").trim().toUpperCase();
+        runBusy("coop", function () {
+          if (!coopCode) return Promise.reject(new Error("请先填邀请码"));
+          return window.COOP.join(coopCode).then(function (r) {
+            var seats = [{ id: "me", name: DB.user.name, color: "teal", libs: [] }];
+            (r.members || []).forEach(function (m, i) {
+              var nick = m.nickname || m.account || ("成员" + (i + 1));
+              if (nick === DB.user.name) return;
+              seats.push({ id: "m" + i, name: nick, color: "violet", libs: [] });
+            });
+            DB.workbench = {
+              name: r.name,
+              code: r.code,
+              expires: new Date(r.expiresAt).toLocaleString("zh-CN"),
+              myDeck: [],
+              seats: seats,
+              chat: []
+            };
+            API.saveState();
+          });
+        }, function () { render(); toast("已加入协作池"); });
+        break;
+      }
       case "coop:end":
         runBusy("coop:end", function () {
           return API.endCoop();
@@ -2395,6 +2653,18 @@
         var cm = DB.chat[Number(el.getAttribute("data-idx"))];
         if (!cm || !cm.card || cm.card.done) break;
         var cc = cm.card;
+        if (cc.type === "cmd") {
+          /* 自然语言指令层的写操作确认（红线 2：先预览后生效） */
+          runBusy("chat:card", function () {
+            return window.COMMANDS.apply(cc.opKind, cc.opArg).then(function (msg) {
+              cc.done = true;
+              cc.result = msg || "已执行";
+              API.chatPush({ who: "ai", text: cc.result, src: "本地指令 · 0 次模型调用" });
+              return cc;
+            });
+          });
+          break;
+        }
         if (cc.type === "adjust") {
           runBusy("chat:card", function () {
             return API.updateItemQty(cc.itemId, cc.to - cc.from).then(function () {
@@ -2563,11 +2833,40 @@
           var next = DB.theme === "dark" ? "light" : "dark";
           runBusy("theme", function () {
             return API.setTheme(next).then(function () {
-              document.documentElement.setAttribute("data-theme", DB.theme);
+              applyTheme();
             });
           });
         }
         break;
+      case "sync:live-now":
+        runBusy("live", function () {
+          return window.LIVEFLOW ? window.LIVEFLOW.upload(false) : Promise.reject(new Error("活同步未启用"));
+        }, function () { toast("已同步到自建后端"); });
+        break;
+      case "flow:publish":
+        runBusy("flow", function () {
+          return window.LIVEFLOW ? window.LIVEFLOW.publishFlow() : Promise.reject(new Error("流转未启用"));
+        }, function (r) { toast("已发送流转（rev " + ((r && r.rev) || "-") + "）"); });
+        break;
+      case "flow:pull":
+        runBusy("flow", function () {
+          return window.LIVEFLOW ? window.LIVEFLOW.pullFlow() : Promise.reject(new Error("流转未启用"));
+        }, function (r) {
+          toast(r && r.found ? ("已接收 " + (r.from || "另一台设备") + " 的流转") : "暂无新流转");
+        });
+        break;
+      case "tts:say":
+        if (window.LIVEFLOW && window.LIVEFLOW.say(el.getAttribute("data-text") || "")) toast("正在播报");
+        else toast("当前浏览器不支持语音播报");
+        break;
+      case "palette:set": {
+        var want = el.getAttribute("data-palette-value") === "classic" ? "classic" : "nexcore";
+        try { localStorage.setItem(PALETTE_KEY, want); } catch (e) { /* 存储不可用则只影响本次 */ }
+        applyTheme();
+        render();
+        toast(want === "classic" ? "已切换经典橙色板" : "已切回启核绿青蓝");
+        break;
+      }
       case "setting:toggle": {
         var sw = el.closest(".switch");
         var on = !sw.classList.contains("on");
@@ -2591,22 +2890,90 @@
         render();
         break;
       case "login:code":
-        toast("演示环境：验证码为 123456");
-        break;
-      case "login:skip":
-        loggedIn = true;
-        localStorage.setItem("nexcore_logged_in", "1");
-        S.view = "dashboard";
-        render();
-        toast("已进入演示，数据来自本地模拟");
+        {
+          var lp = ((document.getElementById("login-phone") || {}).value || "").trim();
+          var lok = /^1\d{10}$/.test(lp) || /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(lp);
+          if (!lok) {
+            toast("先填手机号或邮箱");
+            break;
+          }
+          if (S.loginCd > 0) break;
+          runBusy("login:code", function () {
+            if (!window.AUTH) return Promise.reject(new Error("登录服务未就绪"));
+            return window.AUTH.requestCode(lp);
+          }, function (r) {
+            if (!r || !r.ok) {
+              toast((r && r.error) || "验证码下发失败");
+              return;
+            }
+            toast(r.hint || "验证码已下发");
+            S.loginCd = 60;
+            var btn = document.getElementById("login-code-btn");
+            if (btn) btn.textContent = S.loginCd + "s 后重发";
+            var iv = setInterval(function () {
+              S.loginCd -= 1;
+              var b2 = document.getElementById("login-code-btn");
+              if (b2) b2.textContent = S.loginCd > 0 ? S.loginCd + "s 后重发" : "获取验证码";
+              if (S.loginCd <= 0 || !b2) clearInterval(iv);
+            }, 1000);
+          });
+        }
         break;
       case "settings:reset":
         runBusy("reset", function () {
           return API.reset().then(function () {
-            S.view = "dashboard";
+            S.view = "aiwork";
           });
         }, function () {
-          toast("演示数据已重置");
+          toast("本机缓存已清空，稍后会从后端同步恢复");
+        });
+        break;
+      case "ai:ask":
+        S.aiOpen = true;
+        S.aiEnter = true;
+        S.overlay = null;
+        window.__WB_ASK = el.getAttribute("data-q") || "";
+        render();
+        break;
+      case "agnes:save":
+        runBusy("agnes", function () {
+          return Promise.resolve().then(function () {
+            var key = (document.getElementById("agnes-key") || {}).value || "";
+            var model = (document.getElementById("agnes-model") || {}).value || "agnes-2.5-flash";
+            var vendor = (document.getElementById("agnes-base") || {}).value || "";
+            var gw = (document.getElementById("gw-base") || {}).value || "";
+            var prefer = (document.getElementById("agnes-prefer") || {}).value || "gateway";
+            window.AGNES.saveCfg({
+              apiKey: key.trim(),
+              model: model.trim(),
+              vendorBase: vendor.trim().replace(/\/+$/, "") || "https://api.agnes-ai.cn/v1",
+              baseUrl: gw.trim().replace(/\/+$/, ""),
+              prefer: prefer
+            });
+            S.aiStatus = null;
+          });
+        }, function () {
+          toast("AI 通道配置已保存（仅存本机 localStorage）");
+        });
+        break;
+      case "agnes:test":
+        runBusy("agnes", function () {
+          return window.AGNES.test().then(function (r) {
+            var g = r.gateway || {};
+            S.aiStatus = g.ok
+              ? { ok: true, base: g.base, mode: g.mode, ai: g.ai }
+              : { ok: false, error: g.error || "未发现本机后端",
+                  direct: r.direct && r.direct.ok ? "厂商直连可用" : "" };
+            return r;
+          });
+        }, function (r) {
+          var g = r.gateway || {};
+          var d = r.direct || {};
+          toast(g.ok
+            ? "自建网关连接正常 · " + g.base + (g.ai === "ready" ? " · 网关就绪" : " · 网关未配 Key")
+            : "未发现自建后端" + (d.ok
+                ? " · 厂商直连可用（" + d.model + " · " + d.ms + "ms）"
+                : " · 厂商直连也不可用：" + (d.error || "无 Key")));
         });
         break;
     }
@@ -2675,15 +3042,13 @@
       var file = e.target.files[0];
       var img = new Image();
       img.onload = function () {
-        var w = 300, h = Math.max(120, Math.round(img.height / img.width * w));
-        var c = document.createElement("canvas");
-        c.width = w; c.height = h;
-        c.getContext("2d").drawImage(img, 0, 0, w, h);
-        var url = c.toDataURL("image/jpeg", 0.6);
-        API.chatPush({ who: "me", text: "（图片）", img: url, time: "刚刚" });
+        /* 气泡里放 300px 缩略图，送模型的是 1024px 原图，两者分开 */
+        var thumb = fitCanvas(img, 300, 0.6);
+        var full = fitCanvas(img, 1024, 0.8);
+        API.chatPush({ who: "me", text: "（图片）", img: thumb, time: "刚刚" });
         S.chatTyping = true;
         render();
-        API.recognize([url]).then(function (results) {
+        API.recognize([thumb], [full]).then(function (results) {
           var names = results.filter(function (r) { return r.name; }).map(function (r) { return r.name + " " + r.qty + r.unit; });
           S.chatTyping = false;
           API.chatPush({
@@ -2695,6 +3060,10 @@
           render();
           var list = document.getElementById("chat-list");
           if (list) list.scrollIntoView({ block: "end" });
+        }).catch(function (err) {
+          S.chatTyping = false;
+          API.chatPush({ who: "ai", time: "刚刚", text: "图片识别失败：" + ((err && err.message) || "请确认后端已启动后重试") });
+          render();
         });
       };
       img.src = URL.createObjectURL(file);
@@ -2895,10 +3264,10 @@
     }
     el.textContent = "页面出错了：" + (ev.message || "未知错误") + "\n请把这段文字发给开发助手。";
   });
-  document.documentElement.setAttribute("data-theme", DB.theme);
-  if (location.search.indexOf("demo") > -1) {
-    loggedIn = true;
-    localStorage.setItem("nexcore_logged_in", "1");
+  applyTheme();
+  /* 活同步：登录态下自动开始（连不上后端就静默降级为本地模式） */
+  if (loggedIn && window.LIVEFLOW) {
+    setTimeout(function () { window.LIVEFLOW.start(DB.family.id); }, 800);
   }
   setInterval(function () {
     var el = document.getElementById("hero-clock");
