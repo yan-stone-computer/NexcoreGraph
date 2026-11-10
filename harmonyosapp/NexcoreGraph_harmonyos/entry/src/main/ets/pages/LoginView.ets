@@ -4,7 +4,7 @@
    三档布局（Breakpoints）：手表=极简入口；手机=单列；平板/2in1=左右分栏（左侧放大徽标）。 */
 
 import { store } from '../common/Store';
-import { T, R_L, R_XL, DUR_SLOW } from '../common/Tokens';
+import { T, R_M, R_L, R_XL, DUR_SLOW } from '../common/Tokens';
 import { Ico, TBtn, Field } from '../components/Widgets';
 import { requestLoginCode, loginByCode } from '../common/Api';
 import { startLiveSync } from '../common/LiveSync';

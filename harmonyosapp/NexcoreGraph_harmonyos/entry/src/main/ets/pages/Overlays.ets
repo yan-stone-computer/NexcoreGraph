@@ -28,7 +28,6 @@ import { rebuildGraph } from '../common/GraphBuild';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { GraphBuildStat } from '../common/GraphModel';
 import { attachScanEvidence, ScanEvidence } from '../common/BarcodeIntake';
-import { publishExpiryReminder } from '../common/ExpiryReminder';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { cameraPicker, camera } from '@kit.CameraKit';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
@@ -1252,7 +1251,7 @@ struct IntakePanel {
 
             Row({ space: 12 }) {
               TBtn({ label: '拍照', icon: 'camera', kind: 'primary', tap: (): void => this.shoot() })
-              TBtn({ label: '扫码', icon: 'scan', kind: 'ghost', tap: (): void => this.scanCode() })
+              TBtn({ label: '扫码', icon: 'scan', kind: 'ghost', tap: (): void => this.startScanCode() })
               TBtn({ label: '从相册选择', icon: 'upload', kind: 'ghost', tap: (): void => this.pickPhoto() })
             }
 
@@ -1444,7 +1443,7 @@ struct IntakePanel {
   }
 
   /** 鸿蒙原生扫码：只采集精确识别码，商品语义仍交给视觉模型与用户确认。 */
-  private scanCode(): void {
+  private startScanCode(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     scanBarcode.startScanForResult(ctx, {
       scanTypes: [scanCore.ScanType.ALL],
@@ -1792,13 +1791,9 @@ export struct SettingsView {
   }
 
   private sendReminder(): void {
-    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    publishExpiryReminder(ctx).then((note: string): void => {
-      this.reminderNote = note;
-      store.toast(note);
-    }).catch((e: Error): void => {
-      this.reminderNote = '通知发送失败：' + (e.message === undefined ? '请检查通知权限' : e.message);
-    });
+    saveFormSnapshot();
+    this.reminderNote = '服务卡片快照已刷新。当前元服务使用 Form Kit 承载临期提醒，系统通知留待应用包形态。';
+    store.toast('服务卡片已刷新');
   }
 
   /** 本地口径：快答占比（"本地快答"记录数 / 总记录数），用于不入网时展示 */
@@ -2164,19 +2159,19 @@ export struct SettingsView {
 
         Card() {
           Column({ space: 10 }) {
-            Text('鸿蒙系统提醒').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
-            Text('使用 Notification Kit 在系统通知中心提醒近 3 天临期资源；点击通知会经过登录门后直达预警页。')
+            Text('桌面服务卡片提醒').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
+            Text('使用 Form Kit 在桌面卡片显示临期与快捷入口。当前元服务形态下，Notification Kit 的发布接口被平台编译期拦截，因此不虚构系统通知能力。')
               .fontSize(12).lineHeight(18).fontColor(T.c('text-muted'))
             SwitchRow({
-              title: '允许临期系统提醒',
-              desc: '默认只汇总一天一次，不在应用外展示私有物品',
+              title: '显示临期卡片提醒',
+              desc: '卡片快照只包含总量与临期摘要，私有物品不进入系统卡片',
               on: store.settings['expiry'],
               tap: (): void => this.toggleSetting('expiry')
             })
             if (this.reminderNote !== '') {
               Text(this.reminderNote).fontSize(12).fontColor(T.c('text-secondary'))
             }
-            TBtn({ label: '发送今日临期提醒', icon: 'bell', kind: 'soft', small: true, tap: (): void => {
+            TBtn({ label: '刷新卡片快照', icon: 'refresh', kind: 'soft', small: true, tap: (): void => {
               this.sendReminder();
             } })
           }
