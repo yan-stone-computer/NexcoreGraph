@@ -28,6 +28,7 @@ import { rebuildGraph } from '../common/GraphBuild';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { GraphBuildStat } from '../common/GraphModel';
 import { attachScanEvidence, ScanEvidence } from '../common/BarcodeIntake';
+import { publishExpiryReminder } from '../common/ExpiryReminder';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { cameraPicker, camera } from '@kit.CameraKit';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
@@ -1758,6 +1759,7 @@ export struct SettingsView {
   @Local graphSize: string = '';
   @Local graphVersion: string = '';
   @Local graphNote: string = '';
+  @Local reminderNote: string = '';
   /** 局域网自建服务器：当前地址与手动填写（换 WiFi/换电脑时改这里，不用重新打包） */
   @Local serverInput: string = '';
   @Local serverNow: string = '';
@@ -1786,6 +1788,16 @@ export struct SettingsView {
       resolve();
     }), (): void => {
       store.toast('图谱已重建');
+    });
+  }
+
+  private sendReminder(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    publishExpiryReminder(ctx).then((note: string): void => {
+      this.reminderNote = note;
+      store.toast(note);
+    }).catch((e: Error): void => {
+      this.reminderNote = '通知发送失败：' + (e.message === undefined ? '请检查通知权限' : e.message);
     });
   }
 
@@ -2146,6 +2158,27 @@ export struct SettingsView {
                 store.toast('AI 偏好已保存（仅本机）');
               } })
             }
+          }
+          .alignItems(HorizontalAlign.Start)
+        }
+
+        Card() {
+          Column({ space: 10 }) {
+            Text('鸿蒙系统提醒').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
+            Text('使用 Notification Kit 在系统通知中心提醒近 3 天临期资源；点击通知会经过登录门后直达预警页。')
+              .fontSize(12).lineHeight(18).fontColor(T.c('text-muted'))
+            SwitchRow({
+              title: '允许临期系统提醒',
+              desc: '默认只汇总一天一次，不在应用外展示私有物品',
+              on: store.settings['expiry'],
+              tap: (): void => this.toggleSetting('expiry')
+            })
+            if (this.reminderNote !== '') {
+              Text(this.reminderNote).fontSize(12).fontColor(T.c('text-secondary'))
+            }
+            TBtn({ label: '发送今日临期提醒', icon: 'bell', kind: 'soft', small: true, tap: (): void => {
+              this.sendReminder();
+            } })
           }
           .alignItems(HorizontalAlign.Start)
         }
