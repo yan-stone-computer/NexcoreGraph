@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1424">
+  <meta name="description" content="启核图策 NexcoreGraph 是面向家庭资源的 AI 智能管家，用拍照入库、可信 AI 与个人资源图谱，把家里的东西变成可查询、可推理、可协作的资源。">
+  <title>启核图策 NexcoreGraph · 家庭资源智能管家</title>
+  <link rel="icon" href="assets/favicon.ico">
+  <link rel="preload" as="image" href="assets/hero.webp">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div class="page-progress" aria-hidden="true"></div>
+
+  <header class="site-header" id="siteHeader">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="启核图策，回到首页">
+        <img src="assets/brand-mark.png" width="40" height="40" alt="">
+        <span>启核图策<small>NEXCOREGRAPH</small></span>
+      </a>
+      <nav class="primary-nav" id="primaryNav" aria-label="页面章节">
+        <a href="#experience">产品闭环</a>
+        <a href="#trusted-ai">可信 AI</a>
+        <a href="#graph">资源图谱</a>
+        <a href="#multi-device">多端协同</a>
+        <a href="#proof">工程证据</a>
+      </nav>
+      <div class="header-actions">
+        <a class="header-cta" href="../web/NexcoreGraph_web/index.html">打开产品 <span aria-hidden="true">↗</span></a>
+        <button class="menu-toggle" id="menuToggle" type="button" aria-controls="primaryNav" aria-expanded="false" aria-label="打开导航">
+          <img src="assets/icons/menu-2.svg" width="24" height="24" alt="">
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="heroTitle">
+      <img class="hero-image" src="assets/hero.webp" width="1344" height="768" alt="">
+      <div class="hero-shade" aria-hidden="true"></div>
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <h1 id="heroTitle">拍一张照片，<br><span class="hero-line-desktop">让家里的东西开始被记住。</span><span class="hero-line-mobile">家里从此被记住。</span></h1>
+          <p class="hero-lead">启核图策把冰箱、药箱、衣柜和工具箱变成可查询、可推理、可协作的家庭资源库。AI 负责理解，代码负责事实，你负责最后确认。</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#experience">看产品怎么运转 <span aria-hidden="true">↓</span></a>
+            <a class="button button-quiet" href="#trusted-ai">查看可信 AI 机制 <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div class="hero-visual" aria-label="启核图策手机端工作台截图">
+          <div class="hero-orbit" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+          </div>
+          <figure class="device-frame hero-phone">
+            <img src="assets/app-phone-workbench.webp" width="1320" height="2848" alt="启核图策 HarmonyOS 手机端 AI 工作台，展示待处理资源和建议动作">
+          </figure>
+          <a class="evidence-chip" href="#graph">
+            <span>本地图谱</span>
+            <strong>从物品，追到答案</strong>
+            <small>查看 GraphRAG 证据链 ↗</small>
+          </a>
+        </div>
+      </div>
+      <div class="container hero-foot">
+        <span>HARMONYOS · WEB · WECHAT MINI PROGRAM</span>
+        <span>真实界面，不用生成图代替产品</span>
+      </div>
+    </section>
+
+    <section class="section problem-section" id="problem" aria-labelledby="problemTitle">
+      <div class="container">
+        <div class="problem-heading">
+          <h2 id="problemTitle">东西明明在家里，<br>信息却散在生活里。</h2>
+          <p>过期发生在冰箱深处，重复购买发生在路上，找工具发生在最着急的时候。启核图策先解决“记录”这一步，再把记录变成下一步行动。</p>
+        </div>
+        <div class="problem-composition">
+          <div class="problem-statements">
+            <div>
+              <span>记不住</span>
+              <p>食材、药品、耗材散落在不同房间，也散落在不同人的记忆里。</p>
+            </div>
+            <div>
+              <span>算不清</span>
+              <p>快到期的东西没有被优先使用，采购清单又看不到家里已有的数量。</p>
+            </div>
+            <div>
+              <span>协作断</span>
+              <p>一个人买回来，另一个人也在买；谁改过库存，没人说得清。</p>
+            </div>
+          </div>
+          <figure class="resource-photo">
+            <img src="assets/resources.webp" width="1200" height="800" loading="lazy" alt="家庭食材与工具被细线连接，呈现资源之间关系的数据化静物场景">
+            <figcaption>从物件，到关系，再到可执行的状态。</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section experience-section" id="experience" aria-labelledby="experienceTitle">
+      <div class="container">
+        <div class="section-heading">
+          <h2 id="experienceTitle">从镜头，到行动。</h2>
+          <p>每一步都能回到真实界面。切换场景，查看当前产品如何完成入库、问答、图谱与协作。</p>
+        </div>
+        <div class="experience-workbench">
+          <div class="experience-tabs" role="tablist" aria-label="产品场景">
+            <button type="button" role="tab" aria-selected="true" data-feature="intake">
+              <img src="assets/icons/camera.svg" width="22" height="22" alt="">
+              <span><b>拍照入库</b><small>一张照片，识别成结构化清单</small></span>
+            </button>
+            <button type="button" role="tab" aria-selected="false" data-feature="ai">
+              <img src="assets/icons/brain.svg" width="22" height="22" alt="">
+              <span><b>可信 AI</b><small>先查事实，再生成建议与确认卡</small></span>
+            </button>
+            <button type="button" role="tab" aria-selected="false" data-feature="graph">
+              <img src="assets/icons/route.svg" width="22" height="22" alt="">
+              <span><b>资源图谱</b><small>答案沿着库存关系找到依据</small></span>
+            </button>
+            <button type="button" role="tab" aria-selected="false" data-feature="family">
+              <img src="assets/icons/device-mobile.svg" width="22" height="22" alt="">
+              <span><b>家庭协作</b><small>全家共用一份可追踪的状态</small></span>
+            </button>
+          </div>
+          <figure class="experience-stage">
+            <button class="stage-zoom" id="featureZoom" type="button" aria-label="放大当前产品界面">
+              <img id="featureImage" src="assets/app-intake.webp" width="1320" height="2848" alt="启核图策拍照入库界面，识别物品后选择目标资源库">
+              <span>查看完整界面 ↗</span>
+            </button>
+          </figure>
+          <div class="experience-copy">
+            <span class="detail-label" id="featureLabel">01 / 拍照入库</span>
+            <h3 id="featureTitle">先看见，再开始管理。</h3>
+            <p id="featureDescription">识别名称、数量、位置与保质期，缺的字段由你补齐。确认之前，没有任何内容会被写进库存。</p>
+            <dl class="detail-list" id="featureFacts">
+              <div><dt>输入</dt><dd>拍照或相册</dd></div>
+              <div><dt>处理</dt><dd>视觉识别与结构化</dd></div>
+              <div><dt>边界</dt><dd>用户确认后入库</dd></div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section trusted-section" id="trusted-ai" aria-labelledby="trustedTitle">
+      <div class="container">
+        <div class="trusted-grid">
+          <div class="trusted-copy">
+            <h2 id="trustedTitle">模型可以建议，<br>不能代替事实。</h2>
+            <p>库存、价格与期限由代码计算。AI 只理解问题、组织措辞并提出行动；真正写入库存之前，你总会先看到确认卡。</p>
+            <a class="text-link text-link-light" href="#proof">查看实现与验证范围 <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="trusted-ledger">
+            <div class="trust-row">
+              <span>01</span>
+              <div><strong>高频问题不调用模型</strong><p>问候、位置、数量、保质期等 4 类问题由本地规则直接回答，断网也能继续。</p></div>
+            </div>
+            <div class="trust-row">
+              <span>02</span>
+              <div><strong>写操作先预览再生效</strong><p>调整库存、加入采购与执行方案都进入待确认队列，并可撤销。</p></div>
+            </div>
+            <div class="trust-row">
+              <span>03</span>
+              <div><strong>模型调用只走服务端网关</strong><p>端侧不携带厂商密钥；主备模型自动降级，429 限流快速切换。</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="answer-console" aria-label="演示问答与证据链">
+          <div class="answer-console-head">
+            <span>可信回答示例</span>
+            <small>界面机制示意</small>
+          </div>
+          <div class="answer-question">
+            <span>你问</span>
+            <p>牛奶还能放几天？</p>
+          </div>
+          <div class="answer-path" aria-label="证据路径">
+            <span>冰箱</span><i></i><span>牛奶 2 瓶</span><i></i><span>冷藏区</span><i></i><span>剩余 4 天</span>
+          </div>
+          <div class="answer-result">
+            <span>回答</span>
+            <p>冷藏区还有 2 瓶牛奶，按当前期限估算还能放 4 天。建议优先饮用，或做番茄牛奶蛋。</p>
+            <small>值来自库存与知识库，措辞由模型组织。</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section graph-section" id="graph" aria-labelledby="graphTitle">
+      <div class="container graph-layout">
+        <div class="graph-copy">
+          <span class="detail-label">PERSONAL RESOURCE GRAPH</span>
+          <h2 id="graphTitle">每一条回答，<br>都能回到你的库存。</h2>
+          <p>启核图策把物品、位置、期限、菜谱与采购关系构造成个人资源图谱。local、global、multi-hop 三种检索模式，让答案既能看眼前，也能沿着关系继续追问。</p>
+          <div class="graph-modes" aria-label="GraphRAG 三种检索模式">
+            <span><b>LOCAL</b> 单点事实与邻域</span>
+            <span><b>GLOBAL</b> 家庭资源全局摘要</span>
+            <span><b>MULTI-HOP</b> 物品到菜谱与采购</span>
+          </div>
+        </div>
+        <div class="graph-stage">
+          <svg class="graph-lines" viewBox="0 0 720 540" role="img" aria-labelledby="graphDiagramTitle">
+            <title id="graphDiagramTitle">鸡蛋、冷藏区、番茄炒蛋和采购清单之间的资源图谱路径</title>
+            <path d="M120 320 L285 170 L475 250 L600 115" />
+            <path d="M285 170 L355 405 L600 115" />
+            <path d="M120 320 L355 405" />
+          </svg>
+          <div class="graph-node node-a"><span>鸡蛋</span><b>6 个</b><small>冰箱 · 冷藏区</small></div>
+          <div class="graph-node node-b"><span>番茄炒蛋</span><b>15 分钟</b><small>可消耗 3 个鸡蛋</small></div>
+          <div class="graph-node node-c"><span>番茄</span><b>缺 2 个</b><small>采购建议</small></div>
+          <div class="graph-node node-d"><span>保质期</span><b>约 20 天</b><small>知识库来源</small></div>
+          <div class="graph-caption">证据路径示意 · 节点与关系来自个人资源图谱</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section device-section" id="multi-device" aria-labelledby="deviceTitle">
+      <div class="container">
+        <div class="device-heading">
+          <h2 id="deviceTitle">同一份家，<br>在每块屏幕上继续。</h2>
+          <p>鸿蒙端原生体验、Web 管理视图与微信小程序轻量入口共用同一套数据契约。改动先落本机，再通过版本号同步；冲突让用户做决定。</p>
+        </div>
+        <div class="device-collage">
+          <figure class="device-window web-window">
+            <img src="assets/web-dashboard.webp" width="1920" height="1080" loading="lazy" alt="启核图策 Web 端首页看板">
+            <figcaption>WEB · 家庭看板</figcaption>
+          </figure>
+          <figure class="device-frame tablet-frame">
+            <img src="assets/app-tablet-home.webp" width="2880" height="1920" loading="lazy" alt="启核图策 HarmonyOS 平板端首页">
+            <figcaption>HARMONYOS · TABLET</figcaption>
+          </figure>
+          <figure class="device-frame phone-frame mini-frame">
+            <img src="assets/miniapp-library.webp" width="416" height="781" loading="lazy" alt="启核图策微信小程序资源库界面">
+            <figcaption>WECHAT · MINI PROGRAM</figcaption>
+          </figure>
+        </div>
+        <div class="device-facts">
+          <div><strong>本地优先</strong><span>应用重启与断网后仍可打开上次状态</span></div>
+          <div><strong>版本冲突可见</strong><span>409 冲突由用户选择覆盖或拉取</span></div>
+          <div><strong>接近实时</strong><span>2 秒轮询，实测 7 秒内跨设备落地</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section proof-section" id="proof" aria-labelledby="proofTitle">
+      <div class="container">
+        <div class="proof-heading">
+          <h2 id="proofTitle">功能之外，<br>把工程事实也摆出来。</h2>
+          <p>页面上的数字来自当前工程与测试记录。真实设备接续、服务卡片尺寸与后端能力仍需按运行环境复核。</p>
+        </div>
+        <dl class="proof-ledger">
+          <div><dt>意图路由</dt><dd><strong>11</strong><span>类</span></dd><p>高频事实由代码直答，其余问题进入受约束生成。</p></div>
+          <div><dt>后端端点</dt><dd><strong>29</strong><span>个</span></dd><p>账号、家庭、同步、AI、图谱与管理接口共用一套契约。</p></div>
+          <div><dt>图谱本体</dt><dd><strong>13/14</strong><span>节点 / 边</span></dd><p>覆盖家庭资源从实例到概念、方案与操作日志的关系。</p></div>
+          <div><dt>构图实测</dt><dd><strong>66</strong><span>ms</span></dd><p>32 节点、41 边、3 社区，构图过程不调用模型。</p></div>
+          <div><dt>多端落地</dt><dd><strong>7</strong><span>秒内</span></dd><p>同账号设备修改后自动拉取，按 id 原地合并。</p></div>
+          <div><dt>提交前检查</dt><dd><strong>11 / 11</strong><span>项通过</span></dd><p>覆盖密钥、权限、知识库、卡片、图谱与 AI 网关。</p></div>
+        </dl>
+        <div class="proof-boundary">
+          <strong>能力边界</strong>
+          <p>模型识别依赖自建后端配置；系统应用接续、双设备同步与四张服务卡片应在 HarmonyOS 真机上逐项复核。官网只展示已有工程与记录，不把待测项写成已测结论。</p>
+        </div>
+        <div class="proof-actions">
+          <a class="button button-dark" href="../web/NexcoreGraph_web/index.html">打开产品界面 <span aria-hidden="true">↗</span></a>
+          <a class="text-link" href="../harmonyosapp/NexcoreGraph_harmonyos/README.md">阅读鸿蒙工程说明 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="download-band">
+          <div class="download-copy">
+            <span>安装体验</span>
+            <h3>把启核图策带回你的设备。</h3>
+            <p>鸿蒙 HAP 为未签名开发验证包；Windows 安装包用于桌面端体验。下载前请确认设备与运行环境。</p>
+          </div>
+          <div class="download-actions">
+            <a class="button button-primary" href="https://github.com/yan-stone-computer/NexcoreGraph-Official/releases/latest/download/NexcoreGraph-HarmonyOS-unsigned.hap">下载 HarmonyOS HAP <span aria-hidden="true">↓</span></a>
+            <a class="button button-download" href="https://github.com/yan-stone-computer/NexcoreGraph-Official/releases/latest/download/NexcoreGraph-Desktop-Setup-1.0.0.exe">下载 Windows 安装包 <span aria-hidden="true">↓</span></a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <img src="assets/brand-mark.png" width="72" height="72" alt="">
+        <div><strong>启核图策 NexcoreGraph</strong><span>拍照建库，AI 规划，全家协作。</span></div>
+      </div>
+      <div class="footer-meta">
+        <span>天枢序列 · 38376</span>
+        <span>广西师范大学 · B组</span>
+        <span>2026 第九届传智杯</span>
+      </div>
+      <div class="footer-signature"><span>家庭资源智能管家</span><strong>让每件东西，都有下一步。</strong><a href="#top">回到开篇 ↑</a></div>
+    </div>
+  </footer>
+
+  <dialog class="lightbox" id="lightbox" aria-labelledby="lightboxTitle">
+    <div class="lightbox-head">
+      <div><strong id="lightboxTitle">完整界面</strong><span id="lightboxCaption"></span></div>
+      <button id="lightboxClose" type="button" aria-label="关闭图片预览">关闭 ×</button>
+    </div>
+    <img id="lightboxImage" src="assets/app-intake.webp" width="1320" height="2848" alt="">
+  </dialog>
+</body>
+</html>

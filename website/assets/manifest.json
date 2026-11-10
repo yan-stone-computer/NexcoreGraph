@@ -1,0 +1,158 @@
+{
+  "assets": [
+    {
+      "file": "website\\assets\\icons\\tabler-camera.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/camera.svg",
+      "name": "camera",
+      "variant": "outline",
+      "alt": "camera",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:01:47.310801+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-photo.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/photo.svg",
+      "name": "photo",
+      "variant": "outline",
+      "alt": "photo",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:01:49.052967+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-route.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/route.svg",
+      "name": "route",
+      "variant": "outline",
+      "alt": "route",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:01:50.893820+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-brain.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/brain.svg",
+      "name": "brain",
+      "variant": "outline",
+      "alt": "brain",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:01:52.721096+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-device-mobile.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/device-mobile.svg",
+      "name": "device-mobile",
+      "variant": "outline",
+      "alt": "device-mobile",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:01:55.252966+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-shield-check.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/shield-check.svg",
+      "name": "shield-check",
+      "variant": "outline",
+      "alt": "shield-check",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:01:58.168905+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-arrow-up-right.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/arrow-up-right.svg",
+      "name": "arrow-up-right",
+      "variant": "outline",
+      "alt": "arrow-up-right",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:02:00.163285+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-menu-2.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/menu-2.svg",
+      "name": "menu-2",
+      "variant": "outline",
+      "alt": "menu-2",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:02:01.988458+00:00"
+    },
+    {
+      "file": "website\\assets\\icons\\tabler-x.svg",
+      "source": "tabler",
+      "license": "MIT",
+      "url": "https://cdn.jsdelivr.net/npm/@tabler/icons@latest/icons/x.svg",
+      "name": "x",
+      "variant": "outline",
+      "alt": "x",
+      "purpose": "官网功能说明",
+      "downloaded_at": "2026-10-26T11:02:03.844600+00:00"
+    }
+  ],
+  "media": [
+    {
+      "file": "assets/hero.webp",
+      "source": "ComfyUI Qwen-Image-2.1",
+      "prompt": "assets/prompts/hero.txt",
+      "seed": 8892801344911339185,
+      "origin_size": "1344x768",
+      "purpose": "官网首屏氛围背景",
+      "license_note": "Qwen Image 2.1 生成的氛围素材；使用前确认 Qwen Research License 与项目发布范围。"
+    },
+    {
+      "file": "assets/resources.webp",
+      "source": "ComfyUI Qwen-Image-2.1",
+      "prompt": "assets/prompts/resources.txt",
+      "seed": 8195648301882285943,
+      "origin_size": "1184x800",
+      "purpose": "问题区的家庭资源静物",
+      "license_note": "Qwen Image 2.1 生成的氛围素材；使用前确认 Qwen Research License 与项目发布范围。"
+    },
+    {
+      "file": "assets/app-phone-workbench.webp",
+      "source": "docs/images/shot-phone-workbench.jpeg",
+      "purpose": "HarmonyOS 手机端真实界面"
+    },
+    {
+      "file": "assets/app-tablet-home.webp",
+      "source": "docs/images/shot-tablet-home.jpeg",
+      "purpose": "HarmonyOS 平板端真实界面"
+    },
+    {
+      "file": "assets/app-tablet-ai.webp",
+      "source": "docs/images/shot-tablet-ai.jpeg",
+      "purpose": "HarmonyOS AI 面板真实界面"
+    },
+    {
+      "file": "assets/app-intake.webp",
+      "source": "docs/images/shot-intake-lib-picker.jpeg",
+      "purpose": "拍照识别后的入库确认界面"
+    },
+    {
+      "file": "assets/web-dashboard.webp",
+      "source": "deliverables/传智杯_启核图策_Web端/04_界面截图/13-当前版本-首页看板.png",
+      "purpose": "Web 端真实界面"
+    },
+    {
+      "file": "assets/miniapp-library.webp",
+      "source": "deliverables/传智杯_启核图策_小程序端/06_作品介绍文档/截图/03_资源库_真机.png",
+      "purpose": "微信小程序真实界面"
+    },
+    {
+      "file": "assets/graph-screenshot.webp",
+      "source": "deliverables/screenshots/06-graph.png",
+      "purpose": "资源知识图谱界面"
+    }
+  ]
+}

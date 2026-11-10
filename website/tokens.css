@@ -1,0 +1,60 @@
+:root {
+  color-scheme: light;
+  --navy-950: #0a1020;
+  --navy-900: #0e1424;
+  --navy-800: #151d32;
+  --navy-700: #202a43;
+  --paper-50: #f5f9fb;
+  --paper-100: #edf4f1;
+  --paper-200: #e1ece7;
+  --paper-300: #d3e1db;
+  --ink-900: #12201c;
+  --ink-700: #344942;
+  --ink-500: #5c6e68;
+  --ink-300: #8a9994;
+  --brand-700: #23752d;
+  --brand-600: #2f8f3a;
+  --brand-500: #46b14c;
+  --brand-300: #9edca2;
+  --brand-100: #dff3e1;
+  --teal-500: #2fd4b2;
+  --teal-200: #bceee3;
+  --cyan-600: #0ca8d6;
+  --mint-300: #b1eb59;
+  --amber-500: #d7963d;
+  --danger-500: #b4473b;
+  --surface: var(--paper-50);
+  --surface-raised: var(--paper-100);
+  --surface-deep: var(--navy-900);
+  --border: rgba(18, 32, 28, 0.14);
+  --border-dark: rgba(230, 247, 239, 0.16);
+  --text: var(--ink-900);
+  --text-secondary: var(--ink-700);
+  --text-muted: var(--ink-500);
+  --text-on-dark: #f2f8f4;
+  --text-on-dark-muted: #aebdb8;
+  --primary: var(--brand-600);
+  --primary-bright: var(--brand-500);
+  --accent: var(--cyan-600);
+  --focus: var(--mint-300);
+  --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif;
+  --font-sans: "HarmonyOS Sans SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --shadow-soft: 0 24px 64px rgba(8, 25, 20, 0.12);
+  --shadow-deep: 0 32px 90px rgba(3, 12, 22, 0.34);
+  --header-height: 72px;
+  --container: min(1440px, calc(100% - 64px));
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@media (max-width: 720px) {
+  :root {
+    --header-height: 64px;
+    --container: min(100% - 32px, 1440px);
+  }
+}
