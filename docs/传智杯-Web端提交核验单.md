@@ -11,7 +11,7 @@
 | GitHub/Gitee 代码仓库 | 分支已推送，访问权限待确认 | 远端 `https://github.com/yan-stone-computer/NexcoreGraph.git`；比赛分支 `codex/web-competition-submission` 已推送成功；匿名网页/API 仍返回 404 | 确认仓库已设为 Public，或给评审提供访问权限 |
 | 代码结构清晰、有效注释、主流规范 | 已满足 | `README.md`、`web/NexcoreGraph_web/README.md`、`web/NexcoreGraph_web/CODE-STYLE.md`、模块头注释 | 无 |
 | README 项目介绍、架构、运行、团队 | 已满足 | `README.md` 与 Web README | 提交前再跑一次链接检查 |
-| 完整 Git 提交历史 | 已整理并推送 | 8 个分主题提交，已推送 `codex/web-competition-submission` | 在远端确认提交图可见 |
+| 完整 Git 提交历史 | 已整理并推送 | Web、三端、文档、测试和仓库卫生按主题分组提交；分支 `codex/web-competition-submission` 已推送 | 在远端确认提交图可见 |
 | 环境变量模板 | 已满足 | `web/NexcoreGraph_web/.env.example` | 不得上传真实 `.env` |
 | 依赖清单 | 已满足 | Web 运行仅需现代浏览器 + Python 静态服务；测试需 Node 24；技术文档构建需 Python/docx/ReportLab/LibreOffice | 无 |
 | 技术文档 PDF | 已生成 | `deliverables/传智杯_启核图策_Web端/01_技术文档/启核图策-Web端技术文档.pdf`，实测 23 页 | 提交前复核版式与文件哈希 |
