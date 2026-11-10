@@ -11,7 +11,7 @@ import { TBtn, Card } from '../components/Widgets';
 import { ChatMsg, Plan, Item, Library } from '../common/Db';
 import { executePlan, setItemQtyByName, addShoppingByAI, runBusy, valueMetrics, ValueMetrics } from '../common/Api';
 import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
-import { saveChat, saveFormSnapshot } from '../common/LocalStore';
+import { markOnboardingDone, onboardingDone, saveChat, saveFormSnapshot } from '../common/LocalStore';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { AnalyticsBoard } from './AnalyticsBoard';
 import {
@@ -25,11 +25,13 @@ export struct AiWorkbench {
   @Local graphSize: string = '';
   @Local vm: ValueMetrics = new ValueMetrics();
   @Local twinResult: TwinResult = new TwinResult();
+  @Local guideOpen: boolean = false;
 
   aboutToAppear(): void {
     this.graphSize = currentGraphSize();
     this.vm = valueMetrics();
     this.recalcTwin();
+    this.guideOpen = !onboardingDone();
     saveFormSnapshot();
   }
 
@@ -267,13 +269,70 @@ export struct AiWorkbench {
     .alignItems(VerticalAlign.Center)
   }
 
+  private dismissGuide(): void {
+    this.guideOpen = false;
+    markOnboardingDone();
+  }
+
+  @Builder
+  GuideCard() {
+    Card() {
+      Column({ space: 12 }) {
+        Row() {
+          Column({ space: 3 }) {
+            Text('三步把家交给 AI 统筹').fontSize(17).fontWeight(700).fontColor(T.c('text-primary'))
+            Text('这不是一份表单，系统会先建立你的资源图谱，再做风险推演。')
+              .fontSize(12).fontColor(T.c('text-muted'))
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          TBtn({ label: '稍后', kind: 'ghost', small: true, tap: (): void => this.dismissGuide() })
+        }
+        .width('100%')
+        this.GuideStep('01', '扫码或拍照建库', '原生扫码提供精确识别码，AI 补全名称、数量和位置。')
+        this.GuideStep('02', '确认识别结果', '字段来源可见，冲突项由你最后确认。')
+        this.GuideStep('03', '看未来 7 天', '数字孪生推演耗尽与临期风险，再生成可撤销处置方案。')
+        Row({ space: 12 }) {
+          TBtn({ label: '从扫码开始', icon: 'scan', kind: 'primary', small: true, tap: (): void => {
+            this.dismissGuide();
+            store.overlay = 'intake';
+          } })
+          TBtn({ label: '先打开资源孪生', icon: 'sparkles', kind: 'ghost', small: true, tap: (): void => {
+            this.dismissGuide();
+            store.overlay = 'twin';
+          } })
+        }
+      }
+      .alignItems(HorizontalAlign.Start)
+    }
+  }
+
+  @Builder
+  GuideStep(index: string, title: string, detail: string) {
+    Row({ space: 10 }) {
+      Text(index).fontSize(11).fontWeight(700).fontColor(T.c('primary-ink'))
+        .width(28).height(28).textAlign(TextAlign.Center)
+        .borderRadius(999).backgroundColor(T.c('primary-container'))
+      Column({ space: 2 }) {
+        Text(title).fontSize(14).fontWeight(650).fontColor(T.c('text-primary'))
+        Text(detail).fontSize(11).lineHeight(17).fontColor(T.c('text-muted'))
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
   @Builder
   Focus() {
     /* 焦点区：今天要处理（全页唯一卡片） */
     Text('今天要处理').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
         .margin({ top: S6, bottom: S2 })
       // 首启引导：库是空的（新账号的真实状态），先把"下一步做什么"摆到最显眼处
-      if (this.itemCount() === 0) {
+      if (this.guideOpen) {
+        this.GuideCard()
+      } else if (this.itemCount() === 0) {
         Card() {
           Column({ space: 10 }) {
             // 区分"一个库都没建"与"建了库但还没放东西"：原来两种情况都说"你的库还是空的"，建过库的人会困惑

@@ -363,6 +363,27 @@ export function saveProfile(): void {
   prefsFlush();
 }
 
+/* ---------- 首启引导 ---------- */
+
+export function onboardingDone(): boolean {
+  if (prefs === null) {
+    return false;
+  }
+  try {
+    return prefs.getSync('onboarding_v1_done', false) as boolean;
+  } catch (_e) {
+    return false;
+  }
+}
+
+export function markOnboardingDone(): void {
+  if (prefs === null) {
+    return;
+  }
+  prefs.putSync('onboarding_v1_done', true);
+  prefsFlush();
+}
+
 /* ---------- AI 用量 ---------- */
 
 export function recordUsage(route: string, model: string, ms: number): void {
