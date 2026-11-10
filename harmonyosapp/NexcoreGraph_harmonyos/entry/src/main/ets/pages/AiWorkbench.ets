@@ -17,6 +17,8 @@ import { AnalyticsBoard } from './AnalyticsBoard';
 import {
   itemToTwinInput, simulateTwin, TwinItemInput, TwinResult, TwinRisk, TwinScenario
 } from '../common/ResourceTwin';
+import { AgentAction, PolicyDecision } from '../common/AgentTypes';
+import { checkPolicy, claimActionOnce } from '../common/PolicyEngine';
 
 @ComponentV2
 export struct AiWorkbench {
@@ -115,6 +117,20 @@ export struct AiWorkbench {
   /* ---------- 动作（预览 → 确认才写） ---------- */
 
   private confirmAdjust(m: ChatMsg): void {
+    const action = new AgentAction();
+    action.id = `wb:${m.ts}:adjust`;
+    action.kind = 'adjust_inventory';
+    action.target = m.adjName;
+    action.qty = m.adjQty;
+    const decision: PolicyDecision = checkPolicy(action, store.userRole, true);
+    if (!decision.allowed) {
+      store.toast(decision.reason);
+      return;
+    }
+    if (!claimActionOnce(action.id)) {
+      store.toast('这个动作已经处理过，不会重复执行');
+      return;
+    }
     runBusy('wb:adjust', (): Promise<void> => setItemQtyByName(m.adjName, m.adjQty).then((): void => {
       m.adjDone = true;
       store.chat = store.chat.slice();
@@ -125,6 +141,21 @@ export struct AiWorkbench {
   }
 
   private confirmShop(m: ChatMsg): void {
+    const action = new AgentAction();
+    action.id = `wb:${m.ts}:shopping`;
+    action.kind = 'add_shopping';
+    action.target = m.shopName;
+    const qty: number = parseFloat(m.shopQty);
+    action.qty = isNaN(qty) ? 1 : qty;
+    const decision: PolicyDecision = checkPolicy(action, store.userRole, true);
+    if (!decision.allowed) {
+      store.toast(decision.reason);
+      return;
+    }
+    if (!claimActionOnce(action.id)) {
+      store.toast('这个动作已经处理过，不会重复执行');
+      return;
+    }
     runBusy('wb:shop', (): Promise<void> => addShoppingByAI(m.shopName, m.shopQty).then((): void => {
       m.shopDone = true;
       store.chat = store.chat.slice();

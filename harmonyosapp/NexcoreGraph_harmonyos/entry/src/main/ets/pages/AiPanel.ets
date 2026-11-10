@@ -5,7 +5,7 @@ import { store, stampLabel } from '../common/Store';
 import { T, R_M, R_L } from '../common/Tokens';
 import { Ico, TBtn, IconBtn, PlanCard } from '../components/Widgets';
 import { ChatMsg, Plan } from '../common/Db';
-import { chatReply, generatePlans, setItemQtyByName, addAIPlan, addShoppingByAI } from '../common/Api';
+import { chatReply, generatePlans, setItemQtyByName, addAIPlan, addShoppingByAI, runBusy } from '../common/Api';
 import { askAI } from '../common/AiGateway';
 import { CMD_GROUPS, CMD_HELP, CmdSpec, applyCmdOp } from '../common/Commands';
 import { saveChat, clearChatSaved } from '../common/LocalStore';
@@ -13,6 +13,8 @@ import { scheduleLivePublish } from '../common/LiveSync';
 import { AsrSession } from '../common/Asr';
 import { TtsSession } from '../common/Tts';
 import { visibleReply } from '../common/ReplyText';
+import { AgentAction, PolicyDecision } from '../common/AgentTypes';
+import { checkPolicy, claimActionOnce } from '../common/PolicyEngine';
 import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 
@@ -89,6 +91,55 @@ export struct AiPanel {
     }, (msg: string): void => {
       this.listening = false;
       store.toast('语音识别失败：' + msg);
+    });
+  }
+
+  private applyAdjust(idx: number, m: ChatMsg): void {
+    const action = new AgentAction();
+    action.id = `chat:${m.ts}:${idx}:adjust`;
+    action.kind = 'adjust_inventory';
+    action.target = m.adjName;
+    action.qty = m.adjQty;
+    const decision: PolicyDecision = checkPolicy(action, store.userRole, true);
+    if (!decision.allowed) {
+      store.toast(decision.reason);
+      return;
+    }
+    if (!claimActionOnce(action.id)) {
+      store.toast('这个动作已经处理过，不会重复执行');
+      return;
+    }
+    const busyKey: string = `chat:adjust:${idx}`;
+    runBusy(busyKey, (): Promise<void> => setItemQtyByName(m.adjName, m.adjQty).then((): void => {
+      m.adjDone = true;
+      this.replaceMsg(idx, m);
+    }), (): void => {
+      store.toast(`已调整「${m.adjName}」数量为 ${m.adjQty}`);
+    });
+  }
+
+  private applyShopping(idx: number, m: ChatMsg): void {
+    const action = new AgentAction();
+    action.id = `chat:${m.ts}:${idx}:shopping`;
+    action.kind = 'add_shopping';
+    action.target = m.shopName;
+    const parsed: number = parseFloat(m.shopQty);
+    action.qty = isNaN(parsed) ? 1 : parsed;
+    const decision: PolicyDecision = checkPolicy(action, store.userRole, true);
+    if (!decision.allowed) {
+      store.toast(decision.reason);
+      return;
+    }
+    if (!claimActionOnce(action.id)) {
+      store.toast('这个动作已经处理过，不会重复执行');
+      return;
+    }
+    const busyKey: string = `chat:shop:${idx}`;
+    runBusy(busyKey, (): Promise<void> => addShoppingByAI(m.shopName, m.shopQty).then((): void => {
+      m.shopDone = true;
+      this.replaceMsg(idx, m);
+    }), (): void => {
+      store.toast(`已把「${m.shopName}」加入采购清单`);
     });
   }
 
@@ -491,15 +542,8 @@ export struct AiPanel {
           Row({ space: 8 }) {
             TBtn({
               label: `应用调整：${m.adjName} → ${m.adjQty}`, icon: 'check', kind: 'soft', small: true,
-              tap: (): void => {
-                setItemQtyByName(m.adjName, m.adjQty).then((): void => {
-                  m.adjDone = true;
-                  this.replaceMsg(idx, m);
-                  store.toast(`已调整「${m.adjName}」数量为 ${m.adjQty}`);
-                }).catch((e: Error): void => {
-                  store.toast(e.message);
-                });
-              }
+              busyKey: `chat:adjust:${idx}`,
+              tap: (): void => this.applyAdjust(idx, m)
             })
           }
           .width('88%')
@@ -511,15 +555,8 @@ export struct AiPanel {
           Row({ space: 8 }) {
             TBtn({
               label: `加入采购清单：${m.shopName} ${m.shopQty}`, icon: 'cart', kind: 'soft', small: true,
-              tap: (): void => {
-                addShoppingByAI(m.shopName, m.shopQty).then((): void => {
-                  m.shopDone = true;
-                  this.replaceMsg(idx, m);
-                  store.toast(`已把「${m.shopName}」加入采购清单`);
-                }).catch((e: Error): void => {
-                  store.toast(e.message);
-                });
-              }
+              busyKey: `chat:shop:${idx}`,
+              tap: (): void => this.applyShopping(idx, m)
             })
           }
           .width('88%')
