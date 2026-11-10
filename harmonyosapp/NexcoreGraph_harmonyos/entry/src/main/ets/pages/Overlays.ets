@@ -230,7 +230,7 @@ struct FlowPanel {
         return;
       }
       const ok = applyFlowState(h.json);
-      const items = h.data === '' ? 0 : applyDataSnapshot(h.data);
+      const items = h.data === '' ? 0 : applyDataSnapshot(h.data, true);
       markSyncedRev(h.rev);
       if (ok) {
         this.note = items >= 0
@@ -1914,7 +1914,7 @@ export struct SettingsView {
         return;
       }
       const ok = applyFlowState(h.json);
-      const items = h.data === '' ? 0 : applyDataSnapshot(h.data);
+      const items = h.data === '' ? 0 : applyDataSnapshot(h.data, true);
       markSyncedRev(h.rev);
       this.flowNote = ok
         ? (items >= 0 ? `已接续来自「${h.from}」的进度 · 同步 ${items} 件物品数据` : `已接续来自「${h.from}」的进度`)

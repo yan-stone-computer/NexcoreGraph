@@ -2,18 +2,28 @@ import { describe, expect, it } from '@ohos/hypium';
 import { applyDataSnapshot } from '../main/ets/common/Continuation';
 import { store } from '../main/ets/common/Store';
 
-const snapshot: string = JSON.stringify({
-  v: 1,
-  libraries: [],
-  plans: [],
-  alerts: [],
-  shopping: [],
-  logs: [],
-  settings: {},
-  daily: [],
-  chat: [{ who: 'me', text: '历史对话', time: '', plans: [], ts: 1 }],
-  at: 1
-});
+class ChatFixture {
+  who: string = 'me';
+  text: string = '历史对话';
+  time: string = '';
+  plans: number[] = [];
+  ts: number = 1;
+}
+
+class SnapshotFixture {
+  v: number = 1;
+  libraries: Object[] = [];
+  plans: Object[] = [];
+  alerts: Object[] = [];
+  shopping: Object[] = [];
+  logs: Object[] = [];
+  settings: Record<string, boolean> = {};
+  daily: Object[] = [];
+  chat: ChatFixture[] = [new ChatFixture()];
+  at: number = 1;
+}
+
+const snapshot: string = JSON.stringify(new SnapshotFixture());
 
 export default function localRestoreTest() {
   describe('localRestore', () => {

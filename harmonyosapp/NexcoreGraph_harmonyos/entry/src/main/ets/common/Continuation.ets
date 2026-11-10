@@ -264,7 +264,7 @@ export function buildDataSnapshot(): string {
 }
 
 /** 落地数据快照；返回导入的物品件数，失败返回 -1 */
-export function applyDataSnapshot(raw: string): number {
+export function applyDataSnapshot(raw: string, openAiOnNewChat: boolean = false): number {
   try {
     const p = JSON.parse(raw) as DataPayload;
     if (p.v !== FLOW_VERSION || p.libraries === undefined) {
@@ -414,7 +414,7 @@ export function applyDataSnapshot(raw: string): number {
       });
       store.chat = chat;
       // 对端有新的 AI 问答：把助手面板打开，做到"原模原样出现在这边"
-      if (chat.length > before) {
+      if (openAiOnNewChat && chat.length > before) {
         store.aiOpen = true;
       }
     }

@@ -162,7 +162,7 @@ function pollOnce(): void {
       return;
     }
     applying = true;
-    const n = applyDataSnapshot(h.data);
+    const n = applyDataSnapshot(h.data, true);
     applying = false;
     if (n >= 0) {
       // 不弹 Toast（活同步很频繁，弹窗会打扰）：只记一行状态，在「我的 → 跨设备流转」里看

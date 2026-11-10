@@ -125,7 +125,7 @@ export function downloadSync(): Promise<string> {
       throw new Error(r.error);
     }
     // 走 DTO 还原：@ObservedV2 数组里塞 JSON 纯对象会崩，必须由 applyDataSnapshot 重建实例
-    const applied: number = applyDataSnapshot(JSON.stringify(r.payload));
+    const applied: number = applyDataSnapshot(JSON.stringify(r.payload), true);
     if (applied < 0) {
       throw new Error('云端数据格式不兼容，请升级 App 后再拉取');
     }
