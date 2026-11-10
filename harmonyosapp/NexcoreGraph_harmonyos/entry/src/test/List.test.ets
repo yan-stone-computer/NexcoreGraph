@@ -4,6 +4,7 @@ import navigationIntentTest from './NavigationIntent.test';
 import resourceTwinTest from './ResourceTwin.test';
 import barcodeIntakeTest from './BarcodeIntake.test';
 import reminderPlannerTest from './ReminderPlanner.test';
+import policyEngineTest from './PolicyEngine.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -12,4 +13,5 @@ export default function testsuite() {
   resourceTwinTest();
   barcodeIntakeTest();
   reminderPlannerTest();
+  policyEngineTest();
 }
