@@ -1,7 +1,8 @@
 # 启核图策 · Web 端（用户端 + 管理员端）
 
-依据《启核图策-项目完整文档.md》（唯一完整参考）与《网站开发文档.md》实现的 Web 正式版。
-视觉 100% 复刻 `web-demo/` 基准（tokens/app.css 未改动，增量样式单独放 `extra.css`）；功能按文档 F1-F10 落地。
+启核图策 NexcoreGraph Web 端是面向家庭资源管理的 AI 原生工作台，覆盖拍照入库、资源库、临期预警、临期救援、AI 方案、协作与管理员端。当前交付采用零构建 HTML/CSS/JS，浏览器即可运行。
+
+本轮针对评审反馈新增“临期救援驾驶舱”：用确定性多目标求解器计算菜谱匹配、临期程度、缺料与时间约束，提供 Pareto 非支配候选、1–3 道菜组合编排、反事实沙盘和完整决策轨迹。模型只解释结果，不参与库存事实计算。
 
 ## 一、项目文件结构
 
@@ -11,16 +12,23 @@ webapp/
 ├─ admin.html            管理员端入口（同仓库独立入口，F10）
 ├─ design-tokens.json    设计令牌单一来源（与 web-demo 一致）
 ├─ css/
-│  ├─ tokens.css         主题令牌（深色默认，复用基准，未改动）
-│  ├─ app.css            组件与布局（复用基准，未改动）
-│  └─ extra.css          增量样式：真实相机 / 对话预览卡 / 打印排版 / 管理端表格
+│  ├─ tokens.css         品牌色板与深浅色设计令牌
+│  ├─ app.css            基础组件与页面布局
+│  └─ extra.css          增量样式：相机 / 救援驾驶舱 / 预览卡 / 管理端
 ├─ js/
-│  ├─ data.js            种子数据（8 库物品 / 7 天日志 / 成员角色 / Profile / 预算 / lowAt / 保修期）
-│  ├─ knowledge.js       通用知识库（对应文档第 6 篇 knowledge/*.json：食材保质期 25 项 / 菜谱 16 道 / 存放规则 10 条）
-│  ├─ mockapi.js         本地模拟后端（接口签名对齐 2.0 REST 契约，替换为 fetch 即可上真后端）
+│  ├─ data.js            空业务初始状态与界面默认值
+│  ├─ knowledge.js       食材保质期 25 项 / 菜谱 16 道 / 存放规则 10 条
+│  ├─ rescue.js          临期救援求解器（纯函数：排序、Pareto、组合约束）
+│  ├─ rescue-view.js     救援驾驶舱、反事实沙盘、决策回放和写操作预览
+│  ├─ mockapi.js         业务状态层：校验、日志、持久化、执行与撤销
+│  ├─ agnes.js           AI 网关/厂商直连、健康探测、超时与错误分类
+│  ├─ graph.js          个人资源图谱构图与检索算子
+│  ├─ graph-rag.js      证据装配、GraphRAG 和社区摘要
 │  ├─ ai.js              AI 编排层（P0-1 意图路由 / P0-2 受约束工具 / P0-3 营养标注+创新菜谱 / P0-6 简报）
 │  ├─ app.js             用户端交互与视图（复用原型全部组件与动效）
 │  └─ admin.js           管理员端（用户 / 家庭 / 审计 / AI 用量 / 系统配置 / 知识库管理）
+├─ tests/rescue.test.js  救援求解器单元测试
+├─ CODE-STYLE.md         模块边界、编码规范与提交规则
 └─ assets/img/           品牌与演示图片（复用基准）
 ```
 
@@ -28,33 +36,72 @@ webapp/
 
 | 模块 | 实现 |
 |---|---|
-| F1 拍照入库 | `getUserMedia` 真实摄像头 + 拖拽/多选上传；识别 → 补缺确认 → 入库；连拍 ≤6 张同名合并（D3）；待归类（F1.4）；价格/保质期来源标注（F1.5/F1.6）。识别为本地模拟，正式版换 `/api/ai/vision` |
+| F1 拍照入库 | `getUserMedia` 真实摄像头 + 拖拽/多选上传；识别 → 补缺确认 → 入库；连拍 ≤6 张同名合并（D3）；待归类（F1.4）；价格/保质期来源标注（F1.5/F1.6）。视觉识别通过 `/api/ai/vision` 或本机直连配置调用真实多模态模型 |
 | F2 资源库 | 8 个内置库全带物品；库增删改名排序/拖拽（软删可撤销）；物品 CRUD、数量步进、私有可见性（F2.5）；CSV 导入导出（F2.6，兼容 Excel）；260ms 防抖全局搜索 +「XX 放哪了」AI 定位（F2.4） |
 | F3 规划预警 | 知识库驱动 2-3 个方案，固定优先级：临期优先 > 清库存 > 营养均衡（F3.8/D2）；营养速览（约，估算）与 AI 创新菜谱（P0-3）；预警引擎全库扫描：临期 3/7 档可配置、过期、低库存（D4 `lowAt`）、药品有效期、家电保修期；采购清单自动合并去重（F3.6） |
-| F5 自然语言对话 | 意图路由：greet/where/qty/expiry 本地快答（0 次模型）；cook/creative/nutrition/summary 走模型（模拟）；「鸡蛋只剩 5 个」→ 调整预览卡 → 确认生效（F5.5/P0-2）；`shopping_add` 工具；Web Speech 语音输入（F5.3）；聊天仅本地 ≤200 条滚动（P0-5/D5） |
+| F5 自然语言对话 | 意图路由：greet/where/qty/expiry/rescue 本地快答（0 次模型）；cook/creative/nutrition/summary 经 GraphRAG 证据装配后调用网关或厂商直连；「鸡蛋只剩 5 个」→ 调整预览卡 → 确认生效（F5.5/P0-2）；`shopping_add` 工具；Web Speech 语音输入（F5.3）；聊天仅本地 ≤200 条滚动（P0-5/D5） |
 | F6 数量变更 | 勾选核销按勾选项扣减；操作日志全留痕（F6.4）；方案撤销回滚 + 最近操作撤销（F6.3） |
 | F7 数据看板 | KPI/趋势/环形图/健康度全部代码实时计算，趋势与日志可对账；AI 简报手动触发，统计代码算、模型仅润色（P0-6/K9）；预算管理（D6，默认 600） |
-| F9 家庭协作 | 手机号 + 123456 登录，角色 管理员/成员/只读（只读禁写 F9.2）；成员移除；限时邀请码生成/复制/撤销（F9.3）；牌桌协作传库/合并/结束清理（F9.6-F9.9）；同步：全量快照 + 版本号，模拟他端修改可演示 409 冲突二选一（F9.10/D1/G2） |
+| F9 家庭协作 | 邮箱验证码登录，角色 管理员/成员/只读（只读禁写 F9.2）；成员移除；限时邀请码生成/复制/撤销（F9.3）；牌桌协作传库/合并/结束清理（F9.6-F9.9）；同步：全量快照 + 版本号，可演示 409 冲突二选一（F9.10/D1/G2） |
 | F10 管理员端 | 独立入口 `admin.html`（管理员角色鉴权）：用户管理（禁用/启用）、家庭管理（容量/成员/邀请码）、数据审计（日志 + 云端快照）、AI 用量（次数/费用/限流）、系统配置（模型/联网开关/识别阈值/推送模板）、知识库管理（编辑 + 保存草稿 + 版本发布） |
+| F11 临期救援 | 确定性多目标评分、Pareto 非支配集、1–3 道菜约束组合、1/15/30/60 分钟沙盘、反事实排除、推荐依据、步骤与替代建议、预览确认、执行撤销和累计救回统计 |
 
 ## 三、部署运行步骤
 
-1. 环境要求：任意现代浏览器（Chrome / Edge 优先）。无构建、零依赖，不需要 Node/npm。
-2. 直接双击 `index.html` 即可使用（数据存 localStorage）。
+1. 环境要求：现代浏览器（Chrome / Edge 优先）、Python 3.10+（仅用于启动静态服务），以及可选的自建 AI 后端。
+2. 直接双击 `index.html` 可查看界面；登录与邮箱验证码需要启动后端。
 3. **推荐用本地静态服务**（摄像头 `getUserMedia` 需要 HTTPS 或 localhost）：
-   - Python：`python -m http.server 8080`（在 webapp 目录下），然后访问 `http://localhost:8080`
+   - `python -m http.server 8080`
+   - 浏览器访问 `http://localhost:8080`
    - VS Code：安装 Live Server 插件 → 右键 index.html → Open with Live Server
-4. 演示账号（验证码统一 `123456`）：
-   - `13800138000` 家庭管理员（可进管理员端）
-   - `13900139000` 成员（可写）
-   - `13600136000` 只读（写操作被拒绝，可验证 F9.2）
-5. 管理员端：访问 `admin.html`，用管理员账号登录。
+4. 将 `.env.example` 复制为 `.env`，通过本机后端或设置页配置真实 AI Key；`.env` 不得提交。
+5. 登录使用邮箱和真实邮件验证码。评审账号在后端数据库中创建，不在前端硬编码固定验证码。
+6. 管理员端：访问 `admin.html`，使用管理员邮箱完成验证码登录。
+7. 救援功能 30 秒体验：登录 → AI 工作台“今晚先救哪几样” → 临期救援 → 查看组合菜单与推荐依据 → 预览并执行 → 在方案页撤销。
 
-## 四、注意事项
+## 四、测试与验收
 
-- **数据存储**：localStorage（键 `nexcore_web_db_v2`）持久化，聊天/库存刷新不丢；「设置 → 重置演示数据」可恢复种子。图片以压缩缩略图（JPEG q0.6, 300px）存储，localStorage 约 5MB 上限，容量不足时升级 IndexedDB。
-- **AI 说明**：本版本 AI 为**本地模拟编排**（意图路由/工具协议/统计计算均为真实代码逻辑，仅“模型生成文本”为模板模拟）。接真实后端时：`mockapi.js` 换成 fetch（契约见文档 2.0），`ai.js` 的 cook/creative/nutrition/summary 路由改调 `POST /api/ai/chat`，识别改调 `POST /api/ai/vision`。红线保持：数值由代码查询、写操作先预览、单请求 ≤2 次模型调用。
+```powershell
+cd web/NexcoreGraph_web
+node --test tests/rescue.test.js
+node --check js/rescue.js
+node --check js/rescue-view.js
+node --check js/mockapi.js
+node --check js/ai.js
+node --check js/app.js
+
+cd ../..
+python tools/verify_rescue_web.py `
+  --url "file:///D:/ProjectFiles/GithubPackage/NexcoreGraph/web/NexcoreGraph_web/index.html#/rescue" `
+  --desktop-shot "web/NexcoreGraph_web/qa/shots/13-rescue-desktop.png" `
+  --mobile-shot "web/NexcoreGraph_web/qa/shots/15-rescue-mobile.png"
+```
+
+端到端脚本会在临时浏览器中注入评审数据，验证导航、筛选、决策抽屉、预览、执行、撤销和移动端溢出；不会污染本机浏览器数据。
+
+## 五、团队信息
+
+| 成员 | 分工 |
+|---|---|
+| 高俊杰 | Qt / 鸿蒙 / 安卓，罗渝川辅助 |
+| 杨欢 | Web / 小程序，查豪霆辅助 |
+
+## 六、环境变量
+
+| 变量 | 用途 | 是否必填 |
+|---|---|---|
+| `NEXCORE_API_BASE` | 自建 AI 后端地址；留空时自动探测同源与 localhost:3000 | 否 |
+| `AGNES_API_KEY` | 厂商直连 Key，推荐只放服务端；本机演示可从设置页填写 | 使用直连时必填 |
+| `AGNES_MODEL` | 文本模型名称 | 否 |
+| `AGNES_VENDOR_BASE` | 厂商兼容接口地址 | 否 |
+| `AGNES_CHAT_TIMEOUT_MS` | 对话超时，默认 30000ms | 否 |
+| `AGNES_VISION_TIMEOUT_MS` | 视觉识别超时，默认 45000ms | 否 |
+
+## 七、注意事项
+
+- **数据存储**：业务状态使用 `nexcore_web_db_v3` 持久化；初始业务库为空，登录后由后端快照恢复。聊天/库存刷新不丢，图片以压缩缩略图存储。
+- **AI 说明**：文本链路支持“自建网关优先 + 厂商直连回落”，视觉走 `/api/ai/vision`。临期救援的库存匹配、排序、缺料和估值均为确定性代码计算，模型只解释；失败时仍保留规则结果，不冒充模型输出。
 - **AI 行为红线自查**：数量/位置/日期一律本地查询产出；`[调整]`/`shopping_add` 均为预览确认制；简报数字与看板同源（`computeStats`）。
 - **HTTPS**：生产部署必须 HTTPS（摄像头 / Web Push / Service Worker 依赖）。
-- **技术栈说明**：开发文档建议 Vue 3 + Vite；本交付采用「免构建原生 HTML/CSS/JS（分文件）」以保证零依赖直接运行（本机无 Node 环境）。模块边界（状态层 mockapi ↔ 视图层 app.js ↔ AI 层 ai.js）与 Vue 3 + Pinia 方案一一对应，迁移时 views → 组件、Store → Pinia、API → Axios 即可。
+- **技术栈说明**：当前交付采用免构建原生 HTML/CSS/JS，模块边界为“纯算法 / 状态层 / 证据层 / 视图层”。Vue 3 + Vite + Pinia 是后续工程化方向，不计入当前已实现能力。
 - **未做（按文档为可选项/后续里程碑）**：PWA/Service Worker 离线缓存、Web Push 推送、Excel(xlsx) 二进制解析（CSV 已兼容 Excel）、大屏全屏看板模式、ECharts 替换内联 SVG 图表（当前 SVG 与原型视觉一致且零依赖）。

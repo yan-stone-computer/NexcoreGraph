@@ -591,6 +591,117 @@
       });
     },
 
+    /* ===== 临期救援求解器（Pareto + 组合编排；只读查询不写 localStorage） ===== */
+    rescueCandidates: function (options) {
+      options = options || {};
+      var soon = (db.settings && db.settings.alertSoon) || 7;
+      var items = [];
+      db.libraries.forEach(function (lib) {
+        (lib.items || []).forEach(function (it) {
+          if ((Number(it.qty) || 0) <= 0) return;
+          items.push(Object.assign({ libId: lib.id, libName: lib.name }, it));
+        });
+      });
+      if (!window.RESCUE) throw new Error("救援求解器未加载");
+      var engineOptions = {
+        soon: soon,
+        dislikes: profileDislikes(),
+        maxMinutes: options.maxMinutes,
+        includeMissing: options.includeMissing !== false,
+        exclude: options.exclude || [],
+        goal: (db.profile && db.profile.goal) || ""
+      };
+      var candidates = window.RESCUE.rank(window.KB.recipes || [], items, engineOptions);
+      var mode = options.mode || "rescue";
+      if (mode === "fastest") {
+        candidates.sort(function (a, b) {
+          return a.timeMinutes - b.timeMinutes || b.score - a.score || a.title.localeCompare(b.title, "zh-CN");
+        });
+      } else if (mode === "leastMissing") {
+        candidates.sort(function (a, b) {
+          return a.missing.length - b.missing.length || b.score - a.score || a.title.localeCompare(b.title, "zh-CN");
+        });
+      } else if (mode === "nutrition") {
+        candidates.sort(function (a, b) {
+          return b.prot - a.prot || a.kcal - b.kcal || b.score - a.score || a.title.localeCompare(b.title, "zh-CN");
+        });
+      }
+      var portfolio = window.RESCUE.portfolio(candidates, {
+        maxMeals: options.maxMeals || 2,
+        maxTotalMinutes: options.maxTotalMinutes || 90
+      });
+      var rescueKeys = {};
+      var expiringValue = 0;
+      items.forEach(function (it) {
+        if (!(it.expDays > 0 && it.expDays <= soon)) return;
+        var key = it.kbKey || it.name;
+        if (rescueKeys[key]) return;
+        rescueKeys[key] = true;
+        expiringValue += Number(it.price) || 0;
+      });
+      return Promise.resolve({
+        candidates: candidates,
+        portfolio: portfolio,
+        stats: {
+          expiringKinds: Object.keys(rescueKeys).length,
+          expiringValue: Math.round(expiringValue * 100) / 100,
+          paretoN: candidates.filter(function (c) { return c.pareto; }).length,
+          evaluatedN: candidates.length,
+          soon: soon
+        }
+      });
+    },
+
+    createPlanFromCandidate: function (candidateId, selectedNames, options) {
+      return sleep().then(function () {
+        guard();
+        return API.rescueCandidates(options).then(function (result) {
+          var candidate = result.candidates.filter(function (c) { return c.id === candidateId; })[0];
+          if (!candidate) throw new Error("方案已失效，请刷新后重试");
+          var selected = selectedNames || candidate.matched.map(function (m) { return m.name; });
+          var used = candidate.matched.filter(function (m) {
+            return selected.indexOf(m.name) > -1;
+          }).map(function (m) { return { name: m.name, qty: m.qty }; });
+          if (!used.length) throw new Error("至少选择一项要消耗的食材");
+          db.meta = db.meta || {};
+          var plan = {
+            id: db.meta.planSeq = (db.meta.planSeq || 0) + 1,
+            sourceKey: candidate.id,
+            title: candidate.title,
+            priority: candidate.rescueItems > 0 ? "高" : "中",
+            reason: candidate.labels.join(" · "),
+            time: candidate.time,
+            source: "临期救援 · Pareto 求解",
+            kcal: candidate.kcal,
+            prot: candidate.prot,
+            used: used,
+            missing: candidate.missing,
+            status: "pending",
+            selected: used.map(function (u) { return u.name; }),
+            rescue: true,
+            rescueScore: candidate.score,
+            rescuedValue: candidate.rescuedValue,
+            steps: candidate.steps,
+            substitutions: candidate.subs,
+            decisionTrace: candidate.trace
+          };
+          db.plans.push(plan);
+          pushLog("plan", "创建临期救援方案「" + plan.title + "」（得分 " + candidate.score + "）");
+          save();
+          return plan;
+        });
+      });
+    },
+
+    rescueImpact: function () {
+      var history = db.rescueHistory || [];
+      return {
+        rescuedPlans: history.length,
+        savedItems: history.reduce(function (sum, row) { return sum + (Number(row.items) || 0); }, 0),
+        savedValue: Math.round(history.reduce(function (sum, row) { return sum + (Number(row.savedValue) || 0); }, 0) * 100) / 100
+      };
+    },
+
     /* P0-3 AI 创新菜谱：优先消耗临期食材 */
     creativeRecipe: function () {
       var t0 = Date.now();
@@ -639,6 +750,16 @@
         });
         p.status = "done";
         p.snapshot = snap;
+        if (p.rescue) {
+          db.rescueHistory = (db.rescueHistory || []).filter(function (row) { return row.planId !== p.id; });
+          db.rescueHistory.push({
+            planId: p.id,
+            title: p.title,
+            items: snap.length,
+            savedValue: Number(p.rescuedValue) || 0,
+            at: new Date().toISOString()
+          });
+        }
         pushLog("plan", "执行方案「" + p.title + "」，扣减 " + snap.length + " 项");
         save();
         return db;
@@ -655,6 +776,9 @@
         });
         p.status = "pending";
         delete p.snapshot;
+        if (p.rescue) {
+          db.rescueHistory = (db.rescueHistory || []).filter(function (row) { return row.planId !== p.id; });
+        }
         pushLog("plan", "撤销方案「" + p.title + "」，库存已回滚");
         save();
         return db;

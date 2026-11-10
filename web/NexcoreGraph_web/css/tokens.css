@@ -1,59 +1,20 @@
-/* 启核图策 · 设计令牌（Logo 品牌色：橙 × 深海军蓝 × 科技青） */
-/* 取色来源：品牌 logo（#FF8833 橙 · 白色电路 · 深海军蓝底建议 #1A1A2E · 青 #00D4FF） */
+/* 启核图策 · 设计令牌（单一来源；与鸿蒙端 entry/src/main/ets/common/Tokens.ets 同值）
 
-:root,
-[data-theme="dark"] {
-  /* 表面：深海军蓝家族 */
-  --surface: #13172B;
-  --surface-raised: #1A1E35;
-  --surface-overlay: #232945;
-  --surface-sunken: #0E1122;
-  --border: rgba(150, 160, 210, 0.18);
-  --border-strong: rgba(150, 160, 210, 0.36);
+   两套色板 × 明暗两态，设置 → 外观 可切：
+     · 启核（默认）：色值取自官方徽标像素（绿→青→蓝三段渐变）；**默认浅色**
+     · 经典：早期品牌橙（#FF8833 / #E8701E），保留以兼容既有截图与物料
+   角色分工：primary 绿=主操作/生长 · accent 青=AI/强调 · tone-indigo 蓝=数据/图表。
+   app.css / extra.css 只允许引用 var(--…)，不要在页面里写死颜色（改这里即改三端观感）。
+   切换方式：<html data-palette="nexcore|classic" data-theme="light|dark"> */
 
-  /* 文字 */
-  --text-primary: #F2F4FA;
-  --text-secondary: #B9C0DA;
-  --text-muted: #7C84AA;
-
-  /* 主色：品牌橙（动作/品牌/数据主角） */
-  --primary: #FF8833;
-  --on-primary: #241000;
-  --primary-hover: #FF9E57;
-  --primary-container: rgba(255, 136, 51, 0.14);
-  --on-primary-container: #FFC79B;
-
-  /* 强调：科技青（状态/悬浮/通知） */
-  --accent: #00D4FF;
-  --on-accent: #001820;
-  --accent-container: rgba(0, 212, 255, 0.14);
-  --on-accent-container: #8DEBFF;
-
-  /* 语义状态 */
-  --success: #4ADE80;
-  --success-container: rgba(74, 222, 128, 0.14);
-  --warning: #FFB020;
-  --warning-container: rgba(255, 176, 32, 0.16);
-  --danger: #FF5D5D;
-  --danger-container: rgba(255, 93, 93, 0.16);
-  --info: #00D4FF;
-  --info-container: rgba(0, 212, 255, 0.14);
-
-  /* 焦点环 + 单点辉光（橙色，只给主角） */
-  --focus-ring: 0 0 0 3px rgba(255, 136, 51, 0.3);
-  --glow: 0 0 0 1px rgba(255, 136, 51, 0.24), 0 0 20px rgba(255, 136, 51, 0.22);
-
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-2: 0 12px 36px rgba(0, 0, 0, 0.5);
-
-  /* 圆角 */
+:root {
+  /* ---------- 非颜色令牌（三端共用） ---------- */
   --radius-s: 4px;
   --radius-m: 8px;
   --radius-l: 12px;
   --radius-xl: 16px;
   --radius-pill: 999px;
 
-  /* 间距（8pt 网格） */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -65,43 +26,120 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* 字体 */
   --font-sans: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
     "Segoe UI", system-ui, sans-serif;
   --font-display: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
     "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
 
-  /* 动效 */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --dur-fast: 140ms;
   --dur-base: 220ms;
   --dur-slow: 320ms;
 
-  /* 库色调（橙青为主，低饱和扩展） */
-  --tone-teal: #00D4FF;
-  --tone-teal-bg: rgba(0, 212, 255, 0.14);
-  --tone-indigo: #7C9CFF;
-  --tone-indigo-bg: rgba(124, 156, 255, 0.14);
-  --tone-red: #FF6B6B;
-  --tone-red-bg: rgba(255, 107, 107, 0.14);
-  --tone-slate: #93A1B0;
-  --tone-slate-bg: rgba(147, 161, 176, 0.14);
-  --tone-lime: #A8E05F;
-  --tone-lime-bg: rgba(168, 224, 95, 0.14);
-  --tone-brown: #E0A45C;
-  --tone-brown-bg: rgba(224, 164, 92, 0.16);
-  --tone-orange: #FF8833;
-  --tone-orange-bg: rgba(255, 136, 51, 0.16);
-  --tone-violet: #B59CFF;
-  --tone-violet-bg: rgba(181, 156, 255, 0.14);
-  --tone-amber: #FFB020;
-  --tone-amber-bg: rgba(255, 176, 32, 0.16);
+  /* ---------- 默认色：启核 · 浅色（冷白底 #F5F9FB + 启核绿主色） ---------- */
+  --surface: #F5F9FB;
+  --surface-raised: #FFFFFF;
+  --surface-overlay: #E9F1F5;
+  --surface-sunken: #EDF3F7;
+  --border: rgba(18, 60, 80, 0.14);
+  --border-strong: rgba(18, 60, 80, 0.30);
+
+  --text-primary: #0E1424;
+  --text-secondary: #3C4C5C;
+  --text-muted: #6B7C8C;
+
+  --primary: #57D794;                 /* 徽标 30% 绿青 */
+  --on-primary: #0B2A1C;
+  --primary-hover: #3DD0AE;
+  --primary-container: #DCF6E8;
+  --on-primary-container: #0D5B3A;
+  --primary-ink: #2E8F63;             /* 浅底上的绿色文字（对比度 ≥4.5:1） */
+
+  --accent: #3DD0AE;                  /* 徽标 45% 过渡青 */
+  --on-accent: #04352A;
+  --accent-container: #D9F4EE;
+  --on-accent-container: #0A5145;
+
+  --success: #5B893B;
+  --success-container: #EAF4DC;
+  --warning: #B87D16;
+  --warning-container: #F7EAD0;
+  --danger: #C53D3D;
+  --danger-container: #F7E0DE;
+  --info: #3DD0AE;
+  --info-container: #D9F4EE;
+
+  --focus-ring: 0 0 0 3px rgba(87, 215, 148, 0.30);
+  --glow: 0 0 0 1px rgba(87, 215, 148, 0.22), 0 0 18px rgba(87, 215, 148, 0.18);
+  --shadow-1: 0 1px 2px rgba(14, 40, 55, 0.06), 0 2px 8px rgba(14, 40, 55, 0.05);
+  --shadow-2: 0 12px 32px rgba(14, 40, 55, 0.12);
+
+  --tone-teal: #0F8C87;      --tone-teal-bg: #D7F2F0;
+  --tone-indigo: #1477A3;    --tone-indigo-bg: #D8EEF6;
+  --tone-red: #C24B4B;       --tone-red-bg: #F5E2E0;
+  --tone-slate: #566873;     --tone-slate-bg: #E3E9ED;
+  --tone-lime: #5B893B;      --tone-lime-bg: #EAF4DC;
+  --tone-brown: #8A5F28;     --tone-brown-bg: #F1E6D6;
+  --tone-orange: #C2701F;    --tone-orange-bg: #FAE4CE;
+  --tone-violet: #5F55A0;    --tone-violet-bg: #E8E5F4;
+  --tone-amber: #A8710F;     --tone-amber-bg: #F5E9CE;
 }
 
-[data-theme="light"] {
-  /* 暖白浅色（可选模式） */
+/* ---------- 启核 · 深色（深海军蓝底） ---------- */
+[data-theme="dark"] {
+  --surface: #13172B;
+  --surface-raised: #1A2140;
+  --surface-overlay: #222B4D;
+  --surface-sunken: #0D1224;
+  --border: rgba(140, 170, 210, 0.20);
+  --border-strong: rgba(140, 170, 210, 0.38);
+
+  --text-primary: #F2F7FB;
+  --text-secondary: #B7C6D9;
+  --text-muted: #7C8CA6;
+
+  --primary: #57D794;
+  --on-primary: #0B2A1C;
+  --primary-hover: #6ADFA3;
+  --primary-container: rgba(87, 215, 148, 0.18);
+  --on-primary-container: #B7F2D3;
+  --primary-ink: #8CD35B;
+
+  --accent: #3DD0AE;
+  --on-accent: #04241D;
+  --accent-container: rgba(61, 208, 174, 0.16);
+  --on-accent-container: #A9F0DF;
+
+  --success: #8CD35B;
+  --success-container: rgba(140, 211, 91, 0.16);
+  --warning: #FFB020;
+  --warning-container: rgba(255, 176, 32, 0.16);
+  --danger: #FF5D5D;
+  --danger-container: rgba(255, 93, 93, 0.16);
+  --info: #3DD0AE;
+  --info-container: rgba(61, 208, 174, 0.16);
+
+  --focus-ring: 0 0 0 3px rgba(87, 215, 148, 0.34);
+  --glow: 0 0 0 1px rgba(87, 215, 148, 0.26), 0 0 20px rgba(87, 215, 148, 0.22);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 12px 36px rgba(0, 0, 0, 0.5);
+
+  --tone-teal: #26C2BC;      --tone-teal-bg: rgba(38, 194, 188, 0.16);
+  --tone-indigo: #27ADD7;    --tone-indigo-bg: rgba(39, 173, 215, 0.16);
+  --tone-red: #FF6B6B;       --tone-red-bg: rgba(255, 107, 107, 0.14);
+  --tone-slate: #93A1B0;     --tone-slate-bg: rgba(147, 161, 176, 0.14);
+  --tone-lime: #ABE05A;      --tone-lime-bg: rgba(171, 224, 90, 0.16);
+  --tone-brown: #E0A45C;     --tone-brown-bg: rgba(224, 164, 92, 0.16);
+  --tone-orange: #FFA45C;    --tone-orange-bg: rgba(255, 164, 92, 0.16);
+  --tone-violet: #B59CFF;    --tone-violet-bg: rgba(181, 156, 255, 0.14);
+  --tone-amber: #FFB020;     --tone-amber-bg: rgba(255, 176, 32, 0.16);
+}
+
+/* ---------- 经典（品牌橙）· 浅色：兼容既有截图与物料 ---------- */
+[data-palette="classic"][data-theme="light"],
+[data-palette="classic"]:not([data-theme="dark"]) {
   --surface: #FBF7F2;
   --surface-raised: #FEFCF9;
   --surface-overlay: #F1EAE1;
@@ -118,6 +156,7 @@
   --primary-hover: #D26010;
   --primary-container: #FCE6D2;
   --on-primary-container: #6E3005;
+  --primary-ink: #A8500F;
 
   --accent: #0096C4;
   --on-accent: #F2FBFF;
@@ -138,22 +177,63 @@
   --shadow-1: 0 1px 2px rgba(60, 40, 20, 0.06), 0 2px 8px rgba(60, 40, 20, 0.05);
   --shadow-2: 0 12px 32px rgba(60, 40, 20, 0.12);
 
-  --tone-teal: #00849C;
-  --tone-teal-bg: #D9F1F6;
-  --tone-indigo: #5B6EC8;
-  --tone-indigo-bg: #E7EAF7;
-  --tone-red: #C24B4B;
-  --tone-red-bg: #F5E2E0;
-  --tone-slate: #5E6C78;
-  --tone-slate-bg: #E5E9EC;
-  --tone-lime: #6C8F3C;
-  --tone-lime-bg: #EAF0DC;
-  --tone-brown: #9A6B2F;
-  --tone-brown-bg: #F2E7D7;
-  --tone-orange: #E8701E;
-  --tone-orange-bg: #FBE3CE;
-  --tone-violet: #6F5FA8;
-  --tone-violet-bg: #EAE6F4;
-  --tone-amber: #B87D16;
-  --tone-amber-bg: #F7EAD0;
+  --tone-teal: #00849C;      --tone-teal-bg: #D9F1F6;
+  --tone-indigo: #5B6EC8;    --tone-indigo-bg: #E7EAF7;
+  --tone-red: #C24B4B;       --tone-red-bg: #F5E2E0;
+  --tone-slate: #5E6C78;     --tone-slate-bg: #E5E9EC;
+  --tone-lime: #6C8F3C;      --tone-lime-bg: #EAF0DC;
+  --tone-brown: #9A6B2F;     --tone-brown-bg: #F2E7D7;
+  --tone-orange: #E8701E;    --tone-orange-bg: #FBE3CE;
+  --tone-violet: #6F5FA8;    --tone-violet-bg: #EAE6F4;
+  --tone-amber: #B87D16;     --tone-amber-bg: #F7EAD0;
+}
+
+/* ---------- 经典（品牌橙）· 深色 ---------- */
+[data-palette="classic"][data-theme="dark"] {
+  --surface: #13172B;
+  --surface-raised: #1A1E35;
+  --surface-overlay: #232945;
+  --surface-sunken: #0E1122;
+  --border: rgba(150, 160, 210, 0.18);
+  --border-strong: rgba(150, 160, 210, 0.36);
+
+  --text-primary: #F2F4FA;
+  --text-secondary: #B9C0DA;
+  --text-muted: #7C84AA;
+
+  --primary: #FF8833;
+  --on-primary: #241000;
+  --primary-hover: #FF9E57;
+  --primary-container: rgba(255, 136, 51, 0.14);
+  --on-primary-container: #FFC79B;
+  --primary-ink: #FFC79B;
+
+  --accent: #00D4FF;
+  --on-accent: #001820;
+  --accent-container: rgba(0, 212, 255, 0.14);
+  --on-accent-container: #8DEBFF;
+
+  --success: #4ADE80;
+  --success-container: rgba(74, 222, 128, 0.14);
+  --warning: #FFB020;
+  --warning-container: rgba(255, 176, 32, 0.16);
+  --danger: #FF5D5D;
+  --danger-container: rgba(255, 93, 93, 0.16);
+  --info: #00D4FF;
+  --info-container: rgba(0, 212, 255, 0.14);
+
+  --focus-ring: 0 0 0 3px rgba(255, 136, 51, 0.3);
+  --glow: 0 0 0 1px rgba(255, 136, 51, 0.24), 0 0 20px rgba(255, 136, 51, 0.22);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 12px 36px rgba(0, 0, 0, 0.5);
+
+  --tone-teal: #00D4FF;      --tone-teal-bg: rgba(0, 212, 255, 0.14);
+  --tone-indigo: #7C9CFF;    --tone-indigo-bg: rgba(124, 156, 255, 0.14);
+  --tone-red: #FF6B6B;       --tone-red-bg: rgba(255, 107, 107, 0.14);
+  --tone-slate: #93A1B0;     --tone-slate-bg: rgba(147, 161, 176, 0.14);
+  --tone-lime: #A8E05F;      --tone-lime-bg: rgba(168, 224, 95, 0.14);
+  --tone-brown: #E0A45C;     --tone-brown-bg: rgba(224, 164, 92, 0.16);
+  --tone-orange: #FF8833;    --tone-orange-bg: rgba(255, 136, 51, 0.16);
+  --tone-violet: #B59CFF;    --tone-violet-bg: rgba(181, 156, 255, 0.14);
+  --tone-amber: #FFB020;     --tone-amber-bg: rgba(255, 176, 32, 0.16);
 }

@@ -6,7 +6,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP="$(pwd)/webapp"
+# 本脚本就放在 Web 工程目录内，直接用自身所在目录（旧版硬编码成 webapp/ 会找不到 index.html）
+APP="$(pwd)"
 PORT="${1:-8090}"
 
 open_browser() {
@@ -17,7 +18,7 @@ open_browser() {
 }
 
 if [ ! -f "$APP/index.html" ]; then
-  echo "[错误] 未找到 $APP/index.html，请把 start.sh 放在项目根目录。" >&2
+  echo "[错误] 未找到 $APP/index.html，请把 start.sh 与 index.html 放在同一目录。" >&2
   exit 1
 fi
 

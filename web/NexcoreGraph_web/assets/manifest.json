@@ -1,29 +1,28 @@
 {
-  "project": "启核图策 NexcoreGraph · Web 端（用户端 + 管理员端）",
-  "generated": "2026-08-27",
-  "updated": "2026-09-13（品牌更名 + 新 Logo 替换）",
+  "project": "启核图策 NexcoreGraph · Web 端",
   "brand": {
-    "nameZh": "启核图策",
-    "nameEn": "NexcoreGraph",
-    "logomark": "圆形渐变徽标（绿→青→蓝）+ 顶部嫩芽 + 白色 N + 白色弧线",
+    "name": "启核图策 / NexcoreGraph",
+    "tagline": "家庭资源智能管家：拍照建库、AI 规划、家庭协作",
     "colors": {
-      "green": "#46B14C",
-      "sprout": "#B1EB59",
-      "teal": "#2FD4B2",
-      "cyan": "#19BDC9",
-      "blue": "#0CA8D6",
-      "surfaceDark": "#13172B",
-      "white": "#FDFFFE"
-    }
-  },
-  "assets": {
-    "brandFiles": [
-      "assets/img/logo.png（256px 透明底）",
-      "assets/img/favicon.ico（16/32/48）",
+      "启核绿": "#46B14C",
+      "嫩芽黄绿": "#B1EB59",
+      "过渡青": "#2FD4B2",
+      "科技青": "#19BDC9",
+      "信号蓝": "#0CA8D6",
+      "深蓝": "#029ED0",
+      "底色": "#13172B",
+      "徽标白": "#FDFFFE"
+    },
+    "icons": [
+      "assets/img/favicon.ico",
+      "assets/img/logo.png",
       "assets/img/apple-touch-icon-180.png",
       "assets/img/web-app-manifest-192.png",
       "assets/img/web-app-manifest-512.png"
-    ],
+    ]
+  },
+  "generated": "2026-08-27",
+  "assets": {
     "icons": {
       "source": "内联 SVG（Lucide 风格 24px 圆头线条，统一 1.7 描边）",
       "count": 44,

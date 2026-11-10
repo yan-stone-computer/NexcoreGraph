@@ -1,140 +1,92 @@
 {
-  "name": "Dark Champagne",
-  "usage": "60/30/10: surface 60, primary 30, accent 10. Tokens only, no raw hex in code.",
-  "brand": "#C9A86A",
-  "accent": "#8F6B3D",
-  "scale": {
-    "50": "#F8F8F7",
-    "100": "#EFEEEB",
-    "200": "#E1DDD6",
-    "300": "#D0C6B3",
-    "400": "#C5B18C",
-    "500": "#C9A86A",
-    "600": "#A5803C",
-    "700": "#7A602E",
-    "800": "#4F3F22",
-    "900": "#302817",
-    "950": "#1B160E"
+  "name": "启核（Nexcore）",
+  "usage": "三端唯一令牌来源：60/30/10（surface 60 / primary 30 / accent 10）。色值取自官方徽标像素的绿→青→蓝三段渐变；默认浅色。禁止在页面里写死颜色。",
+  "source": "与鸿蒙端 entry/src/main/ets/common/Tokens.ets 同值；改这里后需同步三端产物：鸿蒙 Tokens.ets、Web css/tokens.css、小程序 styles/theme.scss。",
+  "defaults": { "palette": "nexcore", "theme": "light" },
+  "brand": "#57D794",
+  "accent": "#3DD0AE",
+  "logoLadder": {
+    "note": "徽标实测阶梯（母版 308×430，透明底；y 为高度百分比）",
+    "2%": "#ABE05A", "15%": "#8CD35B", "30%": "#57D794", "45%": "#3DD0AE",
+    "60%": "#26C2BC", "75%": "#1FB5CC", "90%": "#27ADD7", "99%": "#1492CB",
+    "markWhite": "#FEFEFE", "appIconBase": "#13172B"
   },
-  "semantic": {
-    "light": {
-      "surface": "#F8F8F7",
-      "surface-raised": "#FCFCFB",
-      "surface-overlay": "#F5F3EF",
-      "border": "#E0DFDC",
-      "border-strong": "#BCBAB4",
-      "text-primary": "#302817",
-      "text-secondary": "#7A602E",
-      "text-muted": "#7C776C",
-      "primary": "#C9A86A",
-      "on-primary": "#111111",
-      "primary-container": "#EFEEEB",
-      "on-primary-container": "#302817",
-      "accent": "#8F6B3D",
-      "on-accent": "#FFFFFF",
-      "accent-container": "#EBE7E1",
-      "on-accent-container": "#775A34",
-      "success": "#2F7D4F",
-      "warning": "#B9791F",
-      "danger": "#C03A2B"
+  "scale": {
+    "50": "#F5F9FB", "100": "#EDF3F7", "200": "#E9F1F5", "300": "#A8EBC8",
+    "400": "#57D794", "500": "#3DD0AE", "600": "#2E8F63", "700": "#0D5B3A",
+    "800": "#0A5145", "900": "#13172B", "950": "#0D1224"
+  },
+  "palettes": {
+    "nexcore": {
+      "light": {
+        "surface": "#F5F9FB", "surface-raised": "#FFFFFF", "surface-overlay": "#E9F1F5", "surface-sunken": "#EDF3F7",
+        "border": "rgba(18,60,80,0.14)", "border-strong": "rgba(18,60,80,0.30)",
+        "text-primary": "#0E1424", "text-secondary": "#3C4C5C", "text-muted": "#6B7C8C",
+        "primary": "#57D794", "on-primary": "#0B2A1C", "primary-hover": "#3DD0AE",
+        "primary-container": "#DCF6E8", "on-primary-container": "#0D5B3A", "primary-ink": "#2E8F63",
+        "accent": "#3DD0AE", "on-accent": "#04352A", "accent-container": "#D9F4EE", "on-accent-container": "#0A5145",
+        "success": "#5B893B", "success-container": "#EAF4DC",
+        "warning": "#B87D16", "warning-container": "#F7EAD0",
+        "danger": "#C53D3D", "danger-container": "#F7E0DE",
+        "tone-teal": "#0F8C87", "tone-teal-bg": "#D7F2F0",
+        "tone-indigo": "#1477A3", "tone-indigo-bg": "#D8EEF6",
+        "tone-red": "#C24B4B", "tone-red-bg": "#F5E2E0",
+        "tone-slate": "#566873", "tone-slate-bg": "#E3E9ED",
+        "tone-lime": "#5B893B", "tone-lime-bg": "#EAF4DC",
+        "tone-brown": "#8A5F28", "tone-brown-bg": "#F1E6D6",
+        "tone-orange": "#C2701F", "tone-orange-bg": "#FAE4CE",
+        "tone-violet": "#5F55A0", "tone-violet-bg": "#E8E5F4",
+        "tone-amber": "#A8710F", "tone-amber-bg": "#F5E9CE"
+      },
+      "dark": {
+        "surface": "#13172B", "surface-raised": "#1A2140", "surface-overlay": "#222B4D", "surface-sunken": "#0D1224",
+        "border": "rgba(140,170,210,0.20)", "border-strong": "rgba(140,170,210,0.38)",
+        "text-primary": "#F2F7FB", "text-secondary": "#B7C6D9", "text-muted": "#7C8CA6",
+        "primary": "#57D794", "on-primary": "#0B2A1C", "primary-hover": "#6ADFA3",
+        "primary-container": "rgba(87,215,148,0.18)", "on-primary-container": "#B7F2D3", "primary-ink": "#8CD35B",
+        "accent": "#3DD0AE", "on-accent": "#04241D", "accent-container": "rgba(61,208,174,0.16)", "on-accent-container": "#A9F0DF",
+        "success": "#8CD35B", "success-container": "rgba(140,211,91,0.16)",
+        "warning": "#FFB020", "warning-container": "rgba(255,176,32,0.16)",
+        "danger": "#FF5D5D", "danger-container": "rgba(255,93,93,0.16)",
+        "tone-teal": "#26C2BC", "tone-teal-bg": "rgba(38,194,188,0.16)",
+        "tone-indigo": "#27ADD7", "tone-indigo-bg": "rgba(39,173,215,0.16)",
+        "tone-red": "#FF6B6B", "tone-red-bg": "rgba(255,107,107,0.14)",
+        "tone-slate": "#93A1B0", "tone-slate-bg": "rgba(147,161,176,0.14)",
+        "tone-lime": "#ABE05A", "tone-lime-bg": "rgba(171,224,90,0.16)",
+        "tone-brown": "#E0A45C", "tone-brown-bg": "rgba(224,164,92,0.16)",
+        "tone-orange": "#FFA45C", "tone-orange-bg": "rgba(255,164,92,0.16)",
+        "tone-violet": "#B59CFF", "tone-violet-bg": "rgba(181,156,255,0.14)",
+        "tone-amber": "#FFB020", "tone-amber-bg": "rgba(255,176,32,0.16)"
+      }
     },
-    "dark": {
-      "surface": "#302817",
-      "surface-raised": "#4F3F22",
-      "surface-overlay": "#453A23",
-      "border": "#605A4D",
-      "border-strong": "#847F75",
-      "text-primary": "#F8F8F7",
-      "text-secondary": "#E1DDD6",
-      "text-muted": "#9E9A92",
-      "primary": "#D0C6B3",
-      "on-primary": "#111111",
-      "primary-container": "#4F3F22",
-      "on-primary-container": "#EFEEEB",
-      "accent": "#B98F5B",
-      "on-accent": "#111111",
-      "accent-container": "#4B3D25",
-      "on-accent-container": "#F8F8F7",
-      "success": "#7CC48A",
-      "warning": "#E0B06A",
-      "danger": "#E57A6E"
+    "classic": {
+      "note": "早期品牌橙，保留以兼容既有截图与物料",
+      "light": {
+        "surface": "#FBF7F2", "surface-raised": "#FEFCF9", "surface-overlay": "#F1EAE1", "surface-sunken": "#F4EDE5",
+        "border": "rgba(60,45,30,0.14)", "border-strong": "rgba(60,45,30,0.30)",
+        "text-primary": "#221A12", "text-secondary": "#5A4B3B", "text-muted": "#8A7A68",
+        "primary": "#E8701E", "on-primary": "#FFF8F0", "primary-hover": "#D26010",
+        "primary-container": "#FCE6D2", "on-primary-container": "#6E3005", "primary-ink": "#A8500F",
+        "accent": "#0096C4", "on-accent": "#F2FBFF", "accent-container": "#D8F2FA", "on-accent-container": "#024A60",
+        "success": "#2F9E63", "warning": "#B87D16", "danger": "#C53D3D"
+      },
+      "dark": {
+        "surface": "#13172B", "surface-raised": "#1A1E35", "surface-overlay": "#232945", "surface-sunken": "#0E1122",
+        "border": "rgba(150,160,210,0.18)", "border-strong": "rgba(150,160,210,0.36)",
+        "text-primary": "#F2F4FA", "text-secondary": "#B9C0DA", "text-muted": "#7C84AA",
+        "primary": "#FF8833", "on-primary": "#241000", "primary-hover": "#FF9E57",
+        "primary-container": "rgba(255,136,51,0.14)", "on-primary-container": "#FFC79B", "primary-ink": "#FFC79B",
+        "accent": "#00D4FF", "on-accent": "#001820", "accent-container": "rgba(0,212,255,0.14)", "on-accent-container": "#8DEBFF",
+        "success": "#4ADE80", "warning": "#FFB020", "danger": "#FF5D5D"
+      }
     }
   },
-  "contrast": {
-    "checks": [
-      {
-        "mode": "light",
-        "check": "text-secondary vs surface",
-        "a": "#7A602E",
-        "b": "#F8F8F7",
-        "ratio": 5.58,
-        "min": 4.5,
-        "pass": true
-      },
-      {
-        "mode": "light",
-        "check": "on-primary vs primary",
-        "a": "#111111",
-        "b": "#C9A86A",
-        "ratio": 8.36,
-        "min": 4.5,
-        "pass": true
-      },
-      {
-        "mode": "light",
-        "check": "on-accent vs accent",
-        "a": "#FFFFFF",
-        "b": "#8F6B3D",
-        "ratio": 4.84,
-        "min": 3.0,
-        "pass": true
-      },
-      {
-        "mode": "light",
-        "check": "text-muted vs surface",
-        "a": "#7C776C",
-        "b": "#F8F8F7",
-        "ratio": 4.19,
-        "min": 3.0,
-        "pass": true
-      },
-      {
-        "mode": "dark",
-        "check": "text-secondary vs surface",
-        "a": "#E1DDD6",
-        "b": "#302817",
-        "ratio": 10.76,
-        "min": 4.5,
-        "pass": true
-      },
-      {
-        "mode": "dark",
-        "check": "on-primary vs primary",
-        "a": "#111111",
-        "b": "#D0C6B3",
-        "ratio": 11.16,
-        "min": 4.5,
-        "pass": true
-      },
-      {
-        "mode": "dark",
-        "check": "on-accent vs accent",
-        "a": "#111111",
-        "b": "#B98F5B",
-        "ratio": 6.42,
-        "min": 3.0,
-        "pass": true
-      },
-      {
-        "mode": "dark",
-        "check": "text-muted vs surface",
-        "a": "#9E9A92",
-        "b": "#302817",
-        "ratio": 5.2,
-        "min": 3.0,
-        "pass": true
-      }
-    ],
-    "all_pass": true
-  }
+  "semantic": {
+    "note": "向后兼容别名 = palettes.nexcore.light",
+    "light": { "surface": "#F5F9FB", "text-primary": "#0E1424", "primary": "#57D794", "accent": "#3DD0AE" },
+    "dark": { "surface": "#13172B", "text-primary": "#F2F7FB", "primary": "#57D794", "accent": "#3DD0AE" }
+  },
+  "radius": { "s": 4, "m": 8, "l": 12, "xl": 16, "pill": 999 },
+  "space": [4, 8, 12, 16, 20, 24, 32, 40, 48, 64],
+  "motion": { "fast": 140, "base": 220, "slow": 320 }
 }

@@ -99,6 +99,7 @@
   /* 指令层（js/commands.js）需要的最小钩子：写操作落地后刷新、切主题 / 色板。
      让指令不重复实现业务逻辑，只驱动已有视图与 API。 */
   window.NXG_RENDER = function () { render(); };
+  window.NXG_TOAST = function (msg) { toast(msg); };
   window.NXG_APPLY_THEME = applyTheme;
   window.NXG_SET_PALETTE = function (p) {
     try { localStorage.setItem(PALETTE_KEY, p === "classic" ? "classic" : "nexcore"); } catch (e) { /* ignore */ }
@@ -1172,10 +1173,13 @@
               })
               .join("")
           : "";
+        var rescueLink = m.candidates && m.candidates.length
+          ? '<button class="btn btn-soft btn-sm" data-action="nav:go" data-view="rescue">' + icon("flame", 13) + " 打开临期救援</button>"
+          : "";
         return (
           '<div class="msg ' + (m.who === "me" ? "user" : "ai") + '">' +
           '<div class="msg-avatar ' + m.who + '">' + (m.who === "me" ? esc(DB.user.initial) : icon("sparkles", 15)) + "</div>" +
-          '<div class="msg-body">' + (m.img ? '<img class="chat-img" src="' + m.img + '" alt="图片" width="220" height="160"/>' : "") + esc(m.text) + chatCardHTML(m, mi) + '<div class="plan-stack' + (S.flipPlans && m === DB.chat[DB.chat.length - 1] ? " flip" : "") + '">' + plans + "</div>" +
+          '<div class="msg-body">' + (m.img ? '<img class="chat-img" src="' + m.img + '" alt="图片" width="220" height="160"/>' : "") + esc(m.text) + chatCardHTML(m, mi) + '<div class="plan-stack' + (S.flipPlans && m === DB.chat[DB.chat.length - 1] ? " flip" : "") + '">' + plans + "</div>" + rescueLink +
           (m.who === "ai" ? '<button class="btn btn-ghost btn-sm" data-action="tts:say" data-text="' + esc(m.text) + '">' + icon("bell", 13) + " 播报</button>" : "") +
           '<div class="msg-time">' + esc(m.time) + "</div></div></div>"
         );
@@ -1722,6 +1726,7 @@
   var VIEWS = {
     login: viewLogin,
     aiwork: function () { return window.WORKBENCH ? window.WORKBENCH.view() : viewDashboard(); },
+    rescue: function () { return window.RESCUE_VIEW ? window.RESCUE_VIEW.view() : viewDashboard(); },
     graph: function () { return window.GRAPHVIEW ? window.GRAPHVIEW.view() : viewDashboard(); },
     dashboard: viewDashboard,
     libraries: viewLibraries,
@@ -1730,6 +1735,7 @@
 
   var NAV = [
     { id: "aiwork", label: "AI 工作台", icon: "sparkles" },
+    { id: "rescue", label: "临期救援", icon: "flame" },
     { id: "dashboard", label: "首页看板", icon: "dashboard" },
     { id: "libraries", label: "资源库", icon: "library" },
     { id: "graph", label: "资源图谱", icon: "graph" },
@@ -1878,6 +1884,9 @@
       try { window.WORKBENCH.bind(viewEl, render); } catch (e) {}
       if (S.view === "graph" && window.GRAPHVIEW) { try { window.GRAPHVIEW.bind(viewEl, render); } catch (e) {} }
     }
+    if (S.view === "rescue" && window.RESCUE_VIEW) {
+      try { window.RESCUE_VIEW.bind(viewEl, render); } catch (e) {}
+    }
     var viewKey = S.view + "|" + (S.libId || "");
     var ovKey = S.overlay || "";
     var enteringView = viewKey !== lastViewKey;
@@ -1940,6 +1949,7 @@
           window.AI.reply(v).then(function (reply) {
             var msg = { who: "ai", text: reply.text, time: "刚刚" };
             if (reply.card) msg.card = reply.card;
+            if (reply.candidates) msg.candidates = reply.candidates;
             if (reply.action === "generatePlans") {
               return API.generatePlans().then(function (plans) {
                 msg.plans = plans.map(function (p) { return p.id; });
@@ -2170,6 +2180,11 @@
           S.overlay = null;
           stopCam();
           toast("已入库 " + n + " 项到「" + libName + "」，价格与保质期来源已标注");
+          API.rescueCandidates({ maxMinutes: 30, maxMeals: 2 }).then(function (result) {
+            if (result.candidates.length) {
+              toast("入库后建议：今晚先做「" + result.candidates[0].title + "」，可前往临期救援查看依据");
+            }
+          }).catch(function () {});
         });
         break;
       case "plan:run": {
@@ -3254,6 +3269,10 @@
   });
 
   /* 启动 */
+  window.addEventListener("rescue:intake", function () {
+    S.overlay = "intake";
+    render();
+  });
   window.addEventListener("error", function (ev) {
     var el = document.getElementById("fatal");
     if (!el) {

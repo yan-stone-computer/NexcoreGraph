@@ -37,22 +37,22 @@
   /* ---------- 家常菜谱池（F3.1 方案素材 / P0-3 营养速览） ---------- */
   /* ing: 用料 [名称, 数量文本, kbKey]；kcal/prot 为每份估算值 */
   var RECIPES = [
-    { title: "番茄炒蛋", time: "15 分钟", kcal: 320, prot: 14, tags: ["家常", "快手"], ing: [["鸡蛋", "3 个", "egg"], ["番茄", "2 个", "tomato"]] },
-    { title: "上汤上海青", time: "20 分钟", kcal: 150, prot: 6, tags: ["清淡"], ing: [["上海青", "1 把", "greens"], ["皮蛋", "1 个", ""]] },
-    { title: "清炒上海青", time: "12 分钟", kcal: 110, prot: 4, tags: ["清淡", "快手"], ing: [["上海青", "1 把", "greens"]] },
-    { title: "牛奶燕麦粥", time: "10 分钟", kcal: 280, prot: 12, tags: ["早餐"], ing: [["鲜牛奶", "0.5 盒", "milk"], ["燕麦", "50 克", "oat"]] },
-    { title: "青椒炒肉", time: "25 分钟", kcal: 430, prot: 22, tags: ["下饭"], ing: [["五花肉", "200 克", "pork"], ["青椒", "2 个", ""]] },
-    { title: "番茄鸡蛋面", time: "20 分钟", kcal: 520, prot: 20, tags: ["主食"], ing: [["鸡蛋", "2 个", "egg"], ["番茄", "1 个", "tomato"], ["挂面", "100 克", "noodle"]] },
-    { title: "香菇蒸鸡", time: "35 分钟", kcal: 380, prot: 28, tags: ["蒸菜"], ing: [["鸡肉", "300 克", "chicken"], ["蘑菇", "4 朵", "mushroom"]] },
-    { title: "红烧豆腐", time: "20 分钟", kcal: 260, prot: 16, tags: ["素菜"], ing: [["豆腐", "1 块", "tofu"]] },
-    { title: "蒜蓉炒时蔬", time: "10 分钟", kcal: 120, prot: 3, tags: ["清淡", "快手"], ing: [["小白菜", "1 把", "bokchoy"]] },
-    { title: "黄瓜炒虾仁", time: "18 分钟", kcal: 240, prot: 24, tags: ["低脂"], ing: [["虾", "200 克", "shrimp"], ["黄瓜", "1 根", "cucumber"]] },
-    { title: "土豆烧肉", time: "45 分钟", kcal: 560, prot: 20, tags: ["硬菜"], ing: [["土豆", "2 个", "potato"], ["五花肉", "250 克", "pork"]] },
-    { title: "洋葱炒蛋", time: "12 分钟", kcal: 280, prot: 13, tags: ["快手"], ing: [["洋葱", "1 个", "onion"], ["鸡蛋", "2 个", "egg"]] },
-    { title: "萝卜排骨汤", time: "60 分钟", kcal: 350, prot: 22, tags: ["汤煲"], ing: [["胡萝卜", "1 根", "carrot"]] },
-    { title: "苹果燕麦杯", time: "8 分钟", kcal: 220, prot: 8, tags: ["早餐", "低脂"], ing: [["苹果", "1 个", "apple"], ["燕麦", "40 克", "oat"], ["酸奶", "1 杯", "yogurt"]] },
-    { title: "香煎鸡胸肉", time: "18 分钟", kcal: 280, prot: 34, tags: ["增肌", "低脂"], ing: [["鸡肉", "200 克", "chicken"]] },
-    { title: "蔬菜蛋炒饭", time: "15 分钟", kcal: 480, prot: 15, tags: ["主食", "清库存"], ing: [["鸡蛋", "2 个", "egg"], ["米饭", "1 碗", "rice"], ["胡萝卜", "半根", "carrot"]] }
+    { title: "番茄炒蛋", time: "15 分钟", kcal: 320, prot: 14, tags: ["家常", "快手"], method: "炒", ing: [["鸡蛋", "3 个", "egg"], ["番茄", "2 个", "tomato"]], subs: ["番茄可用罐装去皮番茄替代，先沥掉多余汤汁"] },
+    { title: "上汤上海青", time: "20 分钟", kcal: 150, prot: 6, tags: ["清淡"], method: "煮", ing: [["上海青", "1 把", "greens"], ["皮蛋", "1 个", ""]], subs: ["皮蛋可用咸蛋黄替代，减少额外用盐"] },
+    { title: "清炒上海青", time: "12 分钟", kcal: 110, prot: 4, tags: ["清淡", "快手"], method: "炒", ing: [["上海青", "1 把", "greens"]] },
+    { title: "牛奶燕麦粥", time: "10 分钟", kcal: 280, prot: 12, tags: ["早餐"], method: "煮", ing: [["鲜牛奶", "0.5 盒", "milk"], ["燕麦", "50 克", "oat"]], subs: ["鲜牛奶可用无乳糖牛奶或豆浆替代", "乳糖不耐者不要用普通牛奶硬撑"] },
+    { title: "青椒炒肉", time: "25 分钟", kcal: 430, prot: 22, tags: ["下饭"], method: "炒", ing: [["五花肉", "200 克", "pork"], ["青椒", "2 个", ""]], subs: ["五花肉可用瘦肉替代，需减少炒制时间"] },
+    { title: "番茄鸡蛋面", time: "20 分钟", kcal: 520, prot: 20, tags: ["主食"], method: "煮", ing: [["鸡蛋", "2 个", "egg"], ["番茄", "1 个", "tomato"], ["挂面", "100 克", "noodle"]], subs: ["挂面可用同类干面替代，按包装时间煮熟"] },
+    { title: "香菇蒸鸡", time: "35 分钟", kcal: 380, prot: 28, tags: ["蒸菜"], method: "蒸", ing: [["鸡肉", "300 克", "chicken"], ["蘑菇", "4 朵", "mushroom"]], subs: ["香菇不足时可只保留鸡肉，调味不宜过重"] },
+    { title: "红烧豆腐", time: "20 分钟", kcal: 260, prot: 16, tags: ["素菜"], method: "烧", ing: [["豆腐", "1 块", "tofu"]], subs: ["嫩豆腐易碎，可改用老豆腐获得更完整口感"] },
+    { title: "蒜蓉炒时蔬", time: "10 分钟", kcal: 120, prot: 3, tags: ["清淡", "快手"], method: "炒", ing: [["小白菜", "1 把", "bokchoy"]] },
+    { title: "黄瓜炒虾仁", time: "18 分钟", kcal: 240, prot: 24, tags: ["低脂"], method: "炒", ing: [["虾", "200 克", "shrimp"], ["黄瓜", "1 根", "cucumber"]], subs: ["虾仁可用鸡胸肉丁替代，炒至中心完全变白"] },
+    { title: "土豆烧肉", time: "45 分钟", kcal: 560, prot: 20, tags: ["硬菜"], method: "烧", ing: [["土豆", "2 个", "potato"], ["五花肉", "250 克", "pork"]], subs: ["五花肉可用梅花肉替代，缩短焖煮时间"] },
+    { title: "洋葱炒蛋", time: "12 分钟", kcal: 280, prot: 13, tags: ["快手"], method: "炒", ing: [["洋葱", "1 个", "onion"], ["鸡蛋", "2 个", "egg"]], subs: ["洋葱可用青椒替代，先炒至断生"] },
+    { title: "萝卜排骨汤", time: "60 分钟", kcal: 350, prot: 22, tags: ["汤煲"], method: "煮", ing: [["胡萝卜", "1 根", "carrot"]], subs: ["没有排骨时不要用调味料冒充高汤，直接做胡萝卜清汤"] },
+    { title: "苹果燕麦杯", time: "8 分钟", kcal: 220, prot: 8, tags: ["早餐", "低脂"], method: "拌", ing: [["苹果", "1 个", "apple"], ["燕麦", "40 克", "oat"], ["酸奶", "1 杯", "yogurt"]], subs: ["酸奶可用无糖酸奶替代，避免额外糖分"] },
+    { title: "香煎鸡胸肉", time: "18 分钟", kcal: 280, prot: 34, tags: ["增肌", "低脂"], method: "煎", ing: [["鸡肉", "200 克", "chicken"]], subs: ["鸡胸肉可用去皮鸡腿肉替代，煎制时间增加 2-3 分钟"] },
+    { title: "蔬菜蛋炒饭", time: "15 分钟", kcal: 480, prot: 15, tags: ["主食", "清库存"], method: "炒", ing: [["鸡蛋", "2 个", "egg"], ["米饭", "1 碗", "rice"], ["胡萝卜", "半根", "carrot"]], subs: ["米饭可用隔夜杂粮饭替代，避免湿饭下锅"] }
   ];
 
   /* ---------- 食品安全通用规则（AI 对话证据 / 存放建议） ---------- */

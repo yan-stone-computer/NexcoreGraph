@@ -54,6 +54,7 @@
   function route(text) {
     var t = text || "";
     if (/^(hi|hello|你好|您好|在吗|嗨)/i.test(t) || t === "在么") return "greet";
+    if (/先吃什么|今晚吃什么|临期.*做|快过期.*做|救哪|清库存.*做/.test(t)) return "rescue";
     if (/放哪|在哪里|在哪|哪儿|找到/.test(t)) return "where";
     if (/还剩|剩多少|有多少|几个|几盒|几瓶|数量/.test(t) && !/调整|改/.test(t)) return "qty";
     if (/保质期|能放|多久|过期|变质|几天/.test(t)) return "expiry";
@@ -98,6 +99,43 @@
       return { text: "没有找到对应物品或知识库条目。常见食材我都能答，比如「鸡蛋能放多久」。", model: false };
     }
     return null;
+  }
+
+  /* 临期救援快答：由确定性求解器返回候选，模型不参与数量、日期与排序。 */
+  function rescueReply() {
+    return window.API.rescueCandidates({
+      mode: "rescue",
+      maxMinutes: 60,
+      includeMissing: true,
+      maxMeals: 2,
+      maxTotalMinutes: 60
+    }).then(function (result) {
+      window.API.logAiUsage("/api/ai/chat", 0, "救援求解器", { mode: "pareto" });
+      var top = result.candidates.slice(0, 3);
+      if (!top.length) {
+        return {
+          text: "当前没有可安全推荐的临期食材。可以先拍照入库，或补充基础食材后再让我安排。",
+          candidates: [],
+          model: false,
+          src: "救援求解器 · 0 次模型调用"
+        };
+      }
+      var lines = top.map(function (c, i) {
+        return (i + 1) + ". " + c.title + "（匹配 " + c.matchRate + "%，临期 " + c.rescueItems + " 项）";
+      });
+      var menu = result.portfolio && result.portfolio.meals.length
+        ? "\n今晚组合：" + result.portfolio.meals.map(function (m) { return m.title; }).join(" + ") +
+          "，可覆盖 " + result.portfolio.rescuedKeys.length + " 种临期食材。"
+        : "";
+      return {
+        text: "我让确定性求解器比较了食材匹配、临期程度、缺料与时间约束。优先候选：\n" +
+          lines.join("\n") + menu + "\n排序和库存事实均为 0 次模型调用。",
+        candidates: top,
+        portfolio: result.portfolio,
+        model: false,
+        src: "Pareto 救援求解器 · 0 次模型调用"
+      };
+    });
   }
 
   function posOf(it) {
@@ -232,6 +270,7 @@
       }
     }
     var intent = route(text);
+    if (intent === "rescue") return rescueReply();
     var fast = fastReply(intent, text);
     if (fast) {
       window.API.logAiUsage("/api/ai/chat", 0, "本地快答");

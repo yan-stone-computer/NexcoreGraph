@@ -28,7 +28,8 @@
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
     moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
     "circle-check": '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 5-5"/>',
-    upload: '<path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/>'
+    upload: '<path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/>',
+    graph: '<circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="7.5" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M8.2 7.1l7.4-.9M7 8.2l3.7 7.6M17 9.7l-3.6 6.4"/>'
   };
   function icon(name, size) {
     size = size || 20;
@@ -74,12 +75,12 @@
       '<div class="login-card">' +
       '<img class="login-logo" src="assets/img/logo.png" alt="启核图策" width="96" height="96"/>' +
       '<h1 class="login-title">管理员端</h1>' +
-      '<p class="login-sub">启核图策 · 管理看板（需管理员角色）</p>' +
+      '<p class="login-sub">NexcoreGraph · 管理看板（需管理员角色）</p>' +
       '<form class="login-form" id="admin-login-form" novalidate>' +
       '<div class="field"><label for="admin-phone">手机号</label><input id="admin-phone" inputmode="numeric" maxlength="11" placeholder="管理员手机号" aria-label="手机号"/><div class="login-err" id="admin-err" hidden></div></div>' +
       '<div class="field"><label for="admin-code">验证码</label><div class="code-row"><input id="admin-code" inputmode="numeric" maxlength="6" placeholder="6 位验证码" aria-label="验证码"/><button class="btn btn-ghost btn-sm" type="button" data-action="admin:code">获取验证码</button></div></div>' +
       '<button class="btn btn-primary login-submit" type="submit">登录管理员端</button></form>' +
-      '<p class="login-note">演示管理员：13800138000 · 验证码 123456<br/>非管理员角色将被拒绝（F10 鉴权）</p>' +
+      '<p class="login-note">请用家庭管理员账号登录；验证码由自建后端下发到手机或邮箱，非管理员角色将被拒绝（F10 鉴权）</p>' +
       "</div></div>"
     );
   }
@@ -201,6 +202,58 @@
     );
   }
 
+  /* ---------- 图谱看板（WX6：仅匿名聚合指标，无任何物品明细） ---------- */
+  function viewGraphStats() {
+    var G = window.GRAPH;
+    if (!G) {
+      return '<div class="view"><div class="view-head"><div><h1 class="view-title">图谱看板</h1><p class="view-sub">图谱运营指标（WX6）</p></div></div>' +
+        '<div class="card"><div class="empty-sub">图谱模块未加载：请检查 admin.html 是否引入 js/graph.js。</div></div></div>';
+    }
+    var doc = G.ensure();
+    var families = DB.families.length || 1;
+    var nodes = doc.nodes.length, edges = doc.edges.length;
+    var byLevel = { 1: 0, 2: 0, 3: 0 };
+    doc.communities.forEach(function (c) { byLevel[c.level] = (byLevel[c.level] || 0) + 1; });
+    var l1N = byLevel[1] || 0;
+    var fresh = doc.summaries.filter(function (s) { return !s.stale; }).length;
+    /* AI 指标（从用量记录匿名聚合：仅计数与比率） */
+    var usage = DB.aiUsage || [];
+    var modelCalls = usage.filter(function (u) { return u.model !== "本地快答" && u.model !== "本地降级"; });
+    var aiLead = usage.length ? Math.round((modelCalls.length / usage.length) * 100) : 0;
+    var withEvidence = modelCalls.filter(function (u) { return (u.evidenceN || 0) > 0; });
+    var pathRate = modelCalls.length ? Math.round((withEvidence.length / modelCalls.length) * 100) : 0;
+    var globalCalls = modelCalls.filter(function (u) { return u.mode === "global"; });
+    var summaryHits = globalCalls.filter(function (u) { return u.summaryHit; }).length;
+    var summaryHitRate = globalCalls.length ? Math.round((summaryHits / globalCalls.length) * 100) : 0;
+    var kpi = function (v, label, sub) {
+      return '<div class="card admin-kpi"><div class="stat-value num">' + v + '</div><div class="stat-label">' + label + '</div><div class="stat-delta">' + sub + "</div></div>";
+    };
+    var typeRows = Object.keys(doc.index.byType)
+      .map(function (t) { return "<tr><td>" + esc(t) + "</td><td class='num'>" + doc.index.byType[t].length + "</td></tr>"; })
+      .join("");
+    var commRows = [["1", "库社区（L1）"], ["2", "类别社区（L2）"], ["3", "场景社区（L3）"]]
+      .map(function (r) { return "<tr><td>" + r[1] + "</td><td class='num'>" + (byLevel[Number(r[0])] || 0) + "</td></tr>"; })
+      .join("");
+    return (
+      '<div class="view"><div class="view-head"><div><h1 class="view-title">图谱看板</h1><p class="view-sub">图谱运营指标 · 匿名聚合（WX6）· 不含任何物品明细</p></div></div>' +
+      '<div class="admin-kpis">' +
+      kpi(families, "接入家庭", "匿名计数") +
+      kpi(Math.round(nodes / families), "平均节点 / 家庭", "共 " + nodes + " 节点") +
+      kpi(Math.round(edges / families), "平均边 / 家庭", "共 " + edges + " 边") +
+      kpi(doc.communities.length, "社区总数", "库/类别/场景三级") +
+      kpi(fresh + " / " + l1N, "新鲜摘要 / L1 社区", "24h 内且版本一致") +
+      kpi(summaryHitRate + "%", "摘要命中率", "global 回答引用占比") +
+      kpi(pathRate + "%", "路径引用率", "回答携带图谱证据占比") +
+      kpi(aiLead + "%", "AI 主导率", "模型参与回答占比") +
+      "</div>" +
+      '<div class="grid-2">' +
+      '<div class="card"><div class="card-title" style="margin-bottom:8px">节点类型分布（聚合）</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>类型</th><th>数量</th></tr></thead><tbody>' + (typeRows || "<tr><td colspan='2' class='empty-sub'>暂无数据</td></tr>") + "</tbody></table></div></div>" +
+      '<div class="card"><div class="card-title" style="margin-bottom:8px">社区分级（聚合）</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>层级</th><th>社区数</th></tr></thead><tbody>' + commRows + "</tbody></table></div></div>" +
+      "</div>" +
+      '<div class="card" style="margin-top:20px"><div class="card-sub">隐私边界：本页仅暴露聚合指标（家庭数 / 均值 / 比率），不包含任何物品、成员或聊天明细；明细查看需二次确认并写审计日志（F10.3 / 数据分级 P1\'）。当前图谱版本 <span class="num">' + esc(doc.version) + "</span> · 构建于 " + new Date(doc.builtAt).toLocaleString("zh-CN", { hour12: false }) + "。</div></div></div>"
+    );
+  }
+
   /* ---------- 系统配置（F10.5 / F10.6） ---------- */
   function viewConfig() {
     var c = DB.config;
@@ -277,6 +330,7 @@
     { id: "families", label: "家庭管理", icon: "home" },
     { id: "audit", label: "数据审计", icon: "history" },
     { id: "usage", label: "AI 用量", icon: "sparkles" },
+    { id: "graphstats", label: "图谱看板", icon: "graph" },
     { id: "config", label: "系统配置", icon: "settings" },
     { id: "knowledge", label: "知识库管理", icon: "book" }
   ];
@@ -293,11 +347,55 @@
       '<aside class="sidebar">' +
       '<div class="brand"><div class="brand-mark"><img src="assets/img/logo.png" alt="logo" width="40" height="40"/></div><div><div class="brand-name">启核图策</div><div class="brand-sub">管理员端 · 管理看板</div></div></div>' +
       '<nav class="nav" aria-label="管理导航"><div class="nav-label">管理</div>' + nav + "</nav>" +
-      '<div class="sidebar-foot"><div class="user-chip"><div class="avatar">' + esc(DB.user.initial) + "</div><div><div class='user-name'>" + esc(DB.user.name) + "</div><div class='user-role'>管理员</div></div>" +
+      '<div class="sidebar-foot"><div class="user-chip"><div class="avatar">' + esc((DB.user || {}).initial || "管") + "</div><div><div class='user-name'>" + esc((DB.user || {}).name || "管理员") + "</div><div class='user-role'>管理员</div></div>" +
       '<button class="icon-btn" style="margin-left:auto;width:32px;height:32px" data-action="admin:logout" aria-label="退出">' + icon("logout", 17) + "</button></div>" +
       '<a class="link-btn" href="index.html" style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px">' + icon("sun", 14) + " 返回用户端</a></div></aside>" +
       '<div class="main"><main class="content" id="view"></main></div></div>'
     );
+  }
+
+  /* 管理员端真实数据：登录后从后端拉用户 / 家庭 / 审计 / 用量 */
+  function loadOverview() {
+    return window.AUTH.getAuth("/api/admin/overview", S.token).then(function (o) {
+      DB.users = (o.users || []).map(function (u) {
+        return {
+          phone: u.phone,
+          name: u.nickname || u.phone,
+          role: u.role || "成员",
+          familyId: "",
+          disabled: false,
+          createdAt: String(u.created_at || "").slice(0, 10)
+        };
+      });
+      DB.families = (o.families || []).map(function (f) {
+        return {
+          id: f.id,
+          name: f.name,
+          memberCount: f.member_count || 0,
+          inviteCode: f.invite_code || ""
+        };
+      });
+      DB.logs = (o.logs || []).map(function (l) {
+        return {
+          at: String(l.created_at || ""),
+          action: l.action,
+          detail: l.detail,
+          familyId: l.family_id
+        };
+      });
+      DB.aiUsage = (o.usage || []).map(function (u) {
+        return {
+          route: u.route,
+          model: u.model,
+          ms: Math.round(u.avgMs || 0),
+          calls: u.calls,
+          tokens: u.tokens || 0,
+          at: "",
+          day: ""
+        };
+      });
+      return o;
+    });
   }
 
   function render() {
@@ -309,17 +407,28 @@
         var phone = document.getElementById("admin-phone").value.trim();
         var code = document.getElementById("admin-code").value.trim();
         var err = document.getElementById("admin-err");
-        if (!/^1\d{10}$/.test(phone) || !/^\d{6}$/.test(code)) {
+        var okPhone = /^1\d{10}$/.test(phone) || /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(phone);
+        if (!okPhone || !/^\d{6}$/.test(code)) {
           err.hidden = false;
-          err.textContent = "请输入 11 位手机号与 6 位验证码（123456）";
+          err.textContent = "请输入手机号/邮箱与 6 位验证码";
           return;
         }
         err.hidden = true;
         runBusy("login", function () {
-          return API.adminLogin(phone, code).then(function (u) {
+          return window.AUTH.login(phone, code).then(function (a) {
+            if (!a || !a.ok) throw new Error((a && a.error) || "登录失败");
+            if (a.role !== "管理员") throw new Error("当前账号不是管理员，无法进入管理端");
+            S.token = a.token || "";
+            DB.user = {
+              name: a.nickname || phone,
+              phone: phone,
+              role: "管理员",
+              initial: (a.nickname || phone || "管").slice(0, 1)
+            };
+            sessionStorage.setItem("nexcore_admin_token", S.token);
             S.loggedIn = true;
             sessionStorage.setItem("nexcore_admin_in", "1");
-            return u;
+            return loadOverview();
           });
         }, function () {
           toast("已登录管理员端");
@@ -327,7 +436,7 @@
       });
       return;
     }
-    var fns = { users: viewUsers, families: viewFamilies, audit: viewAudit, usage: viewUsage, config: viewConfig, knowledge: viewKnowledge };
+    var fns = { users: viewUsers, families: viewFamilies, audit: viewAudit, usage: viewUsage, graphstats: viewGraphStats, config: viewConfig, knowledge: viewKnowledge };
     document.body.innerHTML = shell();
     document.getElementById("view").innerHTML = (fns[S.view] || viewUsers)();
     var af = document.getElementById("audit-filter");
@@ -377,11 +486,21 @@
         render();
         break;
       case "admin:code":
-        toast("演示环境：验证码为 123456");
+        {
+          var ap = ((document.getElementById("admin-phone") || {}).value || "").trim();
+          if (!ap) { toast("先填手机号或邮箱"); break; }
+          runBusy("login:code", function () {
+            return window.AUTH ? window.AUTH.requestCode(ap)
+              : Promise.reject(new Error("登录服务未就绪"));
+          }, function (r) {
+            toast(r && r.ok ? (r.hint || "验证码已下发") : ((r && r.error) || "验证码下发失败"));
+          });
+        }
         break;
       case "admin:logout":
         S.loggedIn = false;
         sessionStorage.removeItem("nexcore_admin_in");
+        sessionStorage.removeItem("nexcore_admin_token");
         render();
         break;
       case "user:toggle": {
@@ -469,6 +588,17 @@
     if (e.key === "Escape" && S.loggedIn) { /* 无浮层，忽略 */ }
   });
 
-  document.documentElement.setAttribute("data-theme", DB.theme || "dark");
-  render();
+  document.documentElement.setAttribute("data-theme", DB.theme || "light");
+  /* 恢复管理员会话：有 token 就拉一次真实数据，失败回登录页 */
+  S.token = sessionStorage.getItem("nexcore_admin_token") || "";
+  if (S.loggedIn && S.token) {
+    loadOverview().then(function () { render(); }, function () {
+      S.loggedIn = false;
+      sessionStorage.removeItem("nexcore_admin_in");
+      sessionStorage.removeItem("nexcore_admin_token");
+      render();
+    });
+  } else {
+    render();
+  }
 })();
