@@ -82,7 +82,7 @@
 - 提醒候选与去重；
 - Agent 策略与幂等。
 
-当前测试用例数：`24`。
+当前测试用例数：`26`。
 
 ### Node 后端
 
@@ -119,7 +119,7 @@
 entry/build/default/outputs/default/entry-default-unsigned.hap
 ```
 
-大小：`4,554,942` 字节，约 `4.34 MiB`。
+大小：`4,555,130` 字节，约 `4.34 MiB`。
 
 ## 尚未完成
 
