@@ -251,6 +251,7 @@ function placeItems(lib: Library, named: IntakeResult[]): void {
     const item = new Item(r.id, r.name, r.emoji, r.img, r.kbKey,
       parseFloat(r.qty) || 1, r.unit || '个', parseFloat(r.price) || 0, r.priceSrc || '手动',
       expDays, r.pos === '' ? '未设置' : r.pos, expDays > 0 && expDays <= 3);
+    item.barcode = r.barcode;
     lib.items.push(item);
     newItems.push(item);
   });

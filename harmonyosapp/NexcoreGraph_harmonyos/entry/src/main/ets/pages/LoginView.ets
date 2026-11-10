@@ -8,6 +8,7 @@ import { T, R_L, R_XL, DUR_SLOW } from '../common/Tokens';
 import { Ico, TBtn, Field } from '../components/Widgets';
 import { requestLoginCode, loginByCode } from '../common/Api';
 import { startLiveSync } from '../common/LiveSync';
+import { applyPendingEntryTarget } from '../common/NavigationIntent';
 import { currentBase, resolveBase, currentServerMode } from '../common/Backend';
 
 @ComponentV2
@@ -92,6 +93,7 @@ export struct LoginView {
     this.err = '';
     loginByCode(this.phone, this.code).then((msg: string): void => {
       store.toast(msg);
+      applyPendingEntryTarget();
       startLiveSync();     // 登录成功即开始多端同步与自动保存
     }).catch((e: Error): void => {
       this.err = e !== undefined && e.message !== undefined && e.message !== '' ? e.message : '登录失败，请重试';
@@ -124,6 +126,15 @@ export struct LoginView {
   @Builder
   LoginCard() {
     Column({ space: 14 }) {
+      if (store.pendingEntryTarget !== '') {
+        Text('登录后将继续打开刚才的快捷功能')
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 9, bottom: 9 })
+          .borderRadius(R_M)
+          .backgroundColor(T.c('primary-container'))
+          .fontSize(12)
+          .fontColor(T.c('primary-ink'))
+      }
       Field({ label: '手机号 / 邮箱', text: this.phone, placeholder: '手机号或邮箱，如 you@163.com',
         change: (v: string): void => {
           this.phone = v;

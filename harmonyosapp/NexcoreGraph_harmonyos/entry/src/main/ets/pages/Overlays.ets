@@ -15,6 +15,7 @@ import {
 import { AiPanel } from './AiPanel';
 import { GraphPanel } from './GraphPanel';
 import { AnalyticsBoard } from './AnalyticsBoard';
+import { TwinPanel } from './TwinPanel';
 import { buildFlowState, applyFlowState, buildDataSnapshot, applyDataSnapshot } from '../common/Continuation';
 import { publishFlow, pullFlow, deviceLabel, FlowHandoff } from '../common/FlowBridge';
 import { markSyncedRev } from '../common/LiveSync';
@@ -26,8 +27,10 @@ import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { rebuildGraph } from '../common/GraphBuild';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { GraphBuildStat } from '../common/GraphModel';
+import { attachScanEvidence, ScanEvidence } from '../common/BarcodeIntake';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { cameraPicker, camera } from '@kit.CameraKit';
+import { scanBarcode, scanCore } from '@kit.ScanKit';
 import { image } from '@kit.ImageKit';
 import { util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
@@ -164,6 +167,8 @@ export struct SheetContent {
             SettingsView()
             } else if (store.overlay === 'graph') {
               GraphPanel()
+            } else if (store.overlay === 'twin') {
+              TwinPanel()
             } else if (store.overlay === 'analytics') {
               AnalyticsBoard()
             } else if (store.overlay === 'flow') {
@@ -1099,6 +1104,8 @@ struct IntakePanel {
   @Local elapsedSec: number = 0;          // 识别秒表：用户反馈"发不相干的图要等很久又没反馈"
   @Local intakeEmpty: boolean = false;    // 网关判定"图中没有可入库的家庭物品"（正常结果，不是失败）
   @Local intakeNote: string = '';         // 空结果 / 失败的一句话说明（含实测耗时）
+  @Local scanCode: string = '';
+  @Local scanFormat: string = '';
   private scanTimer: number = -1;
   private tickTimer: number = -1;
   private intakeStartMs: number = 0;      // M-11 指标③：本次盘点起始时刻（拍摄/选图 → 确认入库）
@@ -1244,11 +1251,34 @@ struct IntakePanel {
 
             Row({ space: 12 }) {
               TBtn({ label: '拍照', icon: 'camera', kind: 'primary', tap: (): void => this.shoot() })
+              TBtn({ label: '扫码', icon: 'scan', kind: 'ghost', tap: (): void => this.scanCode() })
               TBtn({ label: '从相册选择', icon: 'upload', kind: 'ghost', tap: (): void => this.pickPhoto() })
             }
 
             Text('相册一次可多选最多 6 张，连拍自动合并去重累加；无相机设备请用「从相册选择」')
               .fontSize(12).fontColor(T.c('text-muted'))
+
+            if (this.scanCode !== '') {
+              Card() {
+                Column({ space: 6 }) {
+                  Row({ space: 8 }) {
+                    Ico({ name: 'scan', dim: 16, color: T.c('primary-ink') })
+                    Text('原生扫码已捕获').fontSize(14).fontWeight(700).fontColor(T.c('text-primary'))
+                    Blank()
+                    TBtn({ label: '清除', kind: 'ghost', small: true, tap: (): void => {
+                      this.scanCode = '';
+                      this.scanFormat = '';
+                    } })
+                  }
+                  .width('100%')
+                  Text(`${this.scanFormat} · ${this.scanCode}`)
+                    .fontSize(12).fontColor(T.c('text-secondary')).copyOption(CopyOptions.LocalDevice)
+                  Text('扫码只提供精确识别码；继续拍照后，只有恰好识别出一件物品时才会自动关联，不会猜商品名。')
+                    .fontSize(11).lineHeight(17).fontColor(T.c('text-muted'))
+                }
+                .alignItems(HorizontalAlign.Start)
+              }
+            }
         }
         .width('100%')
         .alignItems(HorizontalAlign.Center)
@@ -1404,6 +1434,32 @@ struct IntakePanel {
     }
   }
 
+  private scanEvidence(): ScanEvidence {
+    const evidence = new ScanEvidence();
+    evidence.code = this.scanCode;
+    evidence.format = this.scanFormat;
+    evidence.at = Date.now();
+    return evidence;
+  }
+
+  /** 鸿蒙原生扫码：只采集精确识别码，商品语义仍交给视觉模型与用户确认。 */
+  private scanCode(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    scanBarcode.startScanForResult(ctx, {
+      scanTypes: [scanCore.ScanType.ALL],
+      enableAlbum: true
+    }).then((result: scanBarcode.ScanResult): void => {
+      if (result === undefined || result.originalValue === undefined || result.originalValue === '') {
+        return;
+      }
+      this.scanCode = result.originalValue;
+      this.scanFormat = `格式 ${result.scanType}`;
+      store.toast('已扫码，继续拍照让 AI 补全名称和数量');
+    }).catch((_e: Error): void => {
+      store.toast('未能打开扫码，可改用拍照或相册');
+    });
+  }
+
   private pickPhoto(): void {
     const picker = new photoAccessHelper.PhotoViewPicker();
     const opts: photoAccessHelper.PhotoSelectOptions = {
@@ -1451,7 +1507,7 @@ struct IntakePanel {
         store.toast('这些图里没有识别到家庭物品，换一批再试试');
         return;
       }
-      store.intake = merged;
+      store.intake = attachScanEvidence(merged, this.scanEvidence());
       store.intakeLoading = false;
       this.mergedDone = true;
       store.toast(`连拍合并完成：${uris.length} 张 → ${merged.length} 项（同名已合并）`);
@@ -1504,7 +1560,7 @@ struct IntakePanel {
     const t0: number = this.intakeStartMs > 0 ? this.intakeStartMs : Date.now();
       recognizeImage(b64).then((items: IntakeResult[]): void => {
         this.stopTicker();
-        store.intake = items;
+        store.intake = attachScanEvidence(items, this.scanEvidence());
         store.intakeLoading = false;
         if (items.length === 0) {
           // 空结果是正常结果：网关判定这张图里没有食物/日用品等可入库物品。
@@ -1605,6 +1661,11 @@ struct RecogCard {
           })
         }
         .width('100%')
+
+        if (this.r.barcode !== '') {
+          Text(`条码 · ${this.r.barcodeSource} · ${this.r.barcode}`)
+            .fontSize(11).fontColor(T.c('primary-ink')).fontFeature('tnum')
+        }
 
         Column({ space: 10 }) {
           // 手机两列，宽屏三列

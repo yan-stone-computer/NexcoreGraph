@@ -5,6 +5,7 @@ import { store } from '../common/Store';
 import { initKnowledge } from '../common/KnowledgeIndex';
 import { saveFormSnapshot } from '../common/LocalStore';
 import { onContinueSave, restoreFlow, isContinuation, allowContinue } from '../common/Continuation';
+import { applyPendingEntryTarget, parseEntryTarget } from '../common/NavigationIntent';
 
 const DOMAIN = 0x0000;
 
@@ -35,30 +36,21 @@ export default class EntryAbility extends UIAbility {
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     this.handleCardWant(want);
+    applyPendingEntryTarget();
     if (isContinuation(launchParam)) {
       restoreFlow(want);
     }
   }
 
-  /* 服务卡片路由（元服务卡片入口）：target=intake/ai/plans/shopping → 全局状态直达对应功能 */
+  /* 服务卡片路由：只排队目标，登录成功后由页面消费。 */
   private handleCardWant(want: Want): void {
     const params = want.parameters;
     if (params === undefined) {
       return;
     }
-    const target = params['target'];
-    if (typeof target !== 'string') {
-      return;
-    }
-    store.loggedIn = true;   // 卡片快捷入口直达功能，跳过登录页
-    if (target === 'ai') {
-      store.aiOpen = true;
-    } else if (target === 'libs') {
-      store.tabIndex = 1;
-    } else if (target === 'alerts') {
-      store.overlay = 'alerts';
-    } else if (target === 'intake' || target === 'plans' || target === 'shopping') {
-      store.overlay = target;
+    const target: string = parseEntryTarget(params['target']);
+    if (target !== '') {
+      store.pendingEntryTarget = target;
     }
   }
 

@@ -23,11 +23,15 @@
 const express = require('express');
 const os = require('os');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const { execFile } = require('child_process');
 const mysql = require('mysql2/promise');
 const { buildGraph } = require('./graphBuild');
 const { GraphService } = require('./graphService');
 const { buildEvidence, matchEntity } = require('./graphQuery');
 const { sendMail } = require('./mailer');
+const { sanitizeModelReply } = require('./replySanitizer');
 
 /**
  * 可选：读取同目录 gitignore 的 backend/.env（AGNES_API_KEY=sk-xxx 等），
@@ -95,6 +99,22 @@ const pool = mysql.createPool(Object.assign({ connectionLimit: 8 }, DB));
 const graph = new GraphService(pool);
 const app = express();
 app.use(express.json({ limit: '8mb' }));
+const TTS_DIR = path.join(__dirname, 'tts-cache');
+fs.mkdirSync(TTS_DIR, { recursive: true });
+app.use('/tts', express.static(TTS_DIR, { maxAge: '1d', fallthrough: false }));
+
+/* CORS：Web 端跑在浏览器里（可能从 file:// 双击打开，也可能由别的端口托管），
+   直连这个自建后端时必须允许跨源；局域网自建形态不做来源白名单，公网部署时再收紧。 */
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Auth-Token');
+  res.setHeader('Access-Control-Max-Age', '600');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
 
 /* 建表（幂等）：业务表对齐开发文档第 6 节数据模型（账号 / 家庭 / 成员 / 快照 / 日志） */
 async function initDb() {
@@ -146,6 +166,22 @@ async function initDb() {
     action VARCHAR(32) NOT NULL,
     detail VARCHAR(512),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS event_journal (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    family_id VARCHAR(64) NOT NULL,
+    event_id VARCHAR(100) NOT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    target_id VARCHAR(128) NOT NULL,
+    actor VARCHAR(128) NOT NULL,
+    device_id VARCHAR(64) NOT NULL,
+    correlation_id VARCHAR(100) NULL,
+    payload LONGTEXT NOT NULL,
+    prev_hash CHAR(64) NOT NULL,
+    hash CHAR(64) NOT NULL,
+    created_at BIGINT NOT NULL,
+    UNIQUE KEY uk_event_id (event_id),
+    INDEX idx_family_event (family_id, id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   /* 整改文档 4.10 新增表：AI 用量留痕（M-10 端内与管理员端共用） */
   await pool.query(`CREATE TABLE IF NOT EXISTS ai_usage (
@@ -928,6 +964,137 @@ app.get('/api/logs/:familyId', async (req, res) => {
   }
 });
 
+/* 追加式审计链：同一家庭按事件顺序串接 SHA-256 哈希。
+   事件重试按 eventId 幂等；payload 原文参与哈希，时间线展示不做二次规范化。 */
+app.post('/api/events/append', async (req, res) => {
+  const event = req.body || {};
+  for (const key of ['id', 'familyId', 'type', 'targetId', 'actor', 'deviceId', 'createdAt']) {
+    if (event[key] === undefined || event[key] === null || event[key] === '') {
+      return res.status(400).json({ error: '审计事件缺少 ' + key });
+    }
+  }
+  const familyId = String(event.familyId).slice(0, 64);
+  const eventId = String(event.id).slice(0, 100);
+  const payload = JSON.stringify({
+    id: eventId,
+    familyId,
+    type: String(event.type),
+    targetId: String(event.targetId).slice(0, 128),
+    before: event.before || null,
+    after: event.after || null,
+    actor: String(event.actor).slice(0, 128),
+    deviceId: String(event.deviceId).slice(0, 64),
+    createdAt: Number(event.createdAt),
+    idempotencyKey: String(event.idempotencyKey || ''),
+    correlationId: event.correlationId ? String(event.correlationId).slice(0, 100) : null,
+    causationId: event.causationId ? String(event.causationId).slice(0, 100) : null
+  });
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [existing] = await conn.query(
+      'SELECT prev_hash, hash FROM event_journal WHERE event_id = ? LIMIT 1',
+      [eventId]
+    );
+    if (existing.length) {
+      await conn.commit();
+      return res.json({ ok: true, duplicate: true, prevHash: existing[0].prev_hash, hash: existing[0].hash });
+    }
+    const [last] = await conn.query(
+      'SELECT hash FROM event_journal WHERE family_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE',
+      [familyId]
+    );
+    const prevHash = last.length ? last[0].hash : '0'.repeat(64);
+    const hash = crypto.createHash('sha256').update(prevHash + '\n' + payload, 'utf8').digest('hex');
+    await conn.query(
+      `INSERT INTO event_journal
+       (family_id, event_id, event_type, target_id, actor, device_id, correlation_id, payload, prev_hash, hash, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        familyId,
+        eventId,
+        String(event.type).slice(0, 64),
+        String(event.targetId).slice(0, 128),
+        String(event.actor).slice(0, 128),
+        String(event.deviceId).slice(0, 64),
+        event.correlationId ? String(event.correlationId).slice(0, 100) : null,
+        payload,
+        prevHash,
+        hash,
+        Number(event.createdAt)
+      ]
+    );
+    await conn.commit();
+    res.json({ ok: true, prevHash, hash });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
+app.get('/api/events/timeline/:familyId', async (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+    const [rows] = await pool.query(
+      `SELECT event_id, event_type, target_id, actor, device_id, correlation_id,
+              prev_hash, hash, created_at, payload
+       FROM event_journal WHERE family_id = ? ORDER BY id DESC LIMIT ?`,
+      [String(req.params.familyId).slice(0, 64), limit]
+    );
+    res.json({
+      ok: true,
+      events: rows.map((row) => ({
+        id: row.event_id,
+        type: row.event_type,
+        targetId: row.target_id,
+        actor: row.actor,
+        deviceId: row.device_id,
+        correlationId: row.correlation_id || undefined,
+        prevHash: row.prev_hash,
+        hash: row.hash,
+        createdAt: Number(row.created_at),
+        payload: JSON.parse(row.payload)
+      }))
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/events/verify/:familyId', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT event_id, payload, prev_hash, hash
+       FROM event_journal WHERE family_id = ? ORDER BY id ASC`,
+      [String(req.params.familyId).slice(0, 64)]
+    );
+    let expectedPrev = '0'.repeat(64);
+    for (const row of rows) {
+      const expectedHash = crypto.createHash('sha256')
+        .update(expectedPrev + '\n' + row.payload, 'utf8')
+        .digest('hex');
+      if (row.prev_hash !== expectedPrev || row.hash !== expectedHash) {
+        return res.status(409).json({
+          ok: false,
+          valid: false,
+          checked: rows.length,
+          brokenAt: row.event_id,
+          expectedPrev,
+          storedPrev: row.prev_hash,
+          expectedHash,
+          storedHash: row.hash
+        });
+      }
+      expectedPrev = row.hash;
+    }
+    res.json({ ok: true, valid: true, checked: rows.length, head: expectedPrev });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* ==========================================================================
    AI 网关（M-7）：端侧只发意图 + 证据，Key 与模型调用全部发生在服务端。
    红线保持一致：数值由端侧代码计算后放进 evidence；写操作仍由端侧预览确认。
@@ -1001,12 +1168,12 @@ function buildChatSystemPrompt(intent, evidence, graphEvidence) {
 }
 
 /** 单次上游调用（失败抛错，由上层决定重试/降级）；timeoutMs 缺省用全局 AI.timeoutMs */
-async function callAgnesOnce(messages, maxTokens, model, timeoutMs) {
+async function callAgnesOnce(messages, maxTokens, model, timeoutMs, apiKey) {
   const res = await fetch(AI.baseUrl + '/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + AI.apiKey
+      'Authorization': 'Bearer ' + (apiKey || AI.apiKey)
     },
     body: JSON.stringify({
       model: model,
@@ -1036,13 +1203,13 @@ async function callAgnesOnce(messages, maxTokens, model, timeoutMs) {
  * 免费上游偶发 429/503（限流/排队）很常见，不重试会直接失败到端侧（端侧只能回退演示数据，
  * 看起来就像"识别是假的"）。
  */
-async function callAgnes(messages, maxTokens, model) {
+async function callAgnes(messages, maxTokens, model, apiKey) {
   const attempts = [model, AI.modelAlt];
   let lastErr = null;
   for (let m = 0; m < attempts.length; m++) {
     for (let i = 0; i < 3; i++) {
       try {
-        return await callAgnesOnce(messages, maxTokens, attempts[m]);
+        return await callAgnesOnce(messages, maxTokens, attempts[m], undefined, apiKey);
       } catch (e) {
         lastErr = e;
         const retryable = e.status === 429 || (e.status >= 500 && e.status < 600) ||
@@ -1060,8 +1227,8 @@ async function callAgnes(messages, maxTokens, model) {
   throw lastErr || new Error('上游调用失败');
 }
 
-async function agnesChat(messages, maxTokens) {
-  return await callAgnes(messages, maxTokens, AI.model);
+async function agnesChat(messages, maxTokens, apiKey) {
+  return await callAgnes(messages, maxTokens, AI.model, apiKey);
 }
 
 /**
@@ -1075,7 +1242,7 @@ async function agnesChat(messages, maxTokens) {
  *   - 全程受 AI.visionBudgetMs 硬预算约束，超预算直接抛 deadline 错误，端侧立刻给出"识别超时"。
  * 每次尝试的耗时都会进 trail，便于复盘到底卡在哪个模型（返回体里也带一份）。
  */
-async function callAgnesVision(messages, maxTokens) {
+async function callAgnesVision(messages, maxTokens, apiKey) {
   const deadline = Date.now() + AI.visionBudgetMs;
   const trail = [];
   let lastErr = null;
@@ -1092,7 +1259,7 @@ async function callAgnesVision(messages, maxTokens) {
       }
       const t = Date.now();
       try {
-        const out = await callAgnesOnce(messages, maxTokens, model, Math.min(AI.timeoutMs, left));
+        const out = await callAgnesOnce(messages, maxTokens, model, Math.min(AI.timeoutMs, left), apiKey);
         trail.push(model + ':' + (Date.now() - t) + 'ms:ok');
         console.log('[ai-gateway] vision ' + trail.join(' → '));
         return Object.assign({}, out, { trail });
@@ -1208,31 +1375,6 @@ function normalizeVisionItems(raw) {
   return out.slice(0, 60);
 }
 
-/**
- * 去掉模型自曝的"思考过程"。
- * 实测（平板上的真实回答）：agnes-3.0-flash 偶尔会把推理过程一起吐出来，
- * 形如「[思考过程：用户询问"药盒"。…回复策略：…回复内容：<正文>」，
- * 端侧原样展示会非常难看，也会泄露内部提示的措辞。这里统一裁到正文。
- */
-function stripReasoning(text) {
-  let s = String(text || '').trim();
-  if (/^[\s\[【]*[\s\S]{0,40}?(思考过程|思考|推理过程|thinking|reasoning)/i.test(s)) {
-    const m = s.match(/(回复内容|最终回复|最终答案|answer)\s*[:：]\s*([\s\S]*)$/i);
-    if (m) {
-      s = m[2].trim();
-    } else {
-      // 没有明确正文标记：优先砍掉第一个方括号块，其次按"回复策略/思考"等行切
-      if (/^[\s\[【]/.test(s) && /[\]】]/.test(s)) {
-        s = s.replace(/^[\s\[【][\s\S]*?[\]】]\s*/, '').trim();
-      }
-      s = s.replace(/^(思考过程|思考|推理过程|回复策略|thinking|reasoning)\s*[:：][^\n]*\n?/gim, '').trim();
-    }
-  }
-  // 结尾残留的方括号 / 多余空行
-  s = s.replace(/[\]】]\s*$/, '').replace(/\n{3,}/g, '\n\n').trim();
-  return s === '' ? String(text || '').trim() : s;
-}
-
 /** 网关未配置 Key 时返回 503，端侧据此回退到本地快答 / 演示回复 */
 function ensureKey(res) {
   if (!AI.apiKey) {
@@ -1243,12 +1385,60 @@ function ensureKey(res) {
 }
 
 /* AI 对话：intent + evidence 由端侧装配（红线 1），模型只做措辞与工具行输出 */
+/* 微信内容安全（可选）：端侧发消息前调用。未配置 WX_APPID / WX_SECRET 时返回
+   configured:false，端侧继续用本地敏感词兜底（不假装已通过微信审核）。 */
+let wxToken = { token: '', exp: 0 };
+async function wxAccessToken() {
+  const now = Date.now();
+  if (wxToken.token && wxToken.exp > now + 60000) {
+    return wxToken.token;
+  }
+  const url = 'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=' +
+    encodeURIComponent(process.env.WX_APPID || '') + '&secret=' + encodeURIComponent(process.env.WX_SECRET || '');
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!j.access_token) {
+    throw new Error(j.errmsg || '获取微信 access_token 失败');
+  }
+  wxToken = { token: j.access_token, exp: now + (Number(j.expires_in) || 7200) * 1000 };
+  return wxToken.token;
+}
+
+app.post('/api/security/check', async (req, res) => {
+  const text = String((req.body || {}).text || '').slice(0, 500);
+  if (!text || !process.env.WX_APPID || !process.env.WX_SECRET) {
+    return res.json({ ok: true, configured: false, pass: true, checked: false });
+  }
+  try {
+    const token = await wxAccessToken();
+    const r = await fetch('https://api.weixin.qq.com/wxa/msg_sec_check?access_token=' + token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text, version: 2, scene: 2 })
+    });
+    const j = await r.json();
+    const checked = j.errcode === 0 && j.result !== undefined;
+    const pass = checked ? j.result.suggest === 'pass' : true;   // 微信侧异常时 fail-open，不误伤用户
+    if (checked && !pass) {
+      console.warn('[security] msgSecCheck 拦截 label=' + j.result.label);
+    }
+    res.json({
+      ok: true, configured: true, checked: checked, pass: pass,
+      label: checked ? j.result.label : undefined, errcode: j.errcode
+    });
+  } catch (e) {
+    /* 配置了但调用失败：fail-open，并把原因回给端侧日志 */
+    res.json({ ok: true, configured: true, checked: false, pass: true, error: e.message });
+  }
+});
+
 app.post('/api/ai/chat', async (req, res) => {
   const { familyId, user, intent, evidence, question, history, maxTokens, graphEvidence } = req.body || {};
+  const clientKey = String(req.get('x-agnes-key') || '').trim();
   if (!question && intent !== 'community-summary') {
     return res.status(400).json({ ok: false, error: '缺少 question' });
   }
-  if (!ensureKey(res)) {
+  if (!clientKey && !ensureKey(res)) {
     return;
   }
   if (rateLimited(familyId)) {
@@ -1277,9 +1467,25 @@ app.post('/api/ai/chat', async (req, res) => {
   const t0 = Date.now();
   const traceId = 'ai-' + t0 + '-' + Math.random().toString(16).substring(2, 6);
   try {
-    const out = await agnesChat(messages, Number(maxTokens) || 600);
+    const out = await agnesChat(messages, Number(maxTokens) || 600, clientKey);
     const ms = Date.now() - t0;
-    out.text = stripReasoning(out.text);   // 模型偶尔自曝推理过程，裁到正文再回给端侧
+    out.text = sanitizeModelReply(out.text);
+    if (out.text === '') {
+      warnings.push('empty_user_facing_reply');
+      await logAiUsage({
+        familyId, user, route: intent || 'other', model: out.model, ms, tokens: out.tokens,
+        source: intent === 'community-summary' ? 'summary' : 'gateway'
+      });
+      return res.status(502).json({
+        ok: false,
+        error: '模型未返回有效正文',
+        model: out.model,
+        ms,
+        tokens: out.tokens,
+        traceId,
+        warnings
+      });
+    }
     await logAiUsage({
       familyId, user, route: intent || 'other', model: out.model, ms, tokens: out.tokens,
       source: intent === 'community-summary' ? 'summary' : 'gateway'
@@ -1328,10 +1534,11 @@ const VISION_RULES = '你是「启核图策」家庭库存识别引擎。只输�
 /* 视觉识别：端侧压缩后的 base64 JPEG → 结构化物品数组（F1.1/F1.5） */
 app.post('/api/ai/vision', async (req, res) => {
   const { familyId, user, imageBase64, hints } = req.body || {};
+  const clientKey = String(req.get('x-agnes-key') || '').trim();
   if (!imageBase64) {
     return res.status(400).json({ ok: false, error: '缺少 imageBase64' });
   }
-  if (!ensureKey(res)) {
+  if (!clientKey && !ensureKey(res)) {
     return;
   }
   if (rateLimited(familyId)) {
@@ -1345,7 +1552,7 @@ app.post('/api/ai/vision', async (req, res) => {
   ];
   const t0 = Date.now();
   try {
-    const out = await callAgnesVision(messages, AI.visionMaxTokens);
+    const out = await callAgnesVision(messages, AI.visionMaxTokens, clientKey);
     const raw = extractVisionJson(out.text);
     const ms = Date.now() - t0;
     if (raw === null) {
@@ -1375,14 +1582,63 @@ app.post('/api/ai/vision', async (req, res) => {
   }
 });
 
-/* TTS 播报（M-9）：未配置 TTS_ENDPOINT 时明确返回 501，端侧静默降级为纯文字 */
+/* TTS 播报（M-9）：优先远端 TTS，未配置时使用本机 Edge TTS，文本相同则复用缓存 */
 app.post('/api/ai/tts', async (req, res) => {
   const { text, voice } = req.body || {};
   if (!text) {
     return res.status(400).json({ ok: false, error: '缺少 text' });
   }
   if (!AI.ttsEndpoint) {
-    return res.status(501).json({ ok: false, error: 'TTS 未配置（演示环境使用端侧系统 TTS，无系统引擎时静默降级）' });
+    const safeText = String(text).slice(0, 500);
+    const safeVoice = String(voice || 'zh-CN-YunxiNeural').replace(/[^A-Za-z0-9-]/g, '') || 'zh-CN-YunxiNeural';
+    const hash = crypto.createHash('sha256').update(safeVoice + '\n' + safeText).digest('hex').slice(0, 24);
+    const filename = hash + '.mp3';
+    const target = path.join(TTS_DIR, filename);
+    const publicUrl = req.protocol + '://' + req.get('host') + '/tts/' + filename;
+    if (fs.existsSync(target) && fs.statSync(target).size > 0) {
+      return res.json({ ok: true, url: publicUrl, cached: true, voice: safeVoice });
+    }
+    try {
+      await new Promise((resolve, reject) => {
+        execFile(process.env.EDGE_TTS_BIN || 'edge-tts', [
+          '--voice', safeVoice,
+          '--text', safeText,
+          '--write-media', target
+        ], { timeout: 30000, windowsHide: true }, (err) => err ? reject(err) : resolve());
+      });
+      if (!fs.existsSync(target) || fs.statSync(target).size === 0) {
+        throw new Error('Edge TTS 未生成音频');
+      }
+      return res.json({ ok: true, url: publicUrl, cached: false, voice: safeVoice });
+    } catch (e) {
+      const wavName = hash + '.wav';
+      const wavTarget = path.join(TTS_DIR, wavName);
+      const wavUrl = req.protocol + '://' + req.get('host') + '/tts/' + wavName;
+      if (fs.existsSync(wavTarget) && fs.statSync(wavTarget).size > 0) {
+        return res.json({ ok: true, url: wavUrl, cached: true, voice: 'Microsoft Huihui Desktop' });
+      }
+      const escapedText = safeText.replace(/'/g, "''");
+      const escapedPath = wavTarget.replace(/'/g, "''");
+      const script = [
+        'Add-Type -AssemblyName System.Speech',
+        '$s = New-Object System.Speech.Synthesis.SpeechSynthesizer',
+        "try { $s.SelectVoice('Microsoft Huihui Desktop') } catch {}",
+        `$s.SetOutputToWaveFile('${escapedPath}')`,
+        `$s.Speak('${escapedText}')`,
+        '$s.Dispose()'
+      ].join('; ');
+      const encoded = Buffer.from(script, 'utf16le').toString('base64');
+      try {
+        await new Promise((resolve, reject) => {
+          execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+            { timeout: 30000, windowsHide: true }, (err) => err ? reject(err) : resolve());
+        });
+        if (!fs.existsSync(wavTarget) || fs.statSync(wavTarget).size === 0) throw new Error('系统语音未生成音频');
+        return res.json({ ok: true, url: wavUrl, cached: false, voice: 'Microsoft Huihui Desktop', fallback: 'sapi' });
+      } catch (e2) {
+        return res.status(502).json({ ok: false, error: '本机 TTS 失败：' + e.message + '；系统语音：' + e2.message });
+      }
+    }
   }
   try {
     const r = await fetch(AI.ttsEndpoint, {
@@ -1585,6 +1841,38 @@ app.post('/api/graph/summaries', async (req, res) => {
 });
 
 /* 管理员端运营指标（匿名聚合，不含物品明细） */
+/* 管理员端总览（真实数据）：需要登录 token，且该账号在任一家庭里是管理员 */
+app.get('/api/admin/overview', async (req, res) => {
+  const token = String(req.headers['x-auth-token'] || '');
+  const rec = authTokens.get(token);
+  if (!rec || rec.expiresAt < Date.now()) {
+    return res.status(401).json({ error: '请先用管理员账号登录' });
+  }
+  try {
+    const [adm] = await pool.query(
+      "SELECT COUNT(*) AS c FROM family_members WHERE phone = ? AND role = '管理员'", [rec.account]);
+    if (!adm[0].c) {
+      return res.status(403).json({ error: '当前账号没有管理员权限' });
+    }
+    const [users] = await pool.query(
+      'SELECT u.phone, u.nickname, u.created_at, ' +
+      '(SELECT role FROM family_members m WHERE m.phone = u.phone ORDER BY m.joined_at LIMIT 1) AS role ' +
+      'FROM users u ORDER BY u.created_at DESC LIMIT 200');
+    const [families] = await pool.query(
+      'SELECT f.id, f.name, f.invite_code, f.created_at, ' +
+      '(SELECT COUNT(*) FROM family_members x WHERE x.family_id = f.id) AS member_count ' +
+      'FROM families f ORDER BY f.created_at DESC LIMIT 100');
+    const [logs] = await pool.query(
+      'SELECT family_id, action, detail, created_at FROM ops_logs ORDER BY id DESC LIMIT 100');
+    const [usage] = await pool.query(
+      'SELECT route, model, COUNT(*) AS calls, AVG(ms) AS avgMs, SUM(tokens) AS tokens ' +
+      'FROM ai_usage GROUP BY route, model ORDER BY calls DESC LIMIT 50');
+    res.json({ ok: true, account: rec.account, users, families, logs, usage });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/admin/graph/stats', async (_req, res) => {
   try {
     res.json({ ok: true, stats: await graph.statsAll() });

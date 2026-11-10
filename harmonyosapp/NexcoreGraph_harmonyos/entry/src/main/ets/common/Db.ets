@@ -45,6 +45,7 @@ export class Item {
   @Trace priceSrc: string = '手动';
   @Trace expDays: number = 7;
   @Trace pos: string = '未设置';
+  @Trace barcode: string = '';
   @Trace isPrivate: boolean = false;
   @Trace expiring: boolean = false;
 
@@ -281,6 +282,8 @@ export class IntakeResult {
   kbKey: string = '';
   price: string = '';
   priceSrc: string = '待补';
+  barcode: string = '';
+  barcodeSource: string = '';
   attention: boolean = false;
 
   constructor(id: string, emoji: string, img: ResourceStr, name: string, category: string, qty: string, unit: string,

@@ -16,6 +16,7 @@ import { cmdSelfCheckLog } from '../common/Commands';
 import { AI_PANEL_WIDTH_VP } from '../common/Breakpoints';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { LoginView } from './LoginView';
+import { applyPendingEntryTarget } from '../common/NavigationIntent';
 import { DashboardView } from './DashboardView';
 import { AiWorkbench } from './AiWorkbench';
 import { LibrariesView, LibraryDetailView } from './LibrariesView';
@@ -65,6 +66,7 @@ struct Index {
         // 拉不到（离线/后端没起）就用本机缓存，界面不阻塞
       });
     }
+    applyPendingEntryTarget();
     // 多端同步 + 自动保存：登录后本机改动会落盘并同步到其他设备
     startLiveSync();
   }

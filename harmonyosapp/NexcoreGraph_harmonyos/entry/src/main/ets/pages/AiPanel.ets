@@ -12,6 +12,7 @@ import { saveChat, clearChatSaved } from '../common/LocalStore';
 import { scheduleLivePublish } from '../common/LiveSync';
 import { AsrSession } from '../common/Asr';
 import { TtsSession } from '../common/Tts';
+import { visibleReply } from '../common/ReplyText';
 import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
 
@@ -457,7 +458,7 @@ export struct AiPanel {
         Row({ space: 10 }) {
           this.AiAvatar()
           Column() {
-            Text(m.text)
+            Text(visibleReply(m.text))
               .fontSize(14)
               .lineHeight(20)
               .fontColor(T.c('text-primary'))

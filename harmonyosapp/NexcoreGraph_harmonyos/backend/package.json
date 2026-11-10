@@ -5,7 +5,8 @@
   "description": "启核图策 · 本地同步后端（M2）：MySQL 快照同步 + 演示登录",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",

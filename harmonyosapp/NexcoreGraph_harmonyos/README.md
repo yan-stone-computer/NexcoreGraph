@@ -1,7 +1,9 @@
 # 启核图策 NexcoreGraph · 鸿蒙端（entry HAP）
 
 > 家庭资源智能管家 · 拍照建库 · AI 规划 · 临期预警 · 家庭协作
-> 参赛赛道：**HarmonyOS Codelabs 挑战赛**（2026 第九届传智杯）
+> 参赛赛事：**2026第九届传智杯全国大学生数智创新与 AI 应用大赛**
+> 参赛赛道：**HarmonyOSCodelabs挑战赛**
+> 参赛团队：**天枢序列**（团队编号 38376，广西师范大学，B组）
 > 整改依据：`docs/competition/启核图策-鸿蒙端专项整改与验收文档.md`
 
 ## 一、工程基线
@@ -142,8 +144,8 @@ python tools/check_release.py
 | M-11 落地价值看板（三指标） | ✅ 看板卡片 + 本地账本 |
 | M-13 工程化与合规 | ✅ README/LICENSE/privacy/构建脚本/检查脚本 |
 | M-5 服务卡片多端（2in1 + 本地快照） | ✅ 已实现（X6 待真机添加卡片验证） |
-| M-1~M-4 分布式（设备发现/DDO/跨设备相机/接续） | ⏳ 未实现（需 2 台 NEXT 设备，S1 阶段 POC） |
-| M-6 Codelabs 教程（`docs/codelab/`） | ⏳ 未实现（交付文档，见整改文档 4.6 模板） |
+| M-1~M-4 分布式（同步、流转、接续、跨设备入口） | ✅ 代码已实现；双机实测证据待补 |
+| M-6 Codelabs 教程（`docs/codelab/`） | ✅ 已补齐 00–08 九步教程 |
 | M-12 Push Kit 订阅推送 | ⏳ 待决策 Q3（需 AGC 凭据）；`push_subscription` 表已就绪 |
 | **G1 端侧图谱内核**（补充方案） | ✅ 已实现（编译通过）：`common/Graph{Model,Store,Build,Query}.ets`；设置页可见规模/版本/重建耗时 |
 | **G2 GraphRAG 编排**（补充方案） | ✅ 已实现（编译通过）：`AiGateway` 附 `graphEvidence`，意图→模式映射（食谱类 multi-hop / 简报 global） |

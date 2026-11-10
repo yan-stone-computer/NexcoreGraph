@@ -1,5 +1,6 @@
 /* 启核图策 · 端侧 AI 客户端（整改文档 M-7 / 缺陷 D6）
-   —— 端上不再持有任何模型厂商密钥：全部模型调用经自建后端 /api/ai/*（Key 只存服务端环境变量）。
+   —— 三端都保留客户端 Key：鸿蒙端通过 Backend.requestJson 的 x-agnes-key 透传给本机自建网关，
+   网关负责转发厂商；端侧仍不直连厂商域名，避免证书与跨域问题。
    保留的能力与红线（与改造前一致）：
    P0-1 意图路由：greet/where/qty/expiry 本地直答 0 次模型（断网也可用）；
    P0-2 工具协议 v2：[调整]名称|数量 / [购物]名称|数量，白名单校验 + 预览确认后由 UI 执行；
@@ -17,6 +18,7 @@ import { ragEvidence, modeForIntent } from './GraphQuery';
 import { lookup } from './KnowledgeIndex';
 import { matchCommand, runCommand, CmdReply } from './Commands';
 import { RagEvidence } from './GraphModel';
+import { visibleReply } from './ReplyText';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const DOMAIN: number = 0x0000;
@@ -229,7 +231,7 @@ export function askAI(question: string): Promise<AIReply> {
     return Promise.resolve(direct);
   }
 
-  // 模型路：证据由端侧装配（红线 1），模型调用发生在后端网关（Key 不在端上）
+  // 模型路：证据由端侧装配（红线 1），客户端 Key 随网关请求透传
   // GraphRAG：按意图选检索模式，附带"路径证据"（节点链 + 事实 + 来源），图谱不可用时回退证据行
   const mode = modeForIntent(route);
   const graphEv: RagEvidence = ragEvidence(mode, question);
@@ -273,7 +275,7 @@ export function askAI(question: string): Promise<AIReply> {
       if (graphEv.paths.length > 0 && graphEv.paths[0].src !== '') {
         r.srcUrl = '';   // 路径来源在 srcNote 中展示，链接由知识库快答路径提供
       }
-      const kept = parseToolLines(res.text === undefined ? '' : res.text, r);
+      const kept = parseToolLines(visibleReply(res.text === undefined ? '' : res.text), r);
       r.text = kept === '' ? '（AI 未返回内容，请重试）' : kept;
       recordUsage(route, res.model === undefined || res.model === '' ? 'gateway' : res.model, Date.now() - start);
       uploadUsage();
@@ -301,7 +303,7 @@ export function askSummary(statsText: string): Promise<string> {
       recordUsage('summary', res.model === undefined || res.model === '' ? 'gateway' : res.model,
         Date.now() - start);
       uploadUsage();
-      return String(res.text).trim();
+      return visibleReply(String(res.text).trim());
     });
 }
 

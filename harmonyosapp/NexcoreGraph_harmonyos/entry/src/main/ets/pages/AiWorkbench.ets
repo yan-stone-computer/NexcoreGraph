@@ -14,15 +14,20 @@ import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { saveChat, saveFormSnapshot } from '../common/LocalStore';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { AnalyticsBoard } from './AnalyticsBoard';
+import {
+  itemToTwinInput, simulateTwin, TwinItemInput, TwinResult, TwinRisk, TwinScenario
+} from '../common/ResourceTwin';
 
 @ComponentV2
 export struct AiWorkbench {
   @Local graphSize: string = '';
   @Local vm: ValueMetrics = new ValueMetrics();
+  @Local twinResult: TwinResult = new TwinResult();
 
   aboutToAppear(): void {
     this.graphSize = currentGraphSize();
     this.vm = valueMetrics();
+    this.recalcTwin();
     saveFormSnapshot();
   }
 
@@ -45,6 +50,30 @@ export struct AiWorkbench {
     let n = 0;
     store.libraries.forEach((l: Library) => n += l.items.length);
     return n;
+  }
+
+  private recalcTwin(): void {
+    const inputs: TwinItemInput[] = [];
+    store.libraries.forEach((lib: Library): void => {
+      lib.items.forEach((item: Item): void => {
+        inputs.push(itemToTwinInput(item));
+      });
+    });
+    const scenario = new TwinScenario();
+    scenario.horizonDays = 7;
+    scenario.basePeople = store.profile.people > 0 ? store.profile.people : 3;
+    this.twinResult = simulateTwin(inputs, scenario);
+  }
+
+  private twinRiskLine(): string {
+    if (this.itemCount() === 0) {
+      return '入库后可推演未来 7 天';
+    }
+    if (this.twinResult.risks.length === 0) {
+      return '未来 7 天没有预测到风险';
+    }
+    const risk: TwinRisk = this.twinResult.risks[0];
+    return risk.message;
   }
 
   private pendingPlans(): Plan[] {
@@ -185,6 +214,29 @@ export struct AiWorkbench {
   }
 
   @Builder
+  TwinEntry() {
+    Row({ space: S3 }) {
+      Column({ space: 3 }) {
+        Row({ space: 8 }) {
+          Text('资源数字孪生').fontSize(15).fontWeight(700).fontColor(T.c('text-primary'))
+          Text(`${this.twinResult.score}/100`).fontSize(13).fontWeight(700)
+            .fontColor(T.c('primary-ink')).fontFeature('tnum')
+        }
+        Text(this.twinRiskLine()).fontSize(12).fontColor(T.c('text-muted')).maxLines(1)
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      TBtn({ label: '推演', kind: 'soft', small: true, tap: (): void => {
+        store.overlay = 'twin';
+      } })
+    }
+    .width('100%')
+    .padding({ top: S3, bottom: S3 })
+    .border({ width: { top: 1 }, color: T.c('border') })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
   Focus() {
     /* 焦点区：今天要处理（全页唯一卡片） */
     Text('今天要处理').fontSize(17).fontWeight(FontWeight.Bold).fontColor(T.c('text-primary'))
@@ -309,6 +361,7 @@ export struct AiWorkbench {
           Row({ space: S6 }) {
             Column({ space: 0 }) {
               this.Facts()
+              this.TwinEntry()
               this.Overview()
             }
             .layoutWeight(4)
@@ -335,6 +388,7 @@ export struct AiWorkbench {
             .margin({ top: S8 })
         } else {
         this.Facts()
+        this.TwinEntry()
         this.Focus()
         this.Overview()
         this.AskBar()

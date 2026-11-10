@@ -80,6 +80,8 @@ export class Store {
   @Trace aiOpen: boolean = false;
   /** AI 面板预填提问（工作台/图谱点选后注入，AiPanel 打开时消费并清空） */
   @Trace aiPrefill: string = '';
+  /** 卡片/通知深链目标：登录前只排队，登录后由 applyPendingEntryTarget 消费 */
+  @Trace pendingEntryTarget: string = '';
   /** 是否允许跨设备接续（登录页等敏感页置 false） */
   @Trace continueEnabled: boolean = true;
   /** 多端活同步：最近一次同步状态（只在「我的 → 跨设备流转」里显示，不弹 Toast） */
