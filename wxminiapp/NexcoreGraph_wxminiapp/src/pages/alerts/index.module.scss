@@ -31,6 +31,9 @@
 }
 
 .statusTitle {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
   font-size: $font-size-lg;
   font-weight: $font-weight-semibold;
   color: $color-text-primary;

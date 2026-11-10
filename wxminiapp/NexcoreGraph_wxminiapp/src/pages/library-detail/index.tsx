@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore'
 import { api } from '@/services/api'
 import ItemRow from '@/components/ItemRow'
 import EmptyState from '@/components/EmptyState'
+import AppIcon, { libraryIcon } from '@/components/AppIcon'
 import type { Item, Library } from '@/types'
 import styles from './index.module.scss'
 
@@ -89,7 +90,7 @@ const LibraryDetailPage: React.FC = () => {
   }
 
   const deleteItem = async (item: Item) => {
-    const r = await Taro.showModal({ title: '删除物品', content: `确定删除「${item.name}」吗？可在此后撤销。`, confirmColor: '#C03A2B' })
+    const r = await Taro.showModal({ title: '删除物品', content: `确定删除「${item.name}」吗？可在此后撤销。`, confirmColor: '#C53D3D' })
     if (!r.confirm) return
     try {
       const snap = await useStore.getState().invoke(() => api.deleteItem(lib!.id, item.id))
@@ -103,19 +104,27 @@ const LibraryDetailPage: React.FC = () => {
 
   if (!lib) return <View className={styles.page} />
 
-  const libEmoji = lib.icon === 'fridge' ? '🧊' : lib.icon === 'shirt' ? '👕' : lib.icon === 'pill' ? '💊' : lib.icon === 'wrench' ? '🔧' : lib.icon === 'dumbbell' ? '🏋️' : lib.icon === 'book' ? '📚' : lib.icon === 'paw' ? '🐾' : lib.icon === 'plug' ? '🔌' : '📦'
-
   return (
     <View className={styles.page}>
       <View className={styles.libHead}>
-        <View className={styles.libIcon}><Text>{libEmoji}</Text></View>
+        <View className={styles.libIcon}><AppIcon name={libraryIcon(lib.icon)} size={54} /></View>
         <View className={styles.libBody}>
           <Text className={styles.libName}>{lib.name}</Text>
           <Text className={styles.libMeta}>{lib.desc} · {lib.count} 件</Text>
         </View>
         <View className={styles.headActions}>
+      {/* M-A5 / MX4：库级 AI 上下文入口；衣柜直接带入“通勤穿搭”场景问题 */}
+      <View className={styles.headBtn} onClick={() => {
+        if (lib.name.includes('衣柜')) {
+          Taro.navigateTo({ url: '/pages/outfit/index?libId=' + lib.id })
+        } else {
+          Taro.switchTab({ url: '/pages/workbench/index' })
+        }
+      }} hoverClass={styles.headBtnHover}>
+        <AppIcon name="ai" size={24} /><Text>{lib.name.includes('衣柜') ? 'AI 搭配' : '问 AI'}</Text>
+          </View>
           <View className={styles.headBtn} onClick={() => Taro.navigateTo({ url: '/pages/intake/index?libId=' + lib.id })} hoverClass={styles.headBtnHover}>
-            <Text>📷 入库</Text>
+            <AppIcon name="camera" size={24} /><Text>入库</Text>
           </View>
         </View>
       </View>
@@ -162,7 +171,7 @@ const LibraryDetailPage: React.FC = () => {
 
       <View className={styles.list}>
         {lib.items.length === 0 ? (
-          <EmptyState emoji="📭" text="这个库还是空的" sub="点右上角「添加物品」或拍照入库" />
+          <EmptyState icon="package" text="这个库还是空的" sub="点右上角「添加物品」或拍照入库" />
         ) : (
           lib.items.map((item) => (
             <ItemRow

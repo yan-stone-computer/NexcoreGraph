@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore'
 import { api } from '@/services/api'
 import EmptyState from '@/components/EmptyState'
 import NameInputModal from '@/components/NameInputModal'
+import AppIcon, { libraryIcon } from '@/components/AppIcon'
 import { expColor, expLabel } from '@/utils/format'
 import type { Library } from '@/types'
 import styles from './index.module.scss'
@@ -76,7 +77,7 @@ const LibraryPage: React.FC = () => {
     const res = await Taro.showActionSheet({
       itemList: ['重命名', '左移一位', '右移一位', '删除库']
     })
-    if (res.cancel) return
+    if ((res as any).cancel) return
     const idx = res.tapIndex
     try {
       const invoke = useStore.getState().invoke
@@ -101,7 +102,7 @@ const LibraryPage: React.FC = () => {
       } else if (idx === 2) {
         await invoke(() => api.moveLibrary(lib.id, 1))
       } else if (idx === 3) {
-        const c = await Taro.showModal({ title: '删除库', content: `确定删除「${lib.name}」吗？可在此后撤销。`, confirmColor: '#C03A2B' })
+        const c = await Taro.showModal({ title: '删除库', content: `确定删除「${lib.name}」吗？可在此后撤销。`, confirmColor: '#C53D3D' })
         if (!c.confirm) return
         const snap = await invoke(() => api.deleteLibrary(lib.id))
         const c2 = await Taro.showModal({ title: '已删除', content: '需要撤销恢复吗？', confirmText: '撤销恢复', cancelText: '不用' })
@@ -116,10 +117,11 @@ const LibraryPage: React.FC = () => {
   return (
     <View className={styles.page}>
       <View className={styles.searchBar}>
+        <AppIcon name="search" size={30} />
         <Input
           className={styles.searchInput}
           value={keyword}
-          placeholder="🔍 搜索物品 / 位置 / 库"
+          placeholder="搜索物品 / 位置 / 库"
           placeholderClass={styles.searchPlaceholder}
           onInput={(e) => onSearch(e.detail.value)}
           confirmType="search"
@@ -135,7 +137,7 @@ const LibraryPage: React.FC = () => {
           {results.ans ? (
             <View className={styles.ansCard}>
               <View className={styles.ansHead}>
-                <Text className={styles.ansIcon}>✨</Text>
+                <AppIcon name="ai" size={32} />
                 <Text className={styles.ansTitle}>{results.ans.title}</Text>
               </View>
               <Text className={styles.ansSub}>{results.ans.sub}</Text>
@@ -148,7 +150,7 @@ const LibraryPage: React.FC = () => {
             </View>
           ) : null}
           {results.items.length === 0 && results.libs.length === 0 ? (
-            <EmptyState emoji="🔎" text={`没有找到「${keyword}」`} sub="可先拍照入库，或换个关键词" />
+            <EmptyState icon="search" text={`没有找到「${keyword}」`} sub="可先拍照入库，或换个关键词" />
           ) : (
             <>
               {results.items.map((it) => (
@@ -163,7 +165,7 @@ const LibraryPage: React.FC = () => {
               ))}
               {results.libs.map((l) => (
                 <View key={l.id} className={styles.resultRow} onClick={() => openLib(l.id)}>
-                  <Text className={styles.resultEmoji}>🗂️</Text>
+                  <AppIcon name="library" size={38} />
                   <View className={styles.resultBody}>
                     <Text className={styles.resultName}>{l.name}</Text>
                     <Text className={styles.resultMeta}>{l.count} 件物品</Text>
@@ -178,13 +180,13 @@ const LibraryPage: React.FC = () => {
         <>
           <View className={styles.sectionHead}>
             <Text className={styles.sectionTitle}>{db.libraries.length} 个库</Text>
-            <Text className={styles.addBtn} onClick={createLib}>＋ 新建库</Text>
+            <View className={styles.addBtn} onClick={createLib}><AppIcon name="plus" size={22} /><Text>新建库</Text></View>
           </View>
           <View className={styles.libGrid}>
             {db.libraries.map((lib) => (
               <View key={lib.id} className={styles.libCard} onClick={() => openLib(lib.id)} hoverClass={styles.libHover} onLongPress={() => libMenu(lib)}>
                 <View className={styles.libIcon}>
-                  <Text className={styles.libEmoji}>{lib.icon === 'fridge' ? '🧊' : lib.icon === 'shirt' ? '👕' : lib.icon === 'pill' ? '💊' : lib.icon === 'wrench' ? '🔧' : lib.icon === 'dumbbell' ? '🏋️' : lib.icon === 'book' ? '📚' : lib.icon === 'paw' ? '🐾' : lib.icon === 'plug' ? '🔌' : '📦'}</Text>
+                  <AppIcon name={libraryIcon(lib.icon)} size={52} />
                 </View>
                 <Text className={styles.libName}>{lib.name}</Text>
                 <Text className={styles.libDesc}>{lib.desc}</Text>

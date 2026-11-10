@@ -77,6 +77,10 @@
 
 .cameraBtnGhost {
   @include button-reset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
   height: 88rpx;
   min-width: 240rpx;
   padding: 0 $spacing-lg;

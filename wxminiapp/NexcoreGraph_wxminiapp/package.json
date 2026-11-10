@@ -10,6 +10,9 @@
     "framework": "React"
   },
   "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify:weapp": "npm run typecheck && npm test && npm run build:weapp",
     "build:weapp": "taro build --type weapp",
     "build:swan": "taro build --type swan",
     "build:alipay": "taro build --type alipay",
@@ -85,6 +88,7 @@
     "tsconfig-paths-webpack-plugin": "^4.0.1",
     "tt-ide-cli": "^0.1.31",
     "typescript": "^5.1.0",
+    "vitest": "^2.1.9",
     "webpack": "5.78.0"
   }
 }

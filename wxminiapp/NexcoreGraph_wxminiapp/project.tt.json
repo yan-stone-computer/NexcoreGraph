@@ -1,7 +1,7 @@
 {
   "miniprogramRoot": "./",
-  "projectname": "taro_template",
-  "description": "taro_template",
+  "projectname": "NexcoreGraph",
+  "description": "启核图策 NexcoreGraph 微信小程序",
   "appid": "touristappid",
   "setting": {
     "urlCheck": true,

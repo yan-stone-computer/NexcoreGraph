@@ -1,0 +1,107 @@
+/* 资源图谱页（M-A2）：canvas + 列表降级 + 详情面板 */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #F5F9FB;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 16rpx 24rpx 10rpx;
+}
+.tab {
+  font-size: 22rpx;
+  color: #6B7C8C;
+  background: #FFFFFF;
+  border: 1rpx solid #E4EDF3;
+  border-radius: 999rpx;
+  padding: 8rpx 24rpx;
+}
+.tabOn {
+  color: #57D794;
+  border-color: #57D794;
+  font-weight: 600;
+}
+.toolRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.brief { font-size: 20rpx; color: #93A1B0; }
+
+.canvas {
+  width: 100%;
+  height: 52vh;
+  background: #FFFFFF;
+  border-top: 1rpx solid #E9F1F5;
+  border-bottom: 1rpx solid #E9F1F5;
+}
+
+.listView {
+  height: 52vh;
+  background: #FFFFFF;
+  border-top: 1rpx solid #E9F1F5;
+  border-bottom: 1rpx solid #E9F1F5;
+}
+.commRow {
+  padding: 18rpx 28rpx;
+  border-bottom: 1rpx dashed #E9F1F5;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.commHead { display: flex; align-items: center; justify-content: space-between; }
+.commName { font-size: 26rpx; font-weight: 700; color: #0E1424; }
+.commStat { font-size: 22rpx; color: #6B7C8C; }
+.commHot { color: #C53D3D; font-weight: 600; }
+.commSummary { font-size: 22rpx; color: #6B7C8C; line-height: 1.6; }
+
+.detail { flex: 1; box-sizing: border-box; }
+.detailTip {
+  margin: 16rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  padding: 40rpx 30rpx;
+  font-size: 24rpx;
+  color: #6B7C8C;
+  text-align: center;
+  line-height: 1.7;
+}
+.detailCard {
+  margin: 16rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  border: 1rpx solid #E4EDF3;
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+.detailHead { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8rpx; }
+.detailTitle { font-size: 28rpx; font-weight: 700; color: #0E1424; }
+.detailStat { font-size: 22rpx; color: #6B7C8C; }
+.detailSummary { font-size: 22rpx; color: #2E8F63; background: #F5F9FB; border-radius: 12rpx; padding: 12rpx 16rpx; line-height: 1.6; }
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  border-bottom: 1rpx dashed #E9F1F5;
+  &:last-of-type { border-bottom: none; }
+}
+.itemName { font-size: 24rpx; color: #0E1424; }
+.itemMeta { font-size: 22rpx; color: #6B7C8C; }
+.detailActions { display: flex; margin-top: 8rpx; }
+.askBtn {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  color: #FFFFFF;
+  background: #57D794;
+  border-radius: 999rpx;
+  padding: 14rpx 0;
+  font-weight: 600;
+}
+.btnHover { opacity: 0.7; }

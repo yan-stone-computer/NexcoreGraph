@@ -1,3 +1,4 @@
 export default definePageConfig({
-  navigationBarTitleText: '启核图策'
+  navigationBarTitleText: '启核图策',
+  enableShareAppMessage: true
 })

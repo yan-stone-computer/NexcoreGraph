@@ -9,20 +9,22 @@
   background: linear-gradient(180deg, rgba(201, 168, 106, 0.18) 0%, $color-bg-page 100%);
 }
 
-.logo {
+.logoBox {
   width: 160rpx;
   height: 160rpx;
   border-radius: $radius-xl;
-  background: transparent;
+  background: $color-bg-card;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: $shadow-popup;
   margin-bottom: $spacing-lg;
+  padding: 16rpx;
 }
 
 .logoImg {
-  width: 160rpx;
-  height: 160rpx;
+  width: 100%;
+  height: 100%;
 }
 
 .title {
@@ -31,11 +33,11 @@
   color: $color-text-primary;
 }
 
-.enName {
-  font-size: 24rpx;
-  color: $color-text-tertiary;
-  letter-spacing: 4rpx;
-  margin-top: 6rpx;
+.subEn {
+  font-size: $font-size-sm;
+  color: $color-primary;
+  letter-spacing: 1rpx;
+  margin-top: $spacing-sm;
 }
 
 .slogan {

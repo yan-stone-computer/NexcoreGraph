@@ -3,9 +3,9 @@
   "cloudfunctionRoot": "cloudfunctions/",
   "projectname": "NexcoreGraph",
   "description": "启核图策 NexcoreGraph · 家庭资源智能管家（微信小程序端）",
-  "appid": "wx9d1c625b399ecda3",
+  "appid": "wx25e3afb6ce695963",
   "setting": {
-    "urlCheck": true,
+    "urlCheck": false,
     "es6": false,
     "enhance": false,
     "compileHotReLoad": false,
@@ -29,6 +29,8 @@
     "disableUseStrict": false,
     "useCompilerPlugins": false,
     "condition": false,
+    "swc": false,
+    "disableSWC": true,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],

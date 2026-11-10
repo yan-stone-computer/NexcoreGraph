@@ -6,6 +6,7 @@ import { api } from '@/services/api'
 import PlanCard from '@/components/PlanCard'
 import EmptyState from '@/components/EmptyState'
 import type { Plan } from '@/types'
+import AppIcon from '@/components/AppIcon'
 import styles from './index.module.scss'
 
 const PlansPage: React.FC = () => {
@@ -50,7 +51,7 @@ const PlansPage: React.FC = () => {
 
   const rollback = async (plan: Plan) => {
     if (busyId != null) return
-    const r = await Taro.showModal({ title: '撤销方案', content: `撤销「${plan.title}」，库存将回滚到执行前。`, confirmColor: '#C03A2B' })
+    const r = await Taro.showModal({ title: '撤销方案', content: `撤销「${plan.title}」，库存将回滚到执行前。`, confirmColor: '#C53D3D' })
     if (!r.confirm) return
     setBusyId(plan.id)
     try {
@@ -72,14 +73,14 @@ const PlansPage: React.FC = () => {
           <Text className={styles.headSub}>优先级：临期优先 &gt; 清库存 &gt; 营养均衡</Text>
         </View>
         <View className={styles.headBtns}>
-          <View className={styles.headBtn} onClick={creative} hoverClass={styles.headBtnHover}><Text>✨ 创新菜谱</Text></View>
-          <View className={styles.headBtn} onClick={generate} hoverClass={styles.headBtnHover}><Text>生成新方案</Text></View>
+          <View className={styles.headBtn} onClick={creative} hoverClass={styles.headBtnHover}><AppIcon name="ai" size={24} /><Text>创新菜谱</Text></View>
+          <View className={styles.headBtn} onClick={generate} hoverClass={styles.headBtnHover}><AppIcon name="plus" size={24} /><Text>生成新方案</Text></View>
         </View>
       </View>
 
       <View className={styles.list}>
         {db.plans.length === 0 ? (
-          <EmptyState emoji="✨" text="还没有方案" sub="点击「生成新方案」，AI 会按临期优先级从库存排菜" />
+          <EmptyState icon="plans" text="还没有方案" sub="点击「生成新方案」，AI 会按临期优先级从库存排菜" />
         ) : (
           db.plans.map((p) => (
             <PlanCard

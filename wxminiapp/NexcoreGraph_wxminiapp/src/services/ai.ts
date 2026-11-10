@@ -6,6 +6,10 @@
 // AI 行为红线：数量/位置/日期一律本地查询产出；写操作必须预览确认；单请求 ≤2 次模型调用。
 import { db, api } from '@/services/api'
 import { KB } from '@/data/knowledge'
+import { ask } from '@/services/graphRag'
+import { securityCheck, securityCheckRemote } from '@/services/graphRag'
+import { matchCommand, run } from '@/services/commands'
+import { parseScenario, simulate } from '@/services/simulation'
 import type { AdjustCard, Item } from '@/types'
 
 export interface AiReply {
@@ -145,71 +149,92 @@ function parseShoppingAdd(text: string): AdjustCard | null {
   return { type: 'shopping_add', name, qty: numAfter(text, 1) + ' ' + unitMatch }
 }
 
-/* ---------- 模型类回复（本地模拟，正式版为 /api/ai/chat 单次调用） ---------- */
-function modelReply(intent: Intent, text: string): Promise<AiReply> {
-  const t0 = Date.now()
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let out: AiReply | null = null
-      const M = '已调用模型 · 1 次模型调用'
-      if (intent === 'cook') {
-        out = { text: '按「临期优先 > 清库存 > 营养均衡」从你的库存排了 3 个方案（营养为每份估算）：', action: 'generatePlans', model: true, src: M }
-      } else if (intent === 'creative') {
-        out = { text: '我优先挑了快到期的食材，编了一道新菜谱（已加入方案列表，走正常核销链路）：', action: 'creative', model: true, src: 'AI 创新菜谱 · 1 次模型调用' }
-      } else if (intent === 'nutrition') {
-        const st = api.getStats()
-        const prof = db.profile || { goal: '均衡', enabled: true, dislikes: '', people: 3 }
-        const goal = prof.goal || '均衡'
-        out = {
-          text: '按当前方案估算：今天 3 个方案合计约 900 kcal / 蛋白 60g（每份约 300 kcal，估算值）。你的饮食目标是「' + goal +
-            '」' + (prof.enabled !== false && prof.dislikes ? '，已避开忌口：' + prof.dislikes : '') + '。建议晚餐选低脂的黄瓜炒虾仁或香煎鸡胸肉。',
-          model: true,
-          src: M
-        }
-      } else if (intent === 'summary') {
-        out = { text: briefingText(), model: true, src: M }
-      } else if (intent === 'shopping_add') {
+/* ---------- 模型类回复：Agnes + GraphRAG（单次真实调用） -----
+   红线 3：单请求 ≤2 次模型调用（本链路仅 1 次；社区摘要为离线预计算，不在对话请求内） */
+function agnesReply(intent: Intent, text: string): Promise<AiReply> {
+  return ask(text).then((r) => {
+    if (r.ok) {
+      api.logAiUsage('/api/ai/chat', r.ms, r.model)
+      const out: AiReply = { text: r.text, model: true, src: r.src }
+      if (intent === 'cook') out.action = 'generatePlans'
+      if (intent === 'creative') out.action = 'creative'
+      if (intent === 'shopping_add') {
         const card = parseShoppingAdd(text)
-        if (card && db.shopping.some((s) => s.name === card.name)) {
-          out = { text: '采购清单里已有「' + card.name + '」，已跳过重复添加（去重）。', model: true, src: M }
-        } else {
-          out = card ? { text: '确认后我会把该项加入采购清单：', card, model: true, src: M }
-                     : { text: '告诉我要买什么，比如「想买 2 盒牛奶」，确认后加入采购清单。', model: true, src: M }
-        }
-      } else {
-        const st2 = api.getStats()
-        out = {
-          text: '当前库存 ' + st2.totalItems + ' 件，临期 ' + st2.expiringN + ' 件、低库存 ' + st2.lowN +
-            ' 件。可以问我物品位置、数量、保质期，也可以说「今晚吃什么」或「鸡蛋只剩 5 个」来改库存。',
-          model: true,
-          src: M
-        }
+        if (card) { out.card = card; out.text = '确认后我会把该项加入采购清单（预览如下，Agnes 已理解需求）：' }
       }
-      api.logAiUsage('/api/ai/chat', Date.now() - t0 + 500)
-      resolve(out)
-    }, 700 + Math.random() * 500)
+      return out
+    }
+    const evidence = r.evidence.lines.length
+      ? '。图谱可查到：' + r.evidence.lines.slice(0, 3).join('；')
+      : ''
+    return {
+      text: 'AI 服务暂时不可用（' + (r.error || '网络异常') + '）' + evidence,
+      model: false,
+      src: '后端 AI 未响应 · GraphRAG ' + r.mode
+    }
+  }).catch(() => {
+    return Promise.resolve({
+      text: 'AI 服务暂时不可用，请确认后端 /api/ai/chat 与模型凭据正常。',
+      model: false,
+      src: '后端 AI 未响应'
+    })
   })
 }
 
 /* ---------- 统一入口 ---------- */
-export function reply(text: string): Promise<AiReply> {
+export async function reply(text: string): Promise<AiReply> {
+  /* 0) 自然语言指令层（与鸿蒙端 Commands.ets / Web 端 commands.js 同规则）：
+        命中即本地执行，写操作先弹确认，不再走意图路由与模型 */
+  const cmd = matchCommand(text)
+  if (cmd) {
+    api.logAiUsage('/api/ai/chat', 0, '本地指令')
+    return run(cmd)
+  }
+  /* MX7 内容安全：发送前本地敏感词兜底，拦截即提示、不调用模型 */
+  const guard = securityCheck(text || '')
+  if (!guard.ok) {
+    api.logAiUsage('/api/ai/chat', 0, '内容安全拦截')
+    return Promise.resolve({
+      text: '你的输入包含敏感词「' + guard.word + '」，已拦截不会发送给模型（MX7 内容安全）。换个说法试试，比如「今晚吃什么」。',
+      model: false,
+      src: '本地拦截 · 0 次模型调用'
+    })
+  }
+  /* 服务端微信 msgSecCheck（配置 WX_APPID/WX_SECRET 后生效；未配置自动跳过） */
+  const remote = await securityCheckRemote(text || '')
+  if (!remote.pass) {
+    api.logAiUsage('/api/ai/chat', 0, '内容安全拦截')
+    return {
+      text: '这条内容未通过微信内容安全检查，已拦截（MX7）。换个说法试试。',
+      model: false,
+      src: '微信 msgSecCheck · 0 次模型调用'
+    }
+  }
+  const scenario = parseScenario(text || '', db)
+  if (scenario) {
+    const impact = simulate(db, scenario)
+    api.logAiUsage('/api/ai/what-if', 0, '本地推演')
+    return {
+      text: '这是推演，不会修改真实数据：物品 ' + impact.before.items + ' → ' + impact.after.items +
+        '，库存单位 ' + impact.before.stockUnits + ' → ' + impact.after.stockUnits +
+        '，临期 ' + impact.before.expiring + ' → ' + impact.after.expiring +
+        '，预算占用 ¥' + impact.before.budgetUsed + ' → ¥' + impact.after.budgetUsed +
+        (impact.warnings.length ? '。注意：' + impact.warnings.join('；') : '。没有触发预算或库存告警。'),
+      model: false,
+      src: 'What-if 沙箱 · 本地计算 · 0 次模型调用'
+    }
+  }
   const intent = route(text)
   const fast = fastReply(intent, text)
   if (fast) {
     api.logAiUsage('/api/ai/chat', 0, '本地快答')
     return Promise.resolve(fast)
   }
-  if (intent === 'cook') return modelReply('cook', text)
-  if (intent === 'creative') return modelReply('creative', text)
-  if (intent === 'nutrition') return modelReply('nutrition', text)
-  if (intent === 'summary') return modelReply('summary', text)
-  if (intent === 'shopping_add') return modelReply('shopping_add', text)
   if (intent === 'adjust') {
     const card = parseAdjust(text)
     if (card) return Promise.resolve({ text: '检测到库存调整请求，请确认（不直接写库，F5.5）：', card, model: false, src: '本地快答 · 0 次模型调用' })
-    return modelReply('fallback', text)
   }
-  return modelReply('fallback', text)
+  return agnesReply(intent, text)
 }
 
 /* P0-6 简报：数字全部来自 computeStats，文案为固定模板润色 */

@@ -4,7 +4,7 @@ import type { DB } from '@/types'
 export const SEED: DB = {
   /* ---------- 账号与家庭（F9.1） ---------- */
   user: { name: '林夏', phone: '13800138000', role: '家庭管理员', initial: '林' },
-  family: { name: '幸福小家', memberCount: 4 },
+  family: { id: 'home', name: '幸福小家', memberCount: 4 },
   familyId: 'home',
   families: [
     { id: 'home', name: '幸福小家', memberCount: 4 },

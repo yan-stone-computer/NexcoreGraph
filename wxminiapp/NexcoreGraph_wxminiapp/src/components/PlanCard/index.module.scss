@@ -40,19 +40,19 @@
 }
 
 .priHigh {
-  color: #C03A2B;
+  color: #C53D3D;
   background: rgba(192, 58, 43, 0.1);
 }
 
 .priMid {
-  color: #B9791F;
+  color: #B87D16;
   background: rgba(185, 121, 31, 0.12);
 }
 
 .aiTag {
   flex-shrink: 0;
   font-size: $font-size-xs;
-  color: #A5803C;
+  color: #2E8F63;
   background: rgba(201, 168, 106, 0.2);
   padding: 4rpx 16rpx;
   border-radius: $radius-round;
@@ -70,6 +70,9 @@
 }
 
 .metaItem {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
   font-size: $font-size-xs;
   color: $color-text-tertiary;
 }
@@ -117,7 +120,7 @@
   background: rgba(192, 58, 43, 0.06);
   border: 2rpx dashed rgba(192, 58, 43, 0.4);
   font-size: $font-size-xs;
-  color: #C03A2B;
+  color: #C53D3D;
 }
 
 .footer {
@@ -135,7 +138,7 @@
   background: $color-primary;
   border-radius: $radius-button;
   font-size: $font-size-md;
-  color: #111111;
+  color: #0E1424;
   font-weight: $font-weight-semibold;
 
   &.btnHover {
@@ -166,8 +169,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6rpx;
   font-size: $font-size-md;
-  color: #2F7D4F;
+  color: #5B893B;
   background: rgba(47, 125, 79, 0.1);
   border-radius: $radius-button;
 }

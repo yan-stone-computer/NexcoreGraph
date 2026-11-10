@@ -3,6 +3,10 @@
 import Taro from '@tarojs/taro'
 import { SEED } from '@/data/seed'
 import { KB } from '@/data/knowledge'
+import { loadSession, clearSession, type AccountSession } from '@/services/session'
+import { pushRemote } from '@/services/workspace'
+import { createCompensation, eventById, recordEvent, sealPendingEvents, timeline as eventTimeline } from '@/services/eventStore'
+import type { DomainEventType } from '@/domain/eventJournal'
 import type {
   DB, Item, Library, Alert, Plan, ShoppingItem, ChatMsg, Stats, Profile, SyncStatus, IntakeResult
 } from '@/types'
@@ -11,6 +15,9 @@ const LS_KEY = 'nexcore_weapp_db_v1'
 const LS_CLOUD = 'nexcore_weapp_cloud_v1'
 const LS_LOGIN = 'nexcore_weapp_logged_in'
 const LATENCY = 200
+let persistenceEnabled = false
+let applyingRemote = false
+let persistenceTimer: any = null
 
 function seed(): DB {
   return JSON.parse(JSON.stringify(SEED))
@@ -41,6 +48,21 @@ function save() {
   } catch (e) { console.error('[API] save db error:', e) }
   computeAlerts()
   computeDaily()
+  scheduleRemotePush()
+}
+
+function scheduleRemotePush() {
+  if (!persistenceEnabled || applyingRemote || !loadSession()) return
+  if (persistenceTimer) clearTimeout(persistenceTimer)
+  persistenceTimer = setTimeout(() => {
+    persistenceTimer = null
+    pushRemote(api.snapshotPayload(), api.localVersion()).then((r) => {
+      db.syncVersion = r.version
+      try { Taro.setStorageSync(LS_KEY, JSON.stringify(db)) } catch (e) { /* ignore */ }
+    }).catch((e) => {
+      console.warn('[workspace] remote save failed:', e && e.message)
+    })
+  }, 900)
 }
 
 function sleep() { return new Promise((r) => setTimeout(r, LATENCY + Math.random() * 180)) }
@@ -74,6 +96,33 @@ function profileDislikes(): string[] {
 function pushLog(action: string, detail: string, extra?: Record<string, any>) {
   db.logs.unshift(Object.assign({ action, detail, at: new Date().toLocaleString('zh-CN', { hour12: false }), ts: Date.now() }, extra || {}))
   if (db.logs.length > 120) db.logs.length = 120
+}
+
+function eventKey(prefix: string): string {
+  return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
+}
+
+function recordDomainEvent(
+  type: DomainEventType,
+  targetId: string,
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null,
+  correlationId?: string
+): void {
+  try {
+    recordEvent({
+      familyId: db.familyId || 'local',
+      type,
+      targetId,
+      before,
+      after,
+      actor: db.user?.phone || db.user?.name || 'local-user',
+      idempotencyKey: eventKey(type),
+      correlationId
+    })
+  } catch (e) {
+    console.warn('[events] record failed:', e)
+  }
 }
 
 /* 写权限：只读账号禁止写库存（F9.2） */
@@ -239,6 +288,8 @@ function setLoggedIn(v: boolean) {
 }
 export function logout() {
   db.user = undefined
+  persistenceEnabled = false
+  clearSession()
   setLoggedIn(false)
   save()
 }
@@ -250,6 +301,93 @@ export const api = {
   getState: (): DB => db,
   getStats: (): Stats => computeStats(),
 
+  initializeRemoteWorkspace: (
+    session: AccountSession,
+    payload: Record<string, any> | null,
+    version: number
+  ) => {
+    applyingRemote = true
+    persistenceEnabled = false
+    const base = SEED as DB
+    const starterLibs = JSON.parse(JSON.stringify(base.libraries)).slice(0, 4).map((l: Library) => ({
+      ...l,
+      count: 0,
+      items: []
+    }))
+    Object.keys(db).forEach((k) => delete (db as any)[k])
+    Object.assign(db, {
+      theme: base.theme,
+      settings: JSON.parse(JSON.stringify(base.settings)),
+      profile: JSON.parse(JSON.stringify(base.profile)),
+      budget: base.budget,
+      config: JSON.parse(JSON.stringify(base.config)),
+      libraries: starterLibs,
+      alerts: [],
+      plans: [],
+      shopping: [],
+      chat: [],
+      daily: [],
+      intake: {},
+      history7: [],
+      logs: [],
+      aiUsage: [],
+      users: [],
+      families: [],
+      members: {},
+      invite: { code: '', familyId: session.familyId, expiresInDays: 7, used: 0, max: 3, revoked: true },
+      workbench: { name: '家庭协作', expires: '', code: '', myDeck: [], seats: [], chat: [], members: [], plan: {} },
+      familyId: session.familyId,
+      family: { name: session.familyName, memberCount: 1 },
+      user: {
+        name: session.nickname || session.account,
+        phone: session.account,
+        role: session.role || '管理员',
+        initial: (session.nickname || session.account).charAt(0)
+      },
+      syncVersion: version || 0
+    })
+    if (payload) {
+      if (Array.isArray(payload.libraries) && payload.libraries.length) db.libraries = payload.libraries
+      if (Array.isArray(payload.plans)) db.plans = payload.plans
+      if (Array.isArray(payload.shopping)) db.shopping = payload.shopping
+      if (Array.isArray(payload.logs)) db.logs = payload.logs
+      if (Array.isArray(payload.daily)) db.daily = payload.daily
+      if (Array.isArray(payload.alerts)) db.alerts = payload.alerts
+    }
+    db.libraries.forEach(recount)
+    setLoggedIn(true)
+    computeAlerts()
+    computeDaily()
+    try { Taro.setStorageSync(LS_KEY, JSON.stringify(db)) } catch (e) { /* ignore */ }
+    applyingRemote = false
+    persistenceEnabled = true
+    return db
+  },
+
+  persistNow: (force = false) => {
+    if (!loadSession()) return Promise.reject(new Error('尚未登录'))
+    return pushRemote(api.snapshotPayload(), api.localVersion(), { force }).then((r) => {
+      db.syncVersion = r.version
+      try { Taro.setStorageSync(LS_KEY, JSON.stringify(db)) } catch (e) { /* ignore */ }
+      return r
+    })
+  },
+
+  clearAccountSession: () => {
+    persistenceEnabled = false
+    if (persistenceTimer) {
+      clearTimeout(persistenceTimer)
+      persistenceTimer = null
+    }
+    clearSession()
+  },
+
+  enablePersistence: () => {
+    persistenceEnabled = Boolean(loadSession())
+    if (persistenceEnabled) scheduleRemotePush()
+    return persistenceEnabled
+  },
+
   reset: (): DB => {
     Object.keys(db).forEach((k) => delete (db as any)[k])
     Object.assign(db, JSON.parse(JSON.stringify(pristine)))
@@ -258,22 +396,6 @@ export const api = {
     save()
     return db
   },
-
-  /* ===== 登录（契约 POST /api/auth/login，演示码 123456） ===== */
-  login: (phone: string, code: string) => sleep().then(() => {
-    if (code !== '123456') throw new Error('验证码错误（演示码 123456）')
-    const u = db.users.filter((x) => x.phone === phone)[0]
-    if (!u) throw new Error('账号不存在，请使用家庭内注册的手机号')
-    if (u.disabled) throw new Error('该账号已被管理员禁用')
-    const fam = db.families.filter((f) => f.id === u.familyId)[0] || db.families[0]
-    db.user = { name: u.name, phone: u.phone, role: u.role, initial: u.name.charAt(0) }
-    db.familyId = u.familyId
-    db.family = { name: fam.name, memberCount: (db.members[u.familyId] || []).length }
-    pushLog('auth', u.name + '（' + u.role + '）登录')
-    setLoggedIn(true)
-    save()
-    return { user: db.user, family: db.family, role: u.role }
-  }),
 
   /* ===== 拍照识别（F1：本地模拟，正式版为 /api/ai/vision） ===== */
   recognize: (imgs: string[]): Promise<IntakeResult[]> => {
@@ -329,16 +451,19 @@ export const api = {
   addItems: (results: IntakeResult[], libId: string) => sleep().then(() => {
     guard()
     const lib = findLib(libId) || db.libraries[0]
+    const correlationId = eventKey('intake')
     let added = 0
     results.forEach((r) => {
       if (!r.name) return
-      lib.items.push({
+      const item: Item = {
         id: nid('it'), no: nextNo(), name: r.name, emoji: r.emoji || '📦', img: r.img || '', kbKey: r.kbKey || '',
         qty: parseFloat(r.qty) || 1, unit: r.unit || '个', price: parseFloat(r.price) || 0, priceSrc: r.priceSrc || '手动',
         expDays: parseInt(String(r.expDays), 10) || 7, pos: r.pos || '未设置',
         lowAt: (KB.foods[r.kbKey] || {}).lowAt || 0,
         addedAt: new Date().getDate(), private: false
-      })
+      }
+      lib.items.push(item)
+      recordDomainEvent('item.created', item.id, null, { item: JSON.parse(JSON.stringify(item)), libId: lib.id }, correlationId)
       added++
     })
     recount(lib)
@@ -351,7 +476,9 @@ export const api = {
     guard()
     const hit = findItem(id)
     if (!hit) throw new Error('物品不存在')
+    const before = hit.item.qty
     const r = applyQtyChange(hit, delta, '手动调整')
+    recordDomainEvent('item.qty_changed', hit.item.id, { qty: before }, { qty: hit.item.qty })
     save()
     return r
   }),
@@ -429,12 +556,14 @@ export const api = {
     if (!lib) throw new Error('库不存在')
     const expDays = parseInt(data.expDays, 10) || 7
     const kbKey = (Object.keys(KB.foods).filter((k) => (KB.foods as any)[k].name === data.name)[0]) || ''
-    lib.items.push({
+    const item: Item = {
       id: nid('it'), no: nextNo(), name: data.name, emoji: data.emoji || '📦', img: data.img || '', kbKey,
       qty: parseFloat(data.qty) || 1, unit: data.unit || '个', price: parseFloat(data.price) || 0, priceSrc: data.priceSrc || '手动',
       expDays, pos: data.pos || '未设置', lowAt: (KB.foods[kbKey] || {}).lowAt || 0,
       addedAt: new Date().getDate(), private: !!data.private
-    })
+    }
+    lib.items.push(item)
+    recordDomainEvent('item.created', item.id, null, { item: JSON.parse(JSON.stringify(item)), libId: lib.id })
     recount(lib)
     pushLog('item', '添加物品「' + data.name + '」到「' + lib.name + '」', { kind: 'intake', n: 1, day: todayStr() })
     save()
@@ -469,10 +598,32 @@ export const api = {
     if (idx < 0) throw new Error('物品不存在')
     const snap = { lib, item: lib.items[idx], index: idx }
     lib.items.splice(idx, 1)
+    recordDomainEvent('item.deleted', itemId, {
+      item: JSON.parse(JSON.stringify(snap.item)),
+      libId: lib.id,
+      index: snap.index
+    }, null)
     recount(lib)
     pushLog('item', '删除物品「' + snap.item.name + '」')
     save()
     return snap
+  }),
+
+  moveItem: (itemId: string, targetLibId: string) => sleep().then(() => {
+    guard()
+    const hit = findItem(itemId)
+    const target = findLib(targetLibId)
+    if (!hit || !target) throw new Error('物品或目标库不存在')
+    if (hit.lib.id === target.id) return db
+    const sourceLibId = hit.lib.id
+    hit.lib.items = hit.lib.items.filter((it) => it.id !== itemId)
+    target.items.push(hit.item)
+    recordDomainEvent('item.moved', itemId, { libId: sourceLibId }, { libId: target.id })
+    recount(hit.lib)
+    recount(target)
+    pushLog('item', '移动「' + hit.item.name + '」到「' + target.name + '」')
+    save()
+    return db
   }),
 
   restoreItem: (snap: { lib: Library; item: Item; index: number }) => sleep().then(() => {
@@ -488,7 +639,6 @@ export const api = {
     return sleep().then(() => {
       const stock: Record<string, Item> = {}
       db.libraries.forEach((l) => (l.items || []).forEach((it) => { if (it.kbKey) stock[it.kbKey] = it; stock[it.name] = it }))
-      const soon = (db.settings && db.settings.alertSoon) || 7
       const dis = profileDislikes()
       const scored = (KB.recipes as any[])
         .filter((rc) => !dis.length || !rc.ing.some((g: string[]) => dis.indexOf(g[0]) > -1 || dis.indexOf(g[2]) > -1))
@@ -508,7 +658,7 @@ export const api = {
         })
       scored.sort((a: any, b: any) => b.score - a.score)
       db.meta = db.meta || {}
-      const plans: Plan[] = scored.slice(0, 3).map((s: any, i: number) => ({
+      const plans: Plan[] = scored.slice(0, 3).map((s: any) => ({
         id: (db.meta!.planSeq = (db.meta!.planSeq || 0) + 1),
         title: s.rc.title, priority: s.expN > 0 ? '高' : '中', reason: s.reason, time: s.rc.time,
         source: '知识库 · recipes', kcal: s.rc.kcal, prot: s.rc.prot,
@@ -573,6 +723,10 @@ export const api = {
     })
     p.status = 'done'
     p.snapshot = snap
+    recordDomainEvent('plan.executed', String(p.id), { status: 'pending' }, {
+      status: 'done',
+      snapshots: JSON.parse(JSON.stringify(snap))
+    })
     pushLog('plan', '执行方案「' + p.title + '」，扣减 ' + snap.length + ' 项')
     save()
     return db
@@ -588,6 +742,7 @@ export const api = {
     })
     p.status = 'pending'
     delete p.snapshot
+    recordDomainEvent('plan.reverted', String(p.id), { status: 'done' }, { status: 'pending' })
     pushLog('plan', '撤销方案「' + p.title + '」，库存已回滚')
     save()
     return db
@@ -633,12 +788,15 @@ export const api = {
     guard()
     const hit = db.shopping.find((s) => s.name === name)
     if (hit) {
+      const beforeQty = hit.qty
       hit.qty = qty || hit.qty
+      recordDomainEvent('shopping.added', name, { qty: beforeQty }, { qty: hit.qty })
       pushLog('shopping', '采购清单已有「' + name + '」，合并数量')
       save()
       return db.shopping
     }
     db.shopping.unshift({ name, qty: qty || '1', src: 'AI 对话添加（shopping_add）' })
+    recordDomainEvent('shopping.added', name, null, { qty: qty || '1' })
     pushLog('shopping', '加入采购清单：' + name + ' × ' + qty)
     save()
     return db.shopping
@@ -649,6 +807,102 @@ export const api = {
     try { return JSON.parse(Taro.getStorageSync(LS_CLOUD)) || { version: 1, updatedAt: null, payload: null } }
     catch (e) { return { version: 1, updatedAt: null, payload: null } }
   },
+  /* 活同步 / 跨设备流转：给自建后端用（真实网络），不经过本机云端模拟 */
+  snapshotPayload: (): Record<string, any> => ({
+    libraries: JSON.parse(JSON.stringify(db.libraries || [])),
+    plans: JSON.parse(JSON.stringify(db.plans || [])),
+    shopping: JSON.parse(JSON.stringify(db.shopping || [])),
+    alerts: JSON.parse(JSON.stringify(db.alerts || [])),
+    daily: JSON.parse(JSON.stringify(db.daily || [])),
+    logs: JSON.parse(JSON.stringify((db.logs || []).slice(0, 50)))
+  }),
+  applyPayload: (p: Record<string, any>) => {
+    if (!p) return db
+    applyingRemote = true
+    if (p.libraries) db.libraries = p.libraries
+    if (p.plans) db.plans = p.plans
+    if (p.shopping) db.shopping = p.shopping
+    if (p.daily) db.daily = p.daily
+    if (p.logs) db.logs = p.logs
+    save()
+    applyingRemote = false
+    return db
+  },
+  applyRemoteSnapshot: (p: Record<string, any>, v: number) => {
+    if (!p) return db
+    applyingRemote = true
+    if (p.libraries) db.libraries = p.libraries
+    if (p.plans) db.plans = p.plans
+    if (p.shopping) db.shopping = p.shopping
+    if (p.daily) db.daily = p.daily
+    if (p.logs) db.logs = p.logs
+    if (p.alerts) db.alerts = p.alerts
+    db.syncVersion = Number(v) || db.syncVersion || 1
+    db.libraries.forEach(recount)
+    computeAlerts()
+    computeDaily()
+    try { Taro.setStorageSync(LS_KEY, JSON.stringify(db)) } catch (e) { /* ignore */ }
+    applyingRemote = false
+    return db
+  },
+  localVersion: (): number => db.syncVersion || 1,
+  setLocalVersion: (v: number): number => {
+    db.syncVersion = Number(v) || 1
+    save()
+    return db.syncVersion
+  },
+  journalTimeline: (limit = 50) => eventTimeline(limit),
+  sealJournal: () => sealPendingEvents(),
+  undoJournalEvent: (eventId: string) => sleep().then(() => {
+    guard()
+    const event = eventById(eventId)
+    if (!event) throw new Error('审计事件不存在')
+
+    if (event.type === 'item.qty_changed') {
+      const before = Number((event.before || {}).qty)
+      const hit = findItem(event.targetId)
+      if (!hit || !Number.isFinite(before)) throw new Error('无法恢复该数量变更')
+      const current = hit.item.qty
+      createCompensation(event.id, db.user?.phone || db.user?.name || 'local-user')
+      hit.item.qty = before
+      pushLog('undo', '撤销审计事件：「' + hit.item.name + '」数量 ' + current + ' → ' + before)
+      save()
+      return db
+    }
+
+    if (event.type === 'item.deleted') {
+      const data = event.before || {}
+      const lib = findLib(String(data.libId || ''))
+      const item = data.item as Item | undefined
+      if (!lib || !item) throw new Error('无法恢复已删除物品')
+      createCompensation(event.id, db.user?.phone || db.user?.name || 'local-user')
+      lib.items.splice(Math.min(Number(data.index) || lib.items.length, lib.items.length), 0, item)
+      recount(lib)
+      pushLog('undo', '从审计事件恢复物品「' + item.name + '」')
+      save()
+      return db
+    }
+
+    if (event.type === 'plan.executed') {
+      const after = event.after || {}
+      const snapshots = (after.snapshots || []) as { id: string; before: number }[]
+      createCompensation(event.id, db.user?.phone || db.user?.name || 'local-user')
+      snapshots.forEach((snapshot) => {
+        const hit = findItem(snapshot.id)
+        if (hit) hit.item.qty = snapshot.before
+      })
+      const plan = db.plans.filter((row) => String(row.id) === event.targetId)[0]
+      if (plan) {
+        plan.status = 'pending'
+        delete plan.snapshot
+      }
+      pushLog('undo', '从审计事件撤销方案执行')
+      save()
+      return db
+    }
+
+    throw new Error('该事件类型暂不支持单条撤销')
+  }),
   syncStatus: (): Promise<SyncStatus> => sleep().then(() => {
     const c = api._cloud()
     return { local: db.syncVersion || 1, version: c.version, updatedAt: c.updatedAt }
@@ -737,6 +991,19 @@ export const api = {
     save()
     return db.invite
   }),
+  setInvite: (code: string, familyId: string) => {
+    db.invite = {
+      code,
+      familyId,
+      expiresInDays: 7,
+      used: 0,
+      max: 3,
+      revoked: !code,
+      createdAt: Date.now()
+    }
+    save()
+    return db.invite
+  },
 
   /* ===== 成员管理（F9.2） ===== */
   memberRemove: (phone: string) => sleep().then(() => {

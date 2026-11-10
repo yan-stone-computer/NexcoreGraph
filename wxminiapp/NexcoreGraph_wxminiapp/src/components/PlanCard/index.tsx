@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import styles from './index.module.scss'
 import classnames from 'classnames'
+import AppIcon from '@/components/AppIcon'
 import type { Plan } from '@/types'
 
 interface PlanCardProps {
@@ -32,8 +33,8 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, onExecute, onRollback, busy }
         <Text className={styles.reason}>{plan.reason}</Text>
       </View>
       <View className={styles.meta}>
-        <Text className={styles.metaItem}>⏱ {plan.time}</Text>
-        <Text className={styles.metaItem}>🔥 约 {plan.kcal} kcal</Text>
+        <View className={styles.metaItem}><AppIcon name="clock" size={22} /><Text>{plan.time}</Text></View>
+        <View className={styles.metaItem}><AppIcon name="flame" size={22} /><Text>约 {plan.kcal} kcal</Text></View>
         <Text className={styles.metaItem}>蛋白 {plan.prot}g</Text>
       </View>
       {plan.used.length > 0 ? (
@@ -73,11 +74,11 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, onExecute, onRollback, busy }
             <Text>{busy ? '执行中…' : '确认执行'}</Text>
           </View>
         ) : (
-          <Text className={styles.doneTag}>✅ 已执行</Text>
+          <View className={styles.doneTag}><AppIcon name="check" size={22} /><Text>已执行</Text></View>
         )}
         {done && plan.snapshot ? (
           <View className={styles.rollbackBtn} onClick={onRollback} hoverClass={styles.btnHover}>
-            <Text>↩ 撤销回滚</Text>
+            <AppIcon name="refresh" size={22} /><Text>撤销回滚</Text>
           </View>
         ) : null}
       </View>

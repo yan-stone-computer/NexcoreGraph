@@ -1,67 +1,86 @@
 # 启核图策 NexcoreGraph · 微信小程序端
 
-> 技术栈：Taro 4.1.9 + React 18 + TypeScript + Sass + zustand（可编译到微信小程序 / H5）
-> 赛道：传智杯 **AI 微信小程序开发挑战赛**（matchTrack id=10038）
-> AppID：`wx9d1c625b399ecda3`（已在 `project.config.json` 配置）
+家庭资源智能管家：拍照入库、GraphRAG 规划、库存预警、方案核销、采购、家庭协作和 MySQL 同步。
 
-## 一、目录结构
+技术栈：Taro 4.1.9 + React 18 + TypeScript + Sass + Zustand。
 
-```
-NexcoreGraph_wxminiapp/
-├─ config/{index,dev,prod}.ts   # Taro 构建配置
-├─ src/
-│  ├─ app.config.ts             # 10 页注册 + tabBar（首页 / 资源库 / AI 助手 / 我的）
-│  ├─ pages/                    # home / library / library-detail / intake / chat / plans / alerts / shopping / mine / login
-│  ├─ components/               # ItemRow / PlanCard / StatCard / AlertItem / EmptyState / NameInputModal
-│  ├─ services/                 # api.ts（本地模拟后端）· ai.ts（AI 编排层）· cloud.ts（待删除，见整改文档 D12）
-│  ├─ data/                     # seed.ts · knowledge.ts（食材 25 / 菜谱 16 / 规则 10）
-│  ├─ store/useStore.ts         # zustand
-│  ├─ styles/                   # theme.scss · variables.scss · compat.scss
-│  └─ assets/                   # logo.png / logo-512.png / tabbar 图标
-├─ docs/                        # 本端专项整改与验收文档 + 后台填报清单 + 品牌头像
-├─ project.config.json          # miniprogramRoot=dist（AppID 已配置）
-└─ dist/                        # 构建产物
+## 构建与运行
+
+```powershell
+npm install
+npm run build:weapp
 ```
 
-## 二、开发与构建
+产物位于 `dist/`。微信开发者工具打开工程根目录，`project.config.json` 已配置 `miniprogramRoot: "dist/"` 和当前 AppID `wx25e3afb6ce695963`。
 
-```bash
-npm install            # 或 npm ci
-npm run dev:weapp      # watch 开发（微信开发者工具打开本目录）
-npm run build:weapp    # 生产构建，产物在 dist/
-npm run build:h5       # 可选：H5 版本
+运行前需启动：
+
+1. 自建后端 `http://127.0.0.1:3000`，健康检查 `/api/health` 返回 `ai: ready`。
+2. MySQL `127.0.0.1:3307/tianshu`。
+3. 如需跨设备流转，同时启动 `flow-bridge.js` 的 3100 端口。
+
+## 真实能力
+
+- 登录只接受后端邮箱验证码，固定演示码和本地假登录已移除。
+- 工作区从 MySQL `sync_snapshots` 拉取，新增、编辑、数量调整、方案核销和回滚会自动上传。
+- 拍照识别调用 `/api/ai/vision`，不再使用模拟识别结果。
+- 高频库存事实由本地图谱直接回答，模型类问题调用 `/api/ai/chat`。
+- 模型支持“自建网关优先”和“厂商直连”两种策略。客户端 Key 明文保存在本机 `.env`，界面仅做掩码显示。
+- Windows 微信当前会拒绝 Agnes 厂商域名的证书链，真机环境应使用自建网关；网关在服务端使用同一 Agnes Key 转发，避免 `ERR_CERT_COMMON_NAME_INVALID`。
+- 写库存采用“预览卡 → 用户确认 → 执行 → 可撤销”，模型不能直接改数据。
+
+## 可信 AI 实验台（Wave 1）
+
+“我的 → 可信 AI 实验台”提供四块可现场核验的能力：
+
+- **What-if 推演**：在购买、执行方案、预算调整前，对比物品、库存单位、临期、低库存、预算占用和健康度变化；推演不会修改真实数据。
+- **追加式事件日志**：拍照入库、数量调整、删除、移动、方案执行和采购变更会生成事件；支持整批关联和可恢复事件撤销。
+- **SHA-256 审计链**：后端 `POST /api/events/append` 按家庭串接事件哈希，`GET /api/events/verify/:familyId` 可校验链完整性；重复事件按 eventId 幂等。
+- **Agent 策略沙箱**：只读成员禁止写操作，成员删除类动作需要管理员确认，Agent 动作缺少证据会被拦截。
+- **GraphRAG 检索轨迹**：每次模型问答保存路由、证据条数、路径和降级状态，AI 气泡中的“看依据”可直接打开实验台。
+- **5 分钟导览**：从今日建议、录入、推演、权限到审计走真实页面，不播放伪造演示。
+
+高级逻辑均有 Vitest 测试：
+
+```powershell
+npm test
+npm run typecheck
+npm run verify:weapp
 ```
 
-微信开发者工具导入本目录即可（`miniprogramRoot` 已指向 `dist/`）。
+## 目录
 
-## 三、演示账号
+```text
+src/
+├── app.config.ts
+├── pages/                 # home/workbench/library/library-detail/intake/chat/plans/alerts/shopping/graph/mine/login
+├── components/
+├── services/
+│   ├── auth.ts            # 邮箱验证码与登录
+│   ├── workspace.ts       # MySQL 工作区同步
+│   ├── agnes.ts           # 网关/厂商直连
+│   ├── graphRag.ts        # 图谱证据与大模型编排
+│   ├── family.ts          # 成员、邀请码和协作池
+│   └── exportcsv.ts
+├── store/
+├── styles/
+└── assets/
+```
 
-验证码统一 `123456`：
+## 环境配置
 
-| 手机号 | 角色 |
-|---|---|
-| 13800138000 | 家庭管理员 |
-| 13900139000 | 成员 |
-| 13600136000 | 只读 |
+复制 `.env.example` 为 `.env`，填写：
 
-## 四、AI 实现说明（重要）
+```text
+TARO_APP_AI_KEY=<Agnes API Key>
+TARO_APP_AI_MODEL=agnes-2.5-flash
+TARO_APP_AI_VENDOR_BASE=https://api.agnes-ai.cn/v1
+```
 
-`src/services/ai.ts` 已实现真实编排逻辑：意图路由（问候 / 位置 / 数量 / 保质期本地快答，0 次模型调用）、受约束工具协议（`[调整]`、`shopping_add`，先预览后确认）、营养估算、AI 创新菜谱、看板简报（统计由代码算，模型仅润色）。
+`TARO_APP_AI_KEY` 会在构建时内联进小程序产物。不要把含真实 Key 的 `.env`、`dist/common.js` 或 Demo 上传到公开仓库。
 
-当前**模型文本为本地模拟**（`modelReply` 内为模板 + 延时）。正式版改造：
+## 验证
 
-1. `cook / creative / nutrition / summary / fallback` 改调 `POST /api/ai/chat`（分段流式：`Taro.request({ enableChunked: true })` + `onChunkReceived`）。
-2. 拍照识别改调 `POST /api/ai/vision`（`Taro.uploadFile`）。
-3. 保持三条红线：数值由代码查询产出、写操作先预览后确认、单请求 ≤2 次模型调用。
+最近一次构建与功能回归记录见：
 
-## 五、本地存储键
-
-| 键 | 用途 |
-|---|---|
-| `nexcore_weapp_db_v1` | 业务数据（库 / 物品 / 方案 / 预警 / 日志） |
-| `nexcore_weapp_cloud_v1` | 云端快照模拟 |
-| `nexcore_weapp_logged_in` | 登录态 |
-
-## 六、品牌
-
-名称 **启核图策 / NexcoreGraph**；Logo 为圆形渐变徽标（绿→青→蓝 + 顶部嫩芽 + 白色 N）。头像规格图见 `docs/brand/`，后台填报内容见 `docs/启核图策-小程序后台填报清单.md`。
+`deliverables/传智杯_启核图策_小程序端/00_完整性校验/微信小程序回归测试记录.md`

@@ -21,17 +21,17 @@ export function greetWord(): string {
 /* 预警色调 → 色值 */
 export function toneColor(tone: AlertTone): string {
   switch (tone) {
-    case 'red': return '#C03A2B'
-    case 'amber': return '#B9791F'
-    case 'teal': return '#2F7D4F'
-    default: return '#7C776C'
+    case 'red': return '#C53D3D'
+    case 'amber': return '#B87D16'
+    case 'teal': return '#5B893B'
+    default: return '#6B7C8C'
   }
 }
 
 export function expColor(expDays: number): string {
-  if (expDays < 9000 && expDays <= 3) return '#C03A2B'
-  if (expDays < 9000 && expDays <= 7) return '#B9791F'
-  return '#7C776C'
+  if (expDays < 9000 && expDays <= 3) return '#C53D3D'
+  if (expDays < 9000 && expDays <= 7) return '#B87D16'
+  return '#6B7C8C'
 }
 
 export function expLabel(expDays: number): string {

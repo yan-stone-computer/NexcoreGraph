@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useStore } from '@/store/useStore'
 import { api } from '@/services/api'
 import EmptyState from '@/components/EmptyState'
+import AppIcon from '@/components/AppIcon'
 import styles from './index.module.scss'
 
 const ShoppingPage: React.FC = () => {
@@ -29,16 +30,18 @@ const ShoppingPage: React.FC = () => {
           <Text className={styles.headTitle}>采购清单 · {db.shopping.length}</Text>
           <Text className={styles.headSub}>由方案缺料 + 低库存自动汇总，AI 对话也可添加</Text>
         </View>
-        <View className={styles.refreshBtn} onClick={regenerate} hoverClass={styles.refreshBtnHover}><Text>↻ 刷新汇总</Text></View>
+        <View className={styles.refreshBtn} onClick={regenerate} hoverClass={styles.refreshBtnHover}>
+          <AppIcon name="refresh" size={26} /><Text>刷新汇总</Text>
+        </View>
       </View>
 
       <View className={styles.list}>
         {db.shopping.length === 0 ? (
-          <EmptyState emoji="🛒" text="采购清单是空的" sub="生成方案后缺料会自动汇总到这里" />
+          <EmptyState icon="shopping" text="采购清单是空的" sub="生成方案后缺料会自动汇总到这里" />
         ) : (
           db.shopping.map((s, i) => (
             <View key={i} className={styles.row}>
-              <View className={styles.rowEmoji}><Text>🛒</Text></View>
+              <View className={styles.rowEmoji}><AppIcon name="shopping" size={38} /></View>
               <View className={styles.rowBody}>
                 <Text className={styles.rowName}>{s.name}</Text>
                 <Text className={styles.rowSrc}>{s.src}</Text>

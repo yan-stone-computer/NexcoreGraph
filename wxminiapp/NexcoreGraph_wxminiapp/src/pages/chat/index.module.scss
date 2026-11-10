@@ -88,7 +88,7 @@
 
 .avatarMe {
   background: rgba(165, 128, 60, 0.2);
-  color: #7A5B24;
+  color: #2E8F63;
 }
 
 .body {
@@ -141,6 +141,14 @@
   color: $color-primary-dark;
   background: rgba(201, 168, 106, 0.14);
   padding: 2rpx 12rpx;
+  border-radius: $radius-xs;
+}
+
+.aiTag {
+  font-size: $font-size-xs;
+  color: $color-primary-dark;
+  border: 1rpx solid rgba(201, 168, 106, 0.45);
+  padding: 0 10rpx;
   border-radius: $radius-xs;
 }
 

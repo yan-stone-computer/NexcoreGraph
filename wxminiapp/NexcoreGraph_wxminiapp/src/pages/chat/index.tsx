@@ -84,7 +84,7 @@ const ChatPage: React.FC = () => {
     }
   }
 
-  const cancelCard = (msg: ChatMsg, idx: number) => {
+  const cancelCard = (_msg: ChatMsg, idx: number) => {
     const stored = db.chat[idx]
     if (stored && stored.card) stored.card.cancelled = true
     api.touchChat()
@@ -92,7 +92,7 @@ const ChatPage: React.FC = () => {
   }
 
   const clearChat = async () => {
-    const r = await Taro.showModal({ title: '清空对话', content: '仅清除本机对话记录（本地存储，≤200 条）。', confirmColor: '#C03A2B' })
+    const r = await Taro.showModal({ title: '清空对话', content: '仅清除本机对话记录（本地存储，≤200 条）。', confirmColor: '#C53D3D' })
     if (r.confirm) {
       await useStore.getState().invoke(() => api.chatClear())
       Taro.showToast({ title: '已清空', icon: 'success' })
@@ -177,6 +177,7 @@ const ChatPage: React.FC = () => {
                 {renderPlans(m)}
                 <View className={styles.meta}>
                   <Text className={styles.time}>{m.time}</Text>
+                  {m.who === 'ai' ? <Text className={styles.aiTag}>AI 生成</Text> : null}
                   {m.who === 'ai' && m.src ? <Text className={styles.srcNote}>{m.src}</Text> : null}
                 </View>
               </View>

@@ -23,5 +23,9 @@ declare namespace NodeJS {
      * @see https://taro-docs.jd.com/docs/next/env-mode-config#特殊环境变量-taro_app_id
      */
     TARO_APP_ID: string
+    /** 厂商直连通道的 Key（来自本机 .env，不进仓库；不填则只走自建网关） */
+    TARO_APP_AI_KEY: string
+    TARO_APP_AI_MODEL: string
+    TARO_APP_AI_VENDOR_BASE: string
   }
 }

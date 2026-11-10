@@ -17,6 +17,22 @@
   }
 }
 
+.wide {
+  grid-column: span 2;
+  min-height: 176rpx;
+  background: linear-gradient(135deg, #173D30 0%, #28624A 100%);
+  box-shadow: 0 14rpx 30rpx rgba(35, 69, 55, 0.15);
+
+  .value,
+  .label {
+    color: #FFFFFF;
+  }
+
+  .unit {
+    color: rgba(255, 255, 255, 0.76);
+  }
+}
+
 .hover {
   opacity: 0.92;
   transform: scale(0.98);

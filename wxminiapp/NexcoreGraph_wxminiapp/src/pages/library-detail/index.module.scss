@@ -55,6 +55,9 @@
 }
 
 .headBtn {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
   font-size: $font-size-xs;
   color: $color-primary-dark;
   background: rgba(201, 168, 106, 0.16);
