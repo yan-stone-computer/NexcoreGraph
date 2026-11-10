@@ -15,5 +15,9 @@ export default function replyTextTest() {
     it('returns an empty string when only reasoning is present', 0, () => {
       expect(visibleReply('[思考过程：没有正文]')).assertEqual('');
     });
+
+    it('preserves visible text after an unclosed thought tag', 0, () => {
+      expect(visibleReply('<thought>未闭合\n今晚吃番茄。')).assertEqual('今晚吃番茄。');
+    });
   });
 }

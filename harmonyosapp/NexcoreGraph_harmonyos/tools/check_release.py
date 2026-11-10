@@ -13,6 +13,10 @@
   9. 图谱四端点与五张表就绪
  10. 端侧构图 0 次模型调用（红线 3）
  11. 图谱默认不进同步 payload（隐私分级）
+ 12. 高阶能力模块齐备（数字孪生 / 安全策略 / 证据清洗 / 扫码）
+ 13. GuardrailBench 30 条硬门槛无违规
+ 14. Agent 写操作已接入策略与幂等守卫
+ 15. 元服务不调用平台明确拒绝的 Notification 发布接口
 
 用法：python tools/check_release.py [--root .]
 """
@@ -164,6 +168,49 @@ def main():
               if k in sync_src]
     check('图谱默认不进同步 payload（隐私分级）', not leaked,
           '同步模块未引用图谱数据' if not leaked else '同步模块疑似引用图谱字段：%s' % leaked)
+
+    # 12 高阶能力模块
+    advanced = [
+        ('entry/src/main/ets/common/ResourceTwin.ets', '数字孪生'),
+        ('entry/src/main/ets/pages/TwinPanel.ets', '孪生沙盘'),
+        ('entry/src/main/ets/common/PolicyEngine.ets', 'Agent 策略'),
+        ('entry/src/main/ets/common/ReplyText.ets', '正文清洗'),
+        ('entry/src/main/ets/common/BarcodeIntake.ets', '扫码合并'),
+    ]
+    miss_advanced = ['%s(%s)' % (name, path) for path, name in advanced
+                     if not os.path.isfile(os.path.join(root, path))]
+    check('高阶能力模块齐备', not miss_advanced,
+          '缺少 %s' % miss_advanced if miss_advanced else '数字孪生 / 策略 / 清洗 / 扫码模块均在')
+
+    # 13 GuardrailBench
+    eval_result_path = os.path.join(root, 'evals', 'result.json')
+    try:
+        ev = json.loads(read(eval_result_path))
+        ok = ev.get('total', 0) >= 30 and ev.get('hardFailViolations', 1) == 0
+        detail = '%s/%s 通过，硬门槛违规 %s' % (
+            ev.get('passed', 0), ev.get('total', 0), ev.get('hardFailViolations', 'missing'))
+    except Exception as e:
+        ok, detail = False, '评测结果不可用：%s' % e
+    check('GuardrailBench 30 条硬门槛', ok, detail)
+
+    # 14 Agent 写操作接入守卫
+    guarded_files = ['entry/src/main/ets/pages/AiPanel.ets',
+                     'entry/src/main/ets/pages/AiWorkbench.ets']
+    guard_hits = []
+    for rel in guarded_files:
+        src = read(os.path.join(root, rel))
+        if 'checkPolicy' in src and 'claimActionOnce' in src:
+            guard_hits.append(os.path.basename(rel))
+    check('Agent 写操作接入策略与幂等守卫', len(guard_hits) == len(guarded_files),
+          '已接入：%s' % guard_hits if guard_hits else '未找到策略接入')
+
+    # 15 元服务不支持的系统通知不得误接入
+    main_sources = find_sources(root, ['entry/src/main/ets'])
+    unsupported = [os.path.relpath(p, root) for p in main_sources
+                   if ('notificationManager.publish' in read(p)
+                       or 'requestEnableNotification' in read(p))]
+    check('元服务不调用未支持的系统通知接口', not unsupported,
+          '未发现 notificationManager 发布调用' if not unsupported else '发现：%s' % unsupported[:3])
 
     width = max(len(r[0]) for r in results) + 2
     print('启核图策 · 鸿蒙端提交前检查')

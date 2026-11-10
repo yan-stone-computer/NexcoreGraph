@@ -17,8 +17,7 @@ export function visibleReply(raw: string): string {
   text = text
     .replace(/<think(?:ing)?[\s\S]*?<\/think(?:ing)?>/gi, '')
     .replace(/<thought[\s\S]*?<\/thought>/gi, '')
-    .replace(/<think(?:ing)?[\s\S]*$/gi, '')
-    .replace(/<thought[\s\S]*$/gi, '')
+    .replace(/<(?:thought|think|thinking)[^>]*>[^\n]*(?:\n|$)/gi, '')
     .replace(/<｜end▁of▁thinking｜>/gi, '')
     .replace(/<\/think>/gi, '')
     .trim();

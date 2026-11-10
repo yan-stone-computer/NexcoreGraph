@@ -6,7 +6,7 @@
 
 **Architecture:** 保留现有 ArkTS/ArkUI、元服务、服务卡片、应用接续、AI 网关和 GraphRAG 基座；新增“家庭资源数字孪生”“Agentic 决策链”“证据账本与数字声明校验”“原生扫码多模态入库”“主动智能触达”五个高阶系统。所有 AI 数字继续由代码计算，所有写操作继续经过预览、权限校验、幂等执行和撤销。
 
-**Tech Stack:** HarmonyOS NEXT API 23、ArkTS、ArkUI、Stage 模型、元服务、Form Kit、Notification Kit、Scan Kit、Preferences、Node.js 后端、现有 GraphRAG/知识库、Hypium、Node 内置测试。
+**Tech Stack:** HarmonyOS NEXT API 23、ArkTS、ArkUI、Stage 模型、元服务、Form Kit、Scan Kit、Preferences、Node.js 后端、现有 GraphRAG/知识库、Hypium、Node 内置测试。
 
 **Specs:**
 
@@ -74,7 +74,7 @@
 本机 SDK：
 
 - `@kit.ScanKit.d.ts`：`scanBarcode.startScanForResult()` 存在，接口标记 `@atomicservice`，可进入主线。
-- `@kit.NotificationKit.d.ts`：`requestEnableNotification()`、`publish()` 存在，接口标记 `@atomicservice`，可进入主线。
+- `@kit.NotificationKit.d.ts`：类型声明存在，但 `requestEnableNotification()` / `publish()` 在 `atomicService` 完整 HAP 构建中被 `11706010` 拒绝；已降级为 Form Kit 服务卡片。
 - `@kit.IntentsKit`：元服务接口存在，但应用必须完成系统意图注册；列为 P1 可行性闸门。
 - `distributedDataObject`：本机声明存在，但未发现元服务标记；不以 DDO 作为本轮核心承诺。
 - Live View、部分 Core Vision 能力存在声明，但本轮不承诺未完成元服务兼容验证的接入。
@@ -233,7 +233,7 @@
 │  Evidence Ledger │ Action Journal │ Reminder Planner│
 ├───────────────────────────────────────────────────┤
 │ HarmonyOS 原生能力                                 │
-│  Scan Kit │ Notification Kit │ Form Kit │ 接续     │
+│  Scan Kit │ Form Kit 卡片 │ 接续 │ 一多断点        │
 │  Preferences │ Camera Picker │ 一多断点             │
 ├───────────────────────────────────────────────────┤
 │ 云端增强                                           │

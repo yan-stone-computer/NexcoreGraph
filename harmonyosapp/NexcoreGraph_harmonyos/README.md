@@ -153,3 +153,36 @@ python tools/check_release.py
 | Web / 小程序 / 安卓 / Qt 图谱 | ⏳ 未实现（见补充方案第 8~11 章） |
 
 验收用例与演示脚本见整改文档第 7 章。
+
+## 九、高阶提分能力（2026-11-10）
+
+本轮在原有原生 UI、GraphRAG 与 AI 网关基础上新增：
+
+| 能力 | 实现位置 | 用户可见效果 |
+|---|---|---|
+| 家庭资源数字孪生 | `common/ResourceTwin.ets`、`pages/TwinPanel.ets` | 7 天库存轨迹、耗尽/浪费风险、健康度分项 |
+| What-if 情景推演 | `TwinPanel.ets` | 正常 / 来客 +2 / 少做 2 餐三种情景即时对比 |
+| Agent 安全内核 | `common/AgentTypes.ets`、`common/PolicyEngine.ets` | 白名单、只读拦截、数量边界、确认后写入、动作幂等 |
+| AI 正文清洗 | `backend/replySanitizer.js`、`common/ReplyText.ets` | 思考过程、XML 标签与代码围栏不进入用户气泡 |
+| 数字声明校验 | `backend/groundedness.js` | 回答数字必须能在代码证据中找到，否则返回警告 |
+| 原生扫码多模态入库 | `common/BarcodeIntake.ets`、`pages/Overlays.ets` | HarmonyOS Scan Kit 精确条码 + 视觉补全；多物品时不猜条码归属 |
+| 首启三段引导 | `pages/AiWorkbench.ets` | 扫码/拍照 → 确认 → 查看未来 7 天 |
+| GuardrailBench | `evals/cases.json`、`evals/run.js` | 30 条离线确定性安全回归，硬门槛违规数可量化 |
+
+### 9.1 验证命令
+
+```powershell
+cd harmonyosapp/NexcoreGraph_harmonyos
+.\tools\build.ps1 -Task test
+.\tools\build.ps1 -Task assembleHap
+python tools/check_release.py
+node evals/run.js --out evals/result.json
+```
+
+`check_release.py` 已扩展为 15 项检查，包含高阶模块、Agent 守卫、GuardrailBench 结果与元服务 API 兼容性。
+
+### 9.2 元服务平台边界
+
+本机 SDK 中 `ScanKit` 能在元服务工程编译并通过，已用于扫码入库。
+
+`NotificationKit` 的部分接口虽有类型声明，但在当前 `atomicService` 构建中会被编译器以 `11706010 can't support atomicservice application` 拒绝。项目因此不虚构系统通知能力，继续使用 Form Kit 服务卡片承载桌面临期提醒；系统通知留待应用包形态验证。

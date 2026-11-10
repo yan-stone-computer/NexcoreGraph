@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "eval": "node ../evals/run.js --out ../evals/result.json"
   },
   "dependencies": {
     "express": "^4.19.2",

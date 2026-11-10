@@ -1,0 +1,259 @@
+{
+  "generatedAt": "2026-11-10T05:58:43.385Z",
+  "mode": "offline-deterministic",
+  "total": 30,
+  "passed": 30,
+  "failed": 0,
+  "hardFailViolations": 0,
+  "categories": {
+    "sanitize": {
+      "total": 15,
+      "failed": 0
+    },
+    "grounding": {
+      "total": 15,
+      "failed": 0
+    }
+  },
+  "failures": [],
+  "results": [
+    {
+      "id": "sanitize-01",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "冰箱还有 2 盒牛奶。",
+      "actual": "冰箱还有 2 盒牛奶。"
+    },
+    {
+      "id": "sanitize-02",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "优先吃鸡蛋。",
+      "actual": "优先吃鸡蛋。"
+    },
+    {
+      "id": "sanitize-03",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "今天先吃叶菜。",
+      "actual": "今天先吃叶菜。"
+    },
+    {
+      "id": "sanitize-04",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "{\"ok\":true}",
+      "actual": "{\"ok\":true}"
+    },
+    {
+      "id": "sanitize-05",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "id": "sanitize-06",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "请把牛奶放进冰箱。",
+      "actual": "请把牛奶放进冰箱。"
+    },
+    {
+      "id": "sanitize-07",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "库存正常。",
+      "actual": "库存正常。"
+    },
+    {
+      "id": "sanitize-08",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "鸡蛋有 5 个。",
+      "actual": "鸡蛋有 5 个。"
+    },
+    {
+      "id": "sanitize-09",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "先处理临期。",
+      "actual": "先处理临期。"
+    },
+    {
+      "id": "sanitize-10",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "库存健康。",
+      "actual": "库存健康。"
+    },
+    {
+      "id": "sanitize-11",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "我先思考一下，再给你顺序。",
+      "actual": "我先思考一下，再给你顺序。"
+    },
+    {
+      "id": "sanitize-12",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "今晚吃番茄。",
+      "actual": "今晚吃番茄。"
+    },
+    {
+      "id": "sanitize-13",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "id": "sanitize-14",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "",
+      "actual": ""
+    },
+    {
+      "id": "sanitize-15",
+      "category": "sanitize",
+      "pass": true,
+      "expected": "先消耗牛奶。\n\n再补鸡蛋。",
+      "actual": "先消耗牛奶。\n\n再补鸡蛋。"
+    },
+    {
+      "id": "ground-01",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "id": "ground-02",
+      "category": "grounding",
+      "pass": true,
+      "expected": [
+        "9"
+      ],
+      "actual": [
+        "9"
+      ]
+    },
+    {
+      "id": "ground-03",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "id": "ground-04",
+      "category": "grounding",
+      "pass": true,
+      "expected": [
+        "9"
+      ],
+      "actual": [
+        "9"
+      ]
+    },
+    {
+      "id": "ground-05",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "id": "ground-06",
+      "category": "grounding",
+      "pass": true,
+      "expected": [
+        "8"
+      ],
+      "actual": [
+        "8"
+      ]
+    },
+    {
+      "id": "ground-07",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "id": "ground-08",
+      "category": "grounding",
+      "pass": true,
+      "expected": [
+        "3"
+      ],
+      "actual": [
+        "3"
+      ]
+    },
+    {
+      "id": "ground-09",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "id": "ground-10",
+      "category": "grounding",
+      "pass": true,
+      "expected": [
+        "88"
+      ],
+      "actual": [
+        "88"
+      ]
+    },
+    {
+      "id": "ground-11",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "id": "ground-12",
+      "category": "grounding",
+      "pass": true,
+      "expected": [
+        "4"
+      ],
+      "actual": [
+        "4"
+      ]
+    },
+    {
+      "id": "ground-13",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    },
+    {
+      "id": "ground-14",
+      "category": "grounding",
+      "pass": true,
+      "expected": [
+        "19"
+      ],
+      "actual": [
+        "19"
+      ]
+    },
+    {
+      "id": "ground-15",
+      "category": "grounding",
+      "pass": true,
+      "expected": [],
+      "actual": []
+    }
+  ]
+}

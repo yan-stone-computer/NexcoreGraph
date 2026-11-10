@@ -30,3 +30,8 @@ test('keeps ordinary text that merely contains the word thinking', () => {
   const raw = '我先思考一下，再给你两天的处置顺序。';
   assert.equal(sanitizeModelReply(raw), raw);
 });
+
+test('preserves visible text after an unclosed thought tag', () => {
+  const raw = '<thought>未闭合\n今晚吃番茄。';
+  assert.equal(sanitizeModelReply(raw), '今晚吃番茄。');
+});
