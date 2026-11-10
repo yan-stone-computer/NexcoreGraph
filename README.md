@@ -10,8 +10,9 @@
 
 | 目录 | 端 | 技术栈 | 当前状态 |
 |---|---|---|---|
-| `harmonyosapp/NexcoreGraph_harmonyos` | 鸿蒙（主力端） | ArkTS + ArkUI（HarmonyOS NEXT / API 12+）+ Node 后端 + MySQL | M1/M2/M2.5 已实现（含 AI 意图路由、工具协议、本地落盘、看板、4 张服务卡片）；待补：分布式特性、Codelabs 交付、AI 走后端网关 |
-| `web/NexcoreGraph_web` | Web 用户端 + 管理员端 | 当前：免构建原生 HTML/CSS/JS（零依赖）；目标：Vue 3 + TS + Vite | 功能闭环完整（含 AI 编排层、管理员端 F10、CSV 导入导出、真实摄像头与语音输入）；待补：框架化、接真实大模型、RAG 检索、真实视觉识别 |
+| `website/` | 官方展示站 | 零依赖 HTML / CSS / JS | 已完成响应式官网、真实界面切换、GraphRAG 可视化与工程证据页 |
+| `harmonyosapp/NexcoreGraph_harmonyos` | 鸿蒙（主力端） | ArkTS + ArkUI（HarmonyOS NEXT / API 23）+ Node 后端 + MySQL | 原生 UI、AI 网关、GraphRAG、应用接续、多端同步、4 张服务卡片、Codelabs 00–08 已实现；待补：签名 HAP 与双机实测证据 |
+| `web/NexcoreGraph_web` | Web 用户端 + 管理员端 | 当前：免构建原生 HTML/CSS/JS；Node 24 仅用于测试 | 已实现 AI 网关/厂商直连、GraphRAG、真实视觉识别链路、临期救援 Pareto 求解器、组合菜单、管理员端、CSV 和浏览器验收；Vue 3 迁移是后续工程化方向 |
 | `wxminiapp/NexcoreGraph_wxminiapp` | 微信小程序 | Taro 4.1.9 + React 18 + TypeScript + Sass + zustand | 10 页可编译（0.55MB）、AppID 已配置；待补：接真实模型与流式、协作工作台页、订阅消息/分享、隐私与内容安全合规 |
 | `androidapp/` | 安卓 | Kotlin + Jetpack Compose（规划） | **空目录**，待迁入 |
 | `desktopapp/` | Qt 桌面 | C++ + Qt 6 + QML（规划） | **空目录**，待迁入 |
@@ -20,6 +21,13 @@
 ---
 
 ## 二、快速开始
+
+### 官网
+
+```bash
+python -m http.server 8095
+# 浏览器打开 http://127.0.0.1:8095/website/
+```
 
 ### 鸿蒙端
 
@@ -36,10 +44,19 @@ cd backend && npm install && start.bat      # 默认 0.0.0.0:3000，需本机 My
 cd web/NexcoreGraph_web
 python -m http.server 8080      # 推荐：摄像头 getUserMedia 需要 localhost 或 HTTPS
 # 浏览器打开 http://localhost:8080 （用户端）与 http://localhost:8080/admin.html （管理员端）
-# 或直接双击 index.html（无 Node 依赖）
+# 登录使用邮箱 + 后端真实邮件验证码；新版不再使用固定演示码
 ```
 
-演示账号（验证码统一 `123456`）：`13800138000` 管理员 / `13900139000` 成员 / `13600136000` 只读。
+评审账号需在后端数据库中创建，并通过真实邮箱接收验证码，避免公开仓库泄露固定测试凭据。
+
+### Web 端自动测试
+
+```powershell
+cd web/NexcoreGraph_web
+node --test tests/rescue.test.js
+cd ../..
+python tools/verify_rescue_web.py --url "file:///D:/ProjectFiles/GithubPackage/NexcoreGraph/web/NexcoreGraph_web/index.html#/rescue"
+```
 
 ### 微信小程序
 
