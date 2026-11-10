@@ -45,3 +45,18 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+
+# ---------- 比赛提交产物 ----------
+# 最终 ZIP、视频、PDF 包与截图由脚本生成，不提交到源码历史。
+deliverables/
+*.zip
+*.mp4
+*.sha256
+docs/backups/
+docs/qa/
+harmonyosapp/NexcoreGraph_harmonyos/backend/tts-cache/
+tools/NexcoreWork/
+
+# ---------- 临时浏览器 / 转换进程 ----------
+edge_cdp_*/
+.locks/
