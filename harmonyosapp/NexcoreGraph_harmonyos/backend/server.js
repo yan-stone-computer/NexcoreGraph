@@ -32,6 +32,7 @@ const { GraphService } = require('./graphService');
 const { buildEvidence, matchEntity } = require('./graphQuery');
 const { sendMail } = require('./mailer');
 const { sanitizeModelReply } = require('./replySanitizer');
+const { findUngroundedNumbers } = require('./groundedness');
 
 /**
  * 可选：读取同目录 gitignore 的 backend/.env（AGNES_API_KEY=sk-xxx 等），
@@ -1486,6 +1487,14 @@ app.post('/api/ai/chat', async (req, res) => {
         warnings
       });
     }
+    const groundedEvidence = [String(evidence || '')];
+    if (graphEvidence) {
+      groundedEvidence.push(JSON.stringify(graphEvidence));
+    }
+    const ungroundedNumbers = findUngroundedNumbers(out.text, groundedEvidence);
+    if (ungroundedNumbers.length > 0) {
+      warnings.push('ungrounded_numbers');
+    }
     await logAiUsage({
       familyId, user, route: intent || 'other', model: out.model, ms, tokens: out.tokens,
       source: intent === 'community-summary' ? 'summary' : 'gateway'
@@ -1502,7 +1511,7 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     res.json({
       ok: true, text: out.text, model: out.model, ms, tokens: out.tokens,
-      traceId, evidenceUsed, warnings
+      traceId, evidenceUsed, warnings, ungroundedNumbers
     });
   } catch (e) {
     await logAiUsage({ familyId, user, route: intent || 'other', model: 'failed', ms: Date.now() - t0, tokens: 0 });

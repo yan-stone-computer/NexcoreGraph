@@ -60,6 +60,12 @@ class GatewayChat {
   traceId: string = '';
   evidenceUsed: string[] = [];
   warnings: string[] = [];
+  ungroundedNumbers: UngroundedNumber[] = [];
+}
+
+class UngroundedNumber {
+  token: string = '';
+  context: string = '';
 }
 
 class GatewayItem {
@@ -271,7 +277,11 @@ export function askAI(question: string): Promise<AIReply> {
         ? '证据：库存图谱（' + mode + '）' + prefNote : '证据：库存图谱';
       const pathNote = lastEvidencePaths > 0 ? `｜已引用 ${lastEvidencePaths} 条路径` : '';
       const warnNote = lastWarnings.length > 0 ? `｜${lastWarnings.join('、')}` : '';
-      r.srcNote = baseNote + pathNote + warnNote;
+      const ungrounded = res.ungroundedNumbers === undefined ? [] : res.ungroundedNumbers;
+      const numberNote = ungrounded.length > 0
+        ? `｜${ungrounded.length} 个数字未在证据中找到`
+        : '｜数字已核对';
+      r.srcNote = baseNote + pathNote + warnNote + numberNote;
       if (graphEv.paths.length > 0 && graphEv.paths[0].src !== '') {
         r.srcUrl = '';   // 路径来源在 srcNote 中展示，链接由知识库快答路径提供
       }
