@@ -34,10 +34,11 @@ const MinePage: React.FC = () => {
 
   useDidShow(() => {
     refresh()
+    const session = loadSession()
+    if (!session) return
     remoteStatus().then((r) => setSync({ local: db.syncVersion || 1, version: r.version, updatedAt: r.updatedAt || null }))
       .catch((e) => console.error('[Mine] syncStatus:', e))
     getMembers(db.familyId).then(setMembers).catch((e) => console.error('[Mine] members:', e))
-    const session = loadSession()
     if (session) {
       getCurrentFamily(session.account, session.familyId)
         .then((f) => { if (f?.invite_code) api.setInvite(f.invite_code, f.id) })

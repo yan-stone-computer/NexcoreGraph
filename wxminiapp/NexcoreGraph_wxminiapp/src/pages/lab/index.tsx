@@ -5,7 +5,7 @@ import TourTip from '@/components/TourTip'
 import { useStore } from '@/store/useStore'
 import { api } from '@/services/api'
 import { evaluatePolicy, type AgentProposal } from '@/services/policy'
-import { simulate, type Scenario } from '@/services/simulation'
+import { measureImpact, simulate, type Scenario } from '@/services/simulation'
 import { TOUR } from '@/services/demoTour'
 import { advanceTour, currentTourStep, stopTour } from '@/services/tourStore'
 import { lastTrace } from '@/services/traceStore'
@@ -86,7 +86,7 @@ const LabPage: React.FC = () => {
       }],
       impact: { expiringHandled: 1, shoppingAdded: 0, inventoryChanged: 1 }
     }
-    const neutralImpact = simulate(db, { kind: 'set_budget', amount: db.budget })
+    const neutralImpact = measureImpact(db)
     const role = (db.user?.role || '成员') as '管理员' | '成员' | '只读'
     setDecision(evaluatePolicy({
       actorRole: role,

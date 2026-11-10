@@ -175,3 +175,20 @@ export function simulate(current: DB, scenario: Scenario): Impact {
   })
   return { before, after, delta, warnings }
 }
+
+export function measureImpact(current: DB): Impact {
+  const currentState = snapshot(current)
+  return {
+    before: currentState,
+    after: { ...currentState },
+    delta: {
+      items: 0,
+      stockUnits: 0,
+      expiring: 0,
+      lowStock: 0,
+      budgetUsed: 0,
+      health: 0
+    },
+    warnings: []
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseScenario, simulate } from '../src/services/simulation'
+import { measureImpact, parseScenario, simulate } from '../src/services/simulation'
 import type { DB } from '../src/types'
 
 function state(): DB {
@@ -73,5 +73,13 @@ describe('what-if natural language parser', () => {
       kind: 'set_budget',
       amount: 80
     })
+  })
+})
+
+describe('baseline impact', () => {
+  it('returns the current metrics without scenario warnings', () => {
+    const result = measureImpact(state())
+    expect(result.before).toEqual(result.after)
+    expect(result.warnings).toEqual([])
   })
 })
