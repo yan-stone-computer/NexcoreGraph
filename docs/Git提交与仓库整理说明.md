@@ -29,11 +29,13 @@
 
 ## 推送
 
-当前 GitHub CLI 未登录。完成本地提交后，需要在有远端写权限的环境执行：
+本轮已使用本机 Git 凭据推送比赛分支：
 
 ```powershell
 git push -u origin codex/web-competition-submission
 ```
+
+推送结果：新分支 `codex/web-competition-submission` 已创建并跟踪远端。
 
 随后在 GitHub/Gitee 中确认：
 
@@ -49,5 +51,7 @@ python tools/check_repo_hygiene.py
 git status --short
 git log --oneline --graph --decorate -20
 ```
+
+匿名访问当前仍返回 404，因此仓库很可能仍是私有仓库。Git 推送成功不等于评审可以访问；必须在 GitHub/Gitee 页面确认 Public 或评委权限。
 
 如果仓库历史中曾提交真实密钥，仅从当前文件删除不够，必须立即轮换密钥并评估历史清理，不能用“文件已删”代替密钥失效。
