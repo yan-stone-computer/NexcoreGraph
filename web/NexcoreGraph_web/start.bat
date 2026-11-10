@@ -8,12 +8,18 @@ setlocal enabledelayedexpansion
 rem 本脚本就放在 Web 工程目录内，直接用自身所在目录（旧版硬编码成 webapp\ 会找不到 index.html）
 set "APP=%~dp0"
 if "%APP:~-1%"=="\" set "APP=%APP:~0,-1%"
+set "SERVE=%APP%\..\..\tools\serve_web.py"
 set "PORT=8090"
 if not "%~1"=="" set "PORT=%~1"
 
 if not exist "%APP%\index.html" (
   echo [ERROR] index.html not found under %APP%.
   echo         Please put start.bat next to index.html.
+  pause
+  exit /b 1
+)
+if not exist "%SERVE%" (
+  echo [ERROR] hardened server not found: %SERVE%
   pause
   exit /b 1
 )
@@ -36,7 +42,7 @@ if not defined PY (
 )
 
 echo [START] Static server on http://127.0.0.1:%PORT%/  (close the new console window to stop)
-start "NexcoreGraph Web Server (port %PORT%)" /D "%APP%" cmd /k %PY% -m http.server %PORT% --bind 127.0.0.1
+start "NexcoreGraph Web Server (port %PORT%)" /D "%APP%" cmd /k %PY% "%SERVE%" --root "%APP%" --port %PORT% --bind 127.0.0.1
 
 rem Wait up to 8 seconds for the port to become ready
 set /a tries=0

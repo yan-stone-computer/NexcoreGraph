@@ -60,3 +60,4 @@ tools/NexcoreWork/
 # ---------- 临时浏览器 / 转换进程 ----------
 edge_cdp_*/
 .locks/
+logs/

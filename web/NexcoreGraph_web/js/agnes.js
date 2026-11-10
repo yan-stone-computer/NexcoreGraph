@@ -1,24 +1,24 @@
 /* 启核图策 · AI 调用层（Web 端）
 
    双通道（红线不变：数值由代码计算、写操作先预览、单请求 ≤2 次模型调用；本层只发 1 次）：
-     ① 自建网关：POST {后端 base}/api/ai/chat | /api/ai/vision（Key 在后端环境变量 AGNES_API_KEY）
+     ① 自建网关：POST {后端 base}/api/ai/chat | /api/ai/vision（服务端持有模型密钥）
      ② 厂商直连：POST {vendorBase}/chat/completions（Key 存在本机 localStorage，设置页可改）
 
    顺序：设置页 prefer=gateway（默认）时先试自建网关，连不上再回落厂商直连；
         prefer=direct 时直接用厂商直连。两条路都失败才由调用方降级本地快答。
    这样：评委机器没起后端也能演示；起了后端就走服务端代理。
 
-   密钥来源（三者优先级从高到低，仓库里不留真 Key）：
+   密钥来源（浏览器不读取任何 dotenv 文件）：
      ① 设置页填写 → localStorage（nexcore_ai_cfg_v1）
-     ② 本机 .env（复制 .env.example 而来；已在 .gitignore 内，不会提交）
-     ③ 都没有 → 只有自建网关通道可用 */
+     ② 服务端网关环境变量
+     ③ 都没有 → 只有本地快答与确定性救援能力 */
 (function () {
   "use strict";
 
   var LS_KEY = "nexcore_ai_cfg_v1";
   var DEFAULTS = {
     baseUrl: "",                                        /* 自建后端地址；留空=自动探测 */
-    apiKey: "",                                         /* 厂商直连用；来自 .env 或设置页 */
+    apiKey: "",                                         /* 厂商直连用；仅来自设置页并保存在本机 */
     model: "agnes-2.5-flash",
     vendorBase: "https://api.agnes-ai.cn/v1",
     prefer: "gateway",                                  /* gateway | direct */
@@ -52,7 +52,7 @@
       var old = JSON.parse(localStorage.getItem("nexcore_agnes_cfg_v1") || "null");
       if (!old) return;
       var m = {};
-      /* 旧的 demo Key 不再沿用：改用 .env / 设置页 */
+      /* 旧的 demo Key 不再沿用：改用设置页 */
       if (old.model) m.model = old.model;
       if (old.baseUrl) m.vendorBase = old.baseUrl;
       if (old.enabled !== undefined) m.enabled = old.enabled;
@@ -60,40 +60,6 @@
     } catch (e) { /* 存储不可用就跳过 */ }
   }
   migrate();
-
-  /* 本机 .env → localStorage 种子（只在没配过时读一次；文件不存在就静默跳过） */
-  function applyDotEnv(txt) {
-    var patch = {};
-    String(txt || "").split(/\r?\n/).forEach(function (line) {
-      var m = /^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
-      if (!m) return;
-      var name = m[1];
-      var val = m[2].replace(/^["']|["']$/g, "").trim();
-      if (!val) return;
-      if (name === "AGNES_API_KEY") patch.apiKey = val;
-      if (name === "AGNES_MODEL") patch.model = val;
-      if (name === "AGNES_VENDOR_BASE") patch.vendorBase = val;
-      if (name === "NEXCORE_API_BASE") patch.baseUrl = val;
-      if (name === "AGNES_CHAT_TIMEOUT_MS") patch.chatTimeout = Number(val) || DEFAULTS.chatTimeout;
-      if (name === "AGNES_VISION_TIMEOUT_MS") patch.visionTimeout = Number(val) || DEFAULTS.visionTimeout;
-    });
-    if (!Object.keys(patch).length) return;
-    var cur = {};
-    try { cur = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {}; } catch (e) { cur = {}; }
-    localStorage.setItem(LS_KEY, JSON.stringify(Object.assign({}, patch, cur)));
-  }
-
-  var envReady = Promise.resolve().then(function () {
-    try {
-      var cur = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
-      if (cur && cur.apiKey) return null;             /* 本机已配过就不再读文件 */
-    } catch (e) { /* 继续尝试读 .env */ }
-    if (typeof location === "undefined" || location.protocol === "file:") return null;
-    return fetch(".env", { cache: "no-store" }).then(function (res) {
-      return res.ok ? res.text() : "";
-    }).then(function (txt) { applyDotEnv(txt); return null; })
-      .catch(function () { return null; });
-  });
 
   function saveCfg(patch) {
     var c = cfg();
@@ -305,7 +271,7 @@
   }
 
   function chat(opts) {
-    return envReady.then(function () { return chatInner(opts); });
+    return chatInner(opts);
   }
 
   /* ---------- 视觉识别（拍照入库）：网关优先，没有网关就直连厂商 ---------- */
@@ -418,7 +384,7 @@
   }
 
   function vision(opts) {
-    return envReady.then(function () { return visionInner(opts); });
+    return visionInner(opts);
   }
 
   /** 设置页“测试连接”：两条通道分别报状态 */
@@ -452,7 +418,7 @@
   }
 
   function test() {
-    return envReady.then(function () { return testInner(); });
+    return testInner();
   }
 
   function status() {

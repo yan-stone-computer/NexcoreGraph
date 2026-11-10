@@ -10,6 +10,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.request
@@ -155,6 +156,7 @@ const desktopShot = process.argv[4] || "";
 const mobileShot = process.argv[5] || "";
 const workbenchShot = process.argv[6] || "";
 const drawerShot = process.argv[7] || "";
+const testModelFallback = process.argv[8] === "1";
 const fs = require("fs");
 let id = 0;
 const pending = new Map();
@@ -195,9 +197,18 @@ ws.onopen = async () => {
   }
   await send("Page.reload");
   await sleep(2200);
+  await send("Runtime.evaluate", { expression: `location.hash = "#/aiwork"` });
+  await sleep(1300);
+  const workbenchResult = await send("Runtime.evaluate", {
+    expression: `JSON.stringify({
+      titleVisible: document.body.innerText.includes("今晚先救哪几样"),
+      solverVisible: document.body.innerText.includes("Pareto + 组合求解"),
+      rescueCta: Boolean(document.querySelector('[data-action="nav:go"][data-view="rescue"]'))
+    })`,
+    returnByValue: true
+  });
+  const workbench = JSON.parse(workbenchResult.result.result.value);
   if (workbenchShot) {
-    await send("Runtime.evaluate", { expression: `location.hash = "#/aiwork"` });
-    await sleep(1200);
     const image = await send("Page.captureScreenshot", {
       format: "png", captureBeyondViewport: false
     });
@@ -284,6 +295,20 @@ ws.onopen = async () => {
     };
   }
   if (value) value.consoleErrors = errors.slice(0, 5);
+  if (value) {
+    value.workbench = workbench.titleVisible && workbench.solverVisible && workbench.rescueCta;
+  }
+  if (testModelFallback) {
+    const fallbackResult = await send("Runtime.evaluate", {
+      expression: `window.AI.reply("请总结一下我的家庭资源").then(function (r) {
+        return JSON.stringify({ model: r.model, src: r.src || "", text: String(r.text || "").slice(0, 180) });
+      })`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const fallbackValue = fallbackResult.result.result.value;
+    if (value) value.modelFallback = JSON.parse(fallbackValue);
+  }
   if (drawerShot) {
     await send("Runtime.evaluate", {
       expression: `document.querySelector('[data-rescue-action="details"]').click()`
@@ -296,6 +321,22 @@ ws.onopen = async () => {
     await send("Runtime.evaluate", {
       expression: `document.querySelector('#rescue-overlay [data-rescue-action="close-overlay"]').click()`
     });
+  }
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 1024, height: 768, deviceScaleFactor: 1, mobile: false
+  });
+  await sleep(450);
+  const tabletOverflow = await send("Runtime.evaluate", {
+    expression: `JSON.stringify({
+      overflowX: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+      titleVisible: document.body.innerText.includes("临期救援驾驶舱")
+    })`,
+    returnByValue: true
+  });
+  const tablet = JSON.parse(tabletOverflow.result.result.value);
+  if (value) {
+    value.tabletOverflowX = tablet.overflowX;
+    value.tabletTitleVisible = tablet.titleVisible;
   }
   await send("Emulation.setDeviceMetricsOverride", {
     width: 390, height: 844, deviceScaleFactor: 1, mobile: true
@@ -326,12 +367,16 @@ ws.onopen = async () => {
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
     parser.add_argument("--desktop-shot", default="")
     parser.add_argument("--mobile-shot", default="")
     parser.add_argument("--workbench-shot", default="")
     parser.add_argument("--drawer-shot", default="")
+    parser.add_argument("--test-model-fallback", action="store_true")
     args = parser.parse_args()
     edge = find_edge()
     port = free_port()
@@ -365,6 +410,7 @@ def main():
                 args.mobile_shot,
                 args.workbench_shot,
                 args.drawer_shot,
+                "1" if args.test_model_fallback else "0",
             ],
             capture_output=True,
             text=True,

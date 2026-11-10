@@ -8,6 +8,7 @@ cd "$(dirname "$0")"
 
 # 本脚本就放在 Web 工程目录内，直接用自身所在目录（旧版硬编码成 webapp/ 会找不到 index.html）
 APP="$(pwd)"
+SERVE="$(cd "$APP/../.." && pwd)/tools/serve_web.py"
 PORT="${1:-8090}"
 
 open_browser() {
@@ -19,6 +20,10 @@ open_browser() {
 
 if [ ! -f "$APP/index.html" ]; then
   echo "[错误] 未找到 $APP/index.html，请把 start.sh 与 index.html 放在同一目录。" >&2
+  exit 1
+fi
+if [ ! -f "$SERVE" ]; then
+  echo "[错误] 未找到安全静态服务器：$SERVE" >&2
   exit 1
 fi
 
@@ -39,7 +44,7 @@ if command -v lsof >/dev/null 2>&1 && lsof -i :"$PORT" >/dev/null 2>&1; then
 fi
 
 echo "[启动] 静态服务 http://127.0.0.1:$PORT/  （Ctrl+C 停止）"
-(cd "$APP" && exec "$PY" -m http.server "$PORT" --bind 127.0.0.1) &
+(cd "$APP" && exec "$PY" "$SERVE" --root "$APP" --port "$PORT" --bind 127.0.0.1) &
 SERVER_PID=$!
 
 # 等待端口就绪（最多 8 秒）

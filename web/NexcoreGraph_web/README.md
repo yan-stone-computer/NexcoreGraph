@@ -54,7 +54,7 @@ webapp/
    - `python -m http.server 8080`
    - 浏览器访问 `http://localhost:8080`
    - VS Code：安装 Live Server 插件 → 右键 index.html → Open with Live Server
-4. 将 `.env.example` 复制为 `.env`，通过本机后端或设置页配置真实 AI Key；`.env` 不得提交。
+4. 不要将 `.env` 放进 Web 静态目录。推荐在自建后端配置真实 AI Key，或在设置页为单台本机临时填写；浏览器不会下载 dotenv 文件。
 5. 登录使用邮箱和真实邮件验证码。评审账号在后端数据库中创建，不在前端硬编码固定验证码。
 6. 管理员端：访问 `admin.html`，使用管理员邮箱完成验证码登录。
 7. 救援功能 30 秒体验：登录 → AI 工作台“今晚先救哪几样” → 临期救援 → 查看组合菜单与推荐依据 → 预览并执行 → 在方案页撤销。

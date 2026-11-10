@@ -17,6 +17,7 @@ import json
 import os
 import subprocess
 import socket
+import sys
 import tempfile
 import time
 import urllib.request
@@ -123,6 +124,9 @@ ws.onopen = async () => {
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", required=True)
     ap.add_argument("--need", default="", help="页面里应当出现的文本片段")
