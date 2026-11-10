@@ -5,6 +5,7 @@ import resourceTwinTest from './ResourceTwin.test';
 import barcodeIntakeTest from './BarcodeIntake.test';
 import reminderPlannerTest from './ReminderPlanner.test';
 import policyEngineTest from './PolicyEngine.test';
+import localRestoreTest from './LocalRestore.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -14,4 +15,5 @@ export default function testsuite() {
   barcodeIntakeTest();
   reminderPlannerTest();
   policyEngineTest();
+  localRestoreTest();
 }
