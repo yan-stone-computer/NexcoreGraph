@@ -102,6 +102,8 @@ AppID：`wx9d1c625b399ecda3`（已写入 `project.config.json`）。
 | 工具 | 用途 | 用法示例 |
 |---|---|---|
 | `smoke_web.py` | Web 端冒烟检测（headless Edge + CDP）：标题、正文长度、横向溢出、关键文本、按钮/图片数、破图数、控制台异常，可截图 | `python tools/smoke_web.py --url "file:///D:/ProjectFiles/GithubPackage/NexcoreGraph/web/NexcoreGraph_web/index.html" --storage "nexcore_logged_in=1" --shot shot.png` |
+| `serve_web.py` | 安全静态服务：拒绝 `.env`、点文件、目录列表与路径穿越 | `python tools/serve_web.py --root "web/NexcoreGraph_web" --port 8080` |
+| `verify_rescue_web.py` | 救援求解器真实浏览器端到端与响应式验收 | `python tools/verify_rescue_web.py --url "http://127.0.0.1:8080/index.html#/rescue"` |
 | `cleanup_headless_edge.py` | 清理本工具启动的 headless Edge 进程（按临时 profile 前缀识别，不影响正常浏览器） | `python tools/cleanup_headless_edge.py` |
 
 小程序端验证：`cd wxminiapp/NexcoreGraph_wxminiapp && npm run build:weapp`（编译通过即视为产物可用，当前 66 文件 / 0.55MB）。

@@ -9,6 +9,9 @@ cd "$(dirname "$0")"
 # 本脚本就放在 Web 工程目录内，直接用自身所在目录（旧版硬编码成 webapp/ 会找不到 index.html）
 APP="$(pwd)"
 SERVE="$(cd "$APP/../.." && pwd)/tools/serve_web.py"
+if [ ! -f "$SERVE" ]; then
+  SERVE="$(cd "$APP/.." && pwd)/tools/serve_web.py"
+fi
 PORT="${1:-8090}"
 
 open_browser() {

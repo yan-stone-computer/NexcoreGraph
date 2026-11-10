@@ -9,6 +9,7 @@ rem 本脚本就放在 Web 工程目录内，直接用自身所在目录（旧�
 set "APP=%~dp0"
 if "%APP:~-1%"=="\" set "APP=%APP:~0,-1%"
 set "SERVE=%APP%\..\..\tools\serve_web.py"
+if not exist "%SERVE%" set "SERVE=%APP%\..\tools\serve_web.py"
 set "PORT=8090"
 if not "%~1"=="" set "PORT=%~1"
 

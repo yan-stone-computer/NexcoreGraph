@@ -42,6 +42,8 @@ python tools/check_repo_hygiene.py
 
 说明：扫描覆盖仓库中将被提交的文本文件；`deliverables/`、视频、ZIP、`.env`、依赖目录和临时转换目录不会进入源码 Git 历史。
 
+Web 静态服务必须使用 `python tools/serve_web.py --root web/NexcoreGraph_web --port 8080`。浏览器不再读取 dotenv；服务对 `/.env`、`/.env.example`、路径穿越和目录列表均返回 404。
+
 ## 三、自动化验收
 
 ```powershell
@@ -90,6 +92,8 @@ git remote -v
 2. 源码改动按主题提交，而不是一个笼统的“最终版”提交。
 3. `deliverables/`、`node_modules/`、`.env`、视频和 ZIP 不进入源码历史。
 4. 推送到远端后，在 GitHub/Gitee 页面确认提交图和 Public/评审权限。
+
+启动、性能、真实 AI 降级和跨端复核证据见 `docs/Web端-启动与多轮复核报告.md`。
 
 ## 六、演示主路径
 
