@@ -55,7 +55,6 @@ deliverables/
 *.sha256
 docs/backups/
 docs/qa/
-harmonyosapp/NexcoreGraph_harmonyos/backend/tts-cache/
 tools/NexcoreWork/
 
 # ---------- 临时浏览器 / 转换进程 ----------

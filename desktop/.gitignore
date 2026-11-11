@@ -1,7 +1,0 @@
-node_modules/
-dist/
-web/
-data/
-*.log
-build/icon-preview.png
-config.seed.json
