@@ -4,7 +4,16 @@ const ALLOWED_KINDS: string[] = [
   'adjust_inventory',
   'add_shopping',
   'create_meal_plan',
-  'resolve_alert'
+  'execute_meal_plan',
+  'resolve_alert',
+  'create_library',
+  'add_inventory',
+  'create_coop',
+  'join_coop',
+  'dellib',
+  'delitem',
+  'moveitem',
+  'renamelib'
 ];
 
 let claimedActions: string[] = [];

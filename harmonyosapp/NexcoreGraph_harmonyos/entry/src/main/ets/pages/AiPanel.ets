@@ -567,16 +567,15 @@ export struct AiPanel {
         if (m.who === 'ai' && m.opKind !== '' && !m.opDone) {
           Row({ space: 8 }) {
             TBtn({
-              label: m.opLabel, icon: 'check', kind: 'soft', small: true,
-              tap: (): void => {
-                applyCmdOp(m.opKind, m.opArg).then((res: string): void => {
+              label: m.opLabel, icon: 'check', kind: 'soft', small: true, busyKey: `cmd:op:${idx}`,
+              tap: (): void => runBusy(`cmd:op:${idx}`, (): Promise<void> =>
+                applyCmdOp(m.opKind, m.opArg, `cmd:${m.ts}:${idx}:${m.opKind}`).then((res: string): void => {
                   m.opDone = true;
                   m.text = m.text + '\n' + res;
                   this.replaceMsg(idx, m);
-                }).catch((e: Error): void => {
-                  store.toast(e.message);
-                });
-              }
+                }), (): void => {
+                  store.toast('操作已完成');
+                })
             })
           }
           .width('88%')

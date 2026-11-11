@@ -4,7 +4,7 @@
    ② AI 面板里「指令手册」的内容源：手册列的句子就是一定会命中的句子，实现改了手册跟着改，
       不会出现"帮助里写着能说、实际听不懂"。
    开放式提问（今晚吃什么、营养、为什么…）仍然走模型路，见 AiGateway.askAI。
-   破坏性操作（删库 / 删物品 / 移动 / 改名）不直接执行：返回 opKind + opLabel，由对话里的确认按钮落地。 */
+   所有会改变业务数据的操作都不直接执行：返回 opKind + opLabel，由对话里的确认按钮落地。 */
 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { store } from './Store';
@@ -18,6 +18,8 @@ import {
 import { forceUploadSync, downloadSync } from './SyncApi';
 import { saveThemePrefs } from './LocalStore';
 import { routeIntent } from './Router';
+import { AgentAction, PolicyDecision } from './AgentTypes';
+import { checkPolicy, claimActionOnce } from './PolicyEngine';
 
 const DOMAIN: number = 0x0000;
 const TAG: string = 'NexcoreGraph';
@@ -438,6 +440,70 @@ function alertByArg(arg: string): AlertItem | null {
   return hit;
 }
 
+function previewReply(text: string, kind: string, arg: string, label: string, note: string): CmdReply {
+  const reply = new CmdReply(text, 'cmd:' + kind, note);
+  reply.opKind = kind;
+  reply.opArg = arg;
+  reply.opLabel = label;
+  return reply;
+}
+
+class AddItemPayload {
+  libId: string = '';
+  name: string = '';
+  qty: number = 1;
+  unit: string = '个';
+}
+
+function policyForCommand(kind: string, arg: string): AgentAction {
+  const action = new AgentAction();
+  action.id = kind + ':' + arg;
+  action.target = arg === '' ? '当前家庭' : arg;
+  if (kind === 'qty') {
+    action.kind = 'adjust_inventory';
+    const parts = arg.split('|');
+    action.target = parts.length > 0 ? parts[0] : '';
+    action.qty = parts.length > 1 ? Number(parts[1]) : -1;
+  } else if (kind === 'shopadd') {
+    action.kind = 'add_shopping';
+    const parts = arg.split('|');
+    action.target = parts.length > 0 ? parts[0] : '';
+    action.qty = 1;
+  } else if (kind === 'additem') {
+    action.kind = 'add_inventory';
+    try {
+      const payload = JSON.parse(arg) as AddItemPayload;
+      action.target = payload.name;
+      action.qty = payload.qty;
+    } catch (_e) {
+      action.target = '';
+    }
+  } else if (kind === 'newlib') {
+    action.kind = 'create_library';
+    action.target = arg;
+  } else if (kind === 'plangen') {
+    action.kind = 'create_meal_plan';
+    action.target = '今日餐食方案';
+  } else if (kind === 'planrun') {
+    action.kind = 'execute_meal_plan';
+    action.target = '方案' + arg;
+  } else if (kind === 'alertdone') {
+    action.kind = 'resolve_alert';
+    action.target = '预警' + arg;
+  } else if (kind === 'coopcreate') {
+    action.kind = 'create_coop';
+    action.target = '协作池';
+  } else if (kind === 'coopjoin') {
+    action.kind = 'join_coop';
+    action.target = arg;
+  } else if (kind === 'dellib' || kind === 'renamelib') {
+    action.kind = kind;
+  } else if (kind === 'delitem' || kind === 'moveitem') {
+    action.kind = kind;
+  }
+  return action;
+}
+
 /** 执行一条指令；破坏性操作只返回确认卡，不落库 */
 export async function runCommand(m: CmdMatch): Promise<CmdReply> {
   const note = '本地指令 · 0 次模型调用';
@@ -459,11 +525,10 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
   }
   if (m.id === 'newlib') {
     const name = m.a.trim();
-    const lib: Library = await createLibrary(name, 'package', 'teal');
-    store.tabIndex = 1;
-    store.overlay = '';
-    return new CmdReply(`建好了「${lib.name}」。接着说「往${lib.name}加一把螺丝刀」，就能直接往里放东西。`,
-      'cmd:newlib', note);
+    if (name === '') {
+      return new CmdReply('要新建什么库？可以说「帮我建一个书房库」。', 'cmd:newlib', note);
+    }
+    return previewReply(`要新建资源库「${name}」？`, 'newlib', name, `新建库「${name}」`, note);
   }
   if (m.id === 'additem') {
     const lib = findLibByName(m.a);
@@ -474,15 +539,13 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
     if (am.name === '') {
       return new CmdReply(`要往${lib.name}加什么？可以说「往${lib.name}加一把螺丝刀」。`, 'cmd:additem', note);
     }
-    const form = new ItemForm();
-    form.name = am.name;
-    form.qty = String(am.qty);
-    form.unit = am.unit;
-    form.pos = '未设置';
-    form.priceSrc = '手动';
-    await addItem(lib.id, form);
-    return new CmdReply(`已把「${am.name}」放进${lib.name}：${am.qty}${am.unit}。` +
-      `改数量说「${am.name}还剩 3 ${am.unit}」，换库说「把${am.name}移到衣柜」。`, 'cmd:additem', note);
+    const payload = new AddItemPayload();
+    payload.libId = lib.id;
+    payload.name = am.name;
+    payload.qty = am.qty;
+    payload.unit = am.unit;
+    return previewReply(`要把「${am.name}」${am.qty}${am.unit}加入「${lib.name}」？`,
+      'additem', JSON.stringify(payload), `加入「${lib.name}」`, note);
   }
   if (m.id === 'qty') {
     const it = findItemLoose(m.a);
@@ -491,8 +554,8 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
     }
     const name = it.name;
     const unit = it.unit;
-    await setItemQtyByName(name, m.n);
-    return new CmdReply(`「${name}」现在是 ${m.n}${unit}。`, 'cmd:qty', note);
+    return previewReply(`要把「${name}」从 ${it.qty}${unit} 调整为 ${m.n}${unit}？`,
+      'qty', `${it.id}|${m.n}`, `调整「${name}」到 ${m.n}${unit}`, note);
   }
   if (m.id === 'shopadd') {
     const it = findItemLoose(m.a);
@@ -500,16 +563,11 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
     if (name === '') {
       return new CmdReply('要买什么？可以说「把牛奶加进采购清单」。', 'cmd:shopadd', note);
     }
-    await addShoppingByAI(name, '1 份');
-    return new CmdReply(`已把「${name}」写进采购清单。清单在首页的采购入口，买完可以逐条勾掉。`,
-      'cmd:shopadd', note);
+    return previewReply(`要把「${name}」加入采购清单？`, 'shopadd', `${name}|1 份`,
+      `加入采购清单「${name}」`, note);
   }
   if (m.id === 'plangen') {
-    const plans: Plan[] = await generatePlans();
-    const titles: string[] = [];
-    plans.forEach((p: Plan) => titles.push(p.title));
-    return new CmdReply(`按当前库存排了 ${plans.length} 个方案：${titles.join('、')}。` +
-      `说「执行${titles[0]}」就会按用料扣库存。`, 'cmd:plangen', note);
+    return previewReply('要根据当前库存生成新的餐食方案？', 'plangen', '', '生成餐食方案', note);
   }
   if (m.id === 'planrun') {
     const p = planByArg(m.a.trim());
@@ -522,9 +580,8 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
     if (names.length === 0) {
       return new CmdReply(`方案「${target.title}」没有需要扣减的用料。`, 'cmd:planrun', note);
     }
-    await executePlan(target.id, names);
-    return new CmdReply(`已执行「${target.title}」，按用料扣了 ${names.length} 项库存。扣错了可以说一句，我帮你撤销。`,
-      'cmd:planrun', note);
+    return previewReply(`要执行「${target.title}」并按用料扣减 ${names.length} 项库存？`,
+      'planrun', String(target.id), `执行「${target.title}」`, note);
   }
   if (m.id === 'alertdone') {
     const a = alertByArg(m.a.trim());
@@ -532,26 +589,13 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
       return new CmdReply(`没找到和「${m.a}」相关的提醒。首页「今天要处理」里能看到当前所有提醒。`,
         'cmd:alertdone', note);
     }
-    const text = a.text;
-    await resolveAlert(a.id);
-    return new CmdReply(`处理掉了：${text}`, 'cmd:alertdone', note);
+    return previewReply(`要把「${a.text}」标记为已处理？`, 'alertdone', String(a.id), '处理预警', note);
   }
   if (m.id === 'coopcreate') {
-    const code: string = await createCoop();
-    store.tabIndex = 2;
-    store.overlay = '';
-    return new CmdReply(`协作池建好了，邀请码 ${code}（24 小时内有效）。家人在自己手机上登录后说「加入协作池 ${code}」就能进来。`,
-      'cmd:coopcreate', note);
+    return previewReply('要创建一个新的家庭协作池？', 'coopcreate', '', '创建协作池', note);
   }
   if (m.id === 'coopjoin') {
-    try {
-      const n: number = await joinCoop(m.a);
-      store.tabIndex = 2;
-      store.overlay = '';
-      return new CmdReply(`加入成功，协作池里现在有 ${n} 位成员，可以把库摆上桌了。`, 'cmd:coopjoin', note);
-    } catch (e) {
-      return new CmdReply(`邀请码「${m.a}」无效或已过期，让家人重新发一次码。`, 'cmd:coopjoin', note);
-    }
+    return previewReply(`要加入协作池「${m.a}」？`, 'coopjoin', m.a, '加入协作池', note);
   }
   if (m.id === 'theme') {
     const dark = m.a === 'dark';
@@ -637,8 +681,99 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
   return new CmdReply('这条我还没学会。点右上角问号，看看能说什么。', 'cmd:unknown', note);
 }
 
-/** 确认卡落地：执行破坏性操作，返回给用户看的一句话 */
-export function applyCmdOp(kind: string, arg: string): Promise<string> {
+/** 确认卡落地：策略校验和幂等守卫通过后，才执行写操作。 */
+export function applyCmdOp(kind: string, arg: string, executionKey: string = ''): Promise<string> {
+  const action = policyForCommand(kind, arg);
+  const decision: PolicyDecision = checkPolicy(action, store.userRole, true);
+  if (!decision.allowed) {
+    return Promise.resolve(decision.reason);
+  }
+  const key: string = executionKey === '' ? `${kind}:${arg}:${Date.now()}` : executionKey;
+  if (!claimActionOnce(key)) {
+    return Promise.resolve('这个动作已经处理过，不会重复执行。');
+  }
+  if (kind === 'qty') {
+    const parts = arg.split('|');
+    if (parts.length < 2) {
+      return Promise.resolve('这条数量指令我读错了，换个说法再试一次。');
+    }
+    const hit = store.findItemHit(parts[0]);
+    if (hit === null) {
+      return Promise.resolve('这件物品已经不在了。');
+    }
+    const n = Number(parts[1]);
+    return setItemQtyByName(hit[1].name, n).then((): string =>
+      `已把「${hit[1].name}」调整为 ${n}${hit[1].unit}。`);
+  }
+  if (kind === 'shopadd') {
+    const parts = arg.split('|');
+    const name = parts.length > 0 ? parts[0] : '';
+    const qty = parts.length > 1 ? parts[1] : '1 份';
+    return addShoppingByAI(name, qty).then((): string => `已把「${name}」加入采购清单。`);
+  }
+  if (kind === 'additem') {
+    let payload = new AddItemPayload();
+    try {
+      payload = JSON.parse(arg) as AddItemPayload;
+    } catch (_e) {
+      return Promise.resolve('这条入库指令我读错了，换个说法再试一次。');
+    }
+    const lib = store.findLib(payload.libId);
+    if (lib === null) {
+      return Promise.resolve('目标库已经不在了，请重新选择。');
+    }
+    const form = new ItemForm();
+    form.name = payload.name;
+    form.qty = String(payload.qty);
+    form.unit = payload.unit;
+    form.pos = '未设置';
+    form.priceSrc = '手动';
+    return addItem(lib.id, form).then((): string =>
+      `已把「${payload.name}」${payload.qty}${payload.unit}加入「${lib.name}」。`);
+  }
+  if (kind === 'newlib') {
+    return createLibrary(arg, 'package', 'teal').then((lib: Library): string => {
+      store.tabIndex = 1;
+      store.overlay = '';
+      return `已新建资源库「${lib.name}」。`;
+    });
+  }
+  if (kind === 'plangen') {
+    return generatePlans().then((plans: Plan[]): string => {
+      const titles: string[] = [];
+      plans.forEach((p: Plan) => titles.push(p.title));
+      return `已生成 ${plans.length} 个方案：${titles.join('、')}。`;
+    });
+  }
+  if (kind === 'planrun') {
+    const id = Number(arg);
+    const target = store.plans.find((p: Plan): boolean => p.id === id);
+    if (target === undefined) {
+      return Promise.resolve('方案已经不在了。');
+    }
+    const names: string[] = [];
+    target.used.forEach((u: Consume) => names.push(u.name));
+    return executePlan(target.id, names).then((): string =>
+      `已执行「${target.title}」，按用料扣减 ${names.length} 项库存。`);
+  }
+  if (kind === 'alertdone') {
+    const id = Number(arg);
+    return resolveAlert(id).then((): string => '已把这条预警标记为处理。');
+  }
+  if (kind === 'coopcreate') {
+    return createCoop().then((code: string): string => {
+      store.tabIndex = 2;
+      store.overlay = '';
+      return `协作池已创建，邀请码 ${code}（24 小时内有效）。`;
+    });
+  }
+  if (kind === 'coopjoin') {
+    return joinCoop(arg).then((n: number): string => {
+      store.tabIndex = 2;
+      store.overlay = '';
+      return `已加入协作池，当前 ${n} 位成员。`;
+    }).catch((): string => `邀请码「${arg}」无效或已过期。`);
+  }
   if (kind === 'dellib') {
     return deleteLibrary(arg).then((d): string => {
       store.lastDeletedLib.lib = d.lib;
