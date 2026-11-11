@@ -4,7 +4,7 @@ const providers = require("../js/ai-providers.js");
 
 test("提供主流平台预设与自定义接入入口", () => {
   const ids = providers.presets.map((item) => item.id);
-  for (const id of ["openai", "deepseek", "qwen", "moonshot", "anthropic", "gemini", "zhipu", "custom-openai"]) {
+  for (const id of ["openai", "deepseek", "qwen", "moonshot", "anthropic", "gemini", "zhipu", "ollama", "custom-openai"]) {
     assert.equal(ids.includes(id), true, `missing preset: ${id}`);
   }
   assert.equal(providers.get("anthropic").protocol, "anthropic");
@@ -12,13 +12,16 @@ test("提供主流平台预设与自定义接入入口", () => {
   assert.equal(providers.get("deepseek").protocol, "openai");
 });
 
-test("自定义 Base URL、模型和超时会保留并规范化", () => {
+test("自定义 Base URL、模型、备用链和上下文预算会保留并规范化", () => {
   const config = providers.normalizeConfig({
     provider: "custom-openai",
     protocol: "openai",
     vendorBase: "https://models.example.com/v1///",
     model: "vendor-model-v2",
     visionModel: "vendor-vision-v1",
+    fallbackModel: "vendor-model-v1",
+    contextWindow: 9999999,
+    maxTokens: 99999,
     apiKey: "test-key",
     chatTimeout: 999999,
     visionTimeout: 1
@@ -26,6 +29,9 @@ test("自定义 Base URL、模型和超时会保留并规范化", () => {
   assert.equal(config.vendorBase, "https://models.example.com/v1");
   assert.equal(config.model, "vendor-model-v2");
   assert.equal(config.visionModel, "vendor-vision-v1");
+  assert.equal(config.fallbackModel, "vendor-model-v1");
+  assert.equal(config.contextWindow, 1000000);
+  assert.equal(config.maxTokens, 8192);
   assert.equal(config.chatTimeout, 120000);
   assert.equal(config.visionTimeout, 3000);
 });
@@ -101,4 +107,18 @@ test("已保存 Key 只展示掩码", () => {
   assert.equal(providers.maskKey("test-key-1234567890"), "••••7890");
   assert.equal(providers.maskKey("short"), "••••");
   assert.equal(providers.maskKey(""), "");
+});
+
+test("云端平台要求 Key，本地 Ollama 允许空 Key", () => {
+  assert.equal(providers.get("deepseek").apiKeyRequired, true);
+  assert.equal(providers.get("anthropic").apiKeyRequired, true);
+  assert.equal(providers.get("ollama").apiKeyRequired, false);
+  const ollama = providers.normalizeConfig({
+    provider: "ollama",
+    vendorBase: "http://127.0.0.1:11434/v1",
+    model: "qwen3:8b",
+    apiKey: "",
+    apiKeyRequired: true
+  });
+  assert.equal(ollama.apiKeyRequired, false);
 });

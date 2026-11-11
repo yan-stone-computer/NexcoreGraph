@@ -394,6 +394,9 @@ curl -o /dev/null -s -w "%{http_code}\n" https://demo.example.com/.env.example
 ```bash
 python tools/verify_rescue_web.py \
   --url "https://demo.example.com/index.html#/rescue"
+
+python tools/verify_admin_web.py \
+  "https://demo.example.com/admin.html"
 ```
 
 预期关键字段：
@@ -415,7 +418,7 @@ python tools/verify_rescue_web.py \
     "householdReply": true,
     "toolsLoanReply": true,
     "providerSettings": true,
-    "providerOptions": 11,
+    "providerOptions": 12,
     "medicineAlert": true,
     "warrantyAlert": true,
     "loanAlert": true

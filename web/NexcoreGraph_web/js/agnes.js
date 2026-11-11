@@ -52,6 +52,10 @@
     return window.AI_PROVIDERS ? window.AI_PROVIDERS.normalizeConfig(out) : out;
   }
 
+  function hasDirectCredentials(conf) {
+    return conf.apiKeyRequired === false || !!conf.apiKey;
+  }
+
   /* 旧配置迁移：早先的 nexcore_agnes_cfg_v1 里 baseUrl 指厂商地址，搬到 vendorBase */
   function migrate() {
     try {
@@ -186,7 +190,7 @@
   function vendorChat(messages, opts) {
     opts = opts || {};
     var c = cfg();
-    if (!c.apiKey) {
+    if (!hasDirectCredentials(c)) {
       return Promise.reject(boom("no-key", "未配置 API Key"));
     }
     if (!window.AI_PROVIDERS) return Promise.reject(boom("bad-request", "多平台模型适配器未加载"));
@@ -275,7 +279,7 @@
         via: "gateway"
       };
     }).catch(function (err) {
-      if (!c.apiKey || (c.apiKey && err && err.aiKind === "bad-request")) {
+      if (!hasDirectCredentials(c) || (c.apiKey && err && err.aiKind === "bad-request")) {
         throw err;   /* 没有备用 Key 时保持原错误，便于界面提示 */
       }
       return direct();
@@ -331,7 +335,7 @@
     }
     var c = cfg();
     var direct = function () {
-      if (!c.apiKey) return Promise.reject(boom("no-key", "未配置 API Key"));
+      if (!hasDirectCredentials(c)) return Promise.reject(boom("no-key", "未配置 API Key"));
       if (!window.AI_PROVIDERS) return Promise.reject(boom("bad-request", "多平台模型适配器未加载"));
       if (!c.vendorBase || !(c.visionModel || c.model)) {
         return Promise.reject(boom("bad-request", "请先填写视觉模型与 Base URL"));
@@ -380,7 +384,7 @@
         via: "gateway"
       };
     }).catch(function (err) {
-      if (!c.apiKey || (err && err.aiKind === "bad-request")) throw err;
+      if (!hasDirectCredentials(c) || (err && err.aiKind === "bad-request")) throw err;
       return direct();
     });
   }
@@ -403,7 +407,7 @@
       out.gateway = { ok: false, error: (err && err.message) || "未发现自建后端" };
       return out;
     }).then(function () {
-      if (!c.apiKey) {
+      if (!hasDirectCredentials(c)) {
         out.direct = { ok: false, error: "未配置 API Key" };
         return out;
       }

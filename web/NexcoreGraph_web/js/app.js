@@ -1592,7 +1592,9 @@
     })[0] || {}).label || "自定义接入";
     var savedKeyHint = acfg.apiKey && window.AGNES
       ? "已保存 " + window.AGNES.maskKey(acfg.apiKey) + "，留空则保持原 Key"
-      : "填写平台 API Key";
+      : acfg.apiKeyRequired === false
+        ? "当前平台可留空 Key"
+        : "填写平台 API Key";
     var connectionText = "未检测；点击「测试连接」探测网关与当前平台";
     if (S.aiStatus) {
       connectionText = S.aiStatus.ok

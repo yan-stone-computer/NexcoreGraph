@@ -87,6 +87,8 @@ python tools/verify_rescue_web.py `
   --overview-shot "web/NexcoreGraph_web/qa/shots/18-household-overview.png" `
   --assets-shot "web/NexcoreGraph_web/qa/shots/19-life-assets.png" `
   --settings-shot "web/NexcoreGraph_web/qa/shots/20-ai-providers.png"
+
+python tools/verify_admin_web.py "http://127.0.0.1:8080/admin.html"
 ```
 
 端到端脚本会在临时浏览器中注入九个生活域的评审数据，验证导航、筛选、决策抽屉、预览、执行、撤销、库存 CRUD、搜索、药箱、健身身体数据、工具借用、生活资产、跨域 AI、多平台配置切换和移动端溢出；不会污染本机浏览器数据。
@@ -113,7 +115,7 @@ python tools/verify_rescue_web.py `
 
 - **数据存储**：业务状态使用 `nexcore_web_db_v3` 持久化；初始业务库为空，登录后由后端快照恢复。聊天/库存刷新不丢，图片以压缩缩略图存储。
 - **AI 说明**：文本链路支持“自建网关优先 + 厂商直连回落”，视觉走 `/api/ai/vision`。临期救援的库存匹配、排序、缺料和估值均为确定性代码计算，模型只解释；失败时仍保留规则结果，不冒充模型输出。
-- **多平台说明**：设置页提供 11 个平台/自定义模板，支持 OpenAI Compatible、Anthropic Messages 和 Gemini GenerateContent。平台预设只填默认值，Base URL、文本模型、视觉模型和超时均可手改。完整矩阵见 [AI模型多平台接入与自有工程复用.md](../../docs/AI模型多平台接入与自有工程复用.md)。
+- **多平台说明**：设置页提供 12 个平台/自定义模板，支持 OpenAI Compatible、Anthropic Messages 和 Gemini GenerateContent。平台预设只填默认值，Base URL、文本模型、视觉模型和超时均可手改。完整矩阵见 [AI模型多平台接入与自有工程复用.md](../../docs/AI模型多平台接入与自有工程复用.md)。
 - **多域说明**：全屋资源数、估值、生活资产、风险域、药箱临期、训练指标、保修与借出倒计时均由 `domains.js` 计算。药品只做库存、有效期、存放和安全提醒，不提供处方或诊断。
 - **AI 行为红线自查**：数量/位置/日期一律本地查询产出；`[调整]`/`shopping_add` 均为预览确认制；简报数字与看板同源（`computeStats`）。
 - **HTTPS**：生产部署必须 HTTPS（摄像头 / Web Push / Service Worker 依赖）。

@@ -462,12 +462,17 @@ ws.onopen = async () => {
     document.querySelector('[data-action="ai:provider"][data-provider="deepseek"]').click();
     const deepseekLoaded = document.getElementById("agnes-base").value.includes("api.deepseek.com") &&
       document.getElementById("agnes-model").value === "deepseek-chat";
+    document.querySelector('[data-action="ai:provider"][data-provider="ollama"]').click();
+    document.querySelector('[data-action="agnes:save"]').click();
+    await waitFor(() => window.AGNES.cfg().provider === "ollama");
+    const ollamaNoKey = window.AGNES.cfg().apiKeyRequired === false &&
+      document.querySelector(".ai-key-state").textContent.includes("可留空");
     document.querySelector('[data-action="ai:provider"][data-provider="anthropic"]').click();
     const anthropicLoaded = document.getElementById("ai-protocol").textContent.includes("Anthropic") &&
       document.getElementById("agnes-base").value.includes("api.anthropic.com");
     document.querySelector('[data-action="agnes:save"]').click();
     await waitFor(() => window.AGNES.cfg().provider === "anthropic");
-    const providerSettings = providerOptions >= 9 && deepseekLoaded && anthropicLoaded;
+    const providerSettings = providerOptions >= 9 && deepseekLoaded && ollamaNoKey && anthropicLoaded;
 
     return {
       navigation: rescueTitleVisible,
@@ -504,6 +509,7 @@ ws.onopen = async () => {
         toolsLoanReply: toolsReply.text.includes("借出"),
         providerSettings,
         providerOptions,
+        ollamaNoKey,
         medicineAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "medicine"; }),
         warrantyAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "warranty"; }),
         loanAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "loan"; }),

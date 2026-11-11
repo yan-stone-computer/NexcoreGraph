@@ -40,6 +40,13 @@
   }
   function toast(msg) {
     var wrap = document.getElementById("toasts");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "toasts";
+      wrap.className = "toast-wrap";
+      wrap.setAttribute("aria-live", "polite");
+      document.body.appendChild(wrap);
+    }
     var el = document.createElement("div");
     el.className = "toast";
     el.setAttribute("role", "status");
@@ -352,7 +359,8 @@
       '<div class="sidebar-foot"><div class="user-chip"><div class="avatar">' + esc((DB.user || {}).initial || "管") + "</div><div><div class='user-name'>" + esc((DB.user || {}).name || "管理员") + "</div><div class='user-role'>管理员</div></div>" +
       '<button class="icon-btn" style="margin-left:auto;width:32px;height:32px" data-action="admin:logout" aria-label="退出">' + icon("logout", 17) + "</button></div>" +
       '<a class="link-btn" href="index.html" style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px">' + icon("sun", 14) + " 返回用户端</a></div></aside>" +
-      '<div class="main"><main class="content" id="view"></main></div></div>'
+      '<div class="main"><main class="content" id="view"></main></div></div>' +
+      '<div id="toasts" class="toast-wrap" aria-live="polite"></div>'
     );
   }
 

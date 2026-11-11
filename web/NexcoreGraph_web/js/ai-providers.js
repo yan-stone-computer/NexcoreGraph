@@ -84,6 +84,16 @@
       note: "OpenAI 兼容 · 填写平台模型 ID"
     },
     {
+      id: "ollama",
+      label: "Ollama 本地",
+      protocol: "openai",
+      vendorBase: "http://127.0.0.1:11434/v1",
+      model: "",
+      visionModel: "",
+      apiKeyRequired: false,
+      note: "本机模型 · 可留空 Key"
+    },
+    {
       id: "custom-openai",
       label: "自定义 OpenAI 兼容",
       protocol: "openai",
@@ -124,7 +134,9 @@
 
   function get(id) {
     var found = PRESETS.filter(function (item) { return item.id === id; })[0];
-    return found ? clone(found) : clone(PRESETS[PRESETS.length - 3]);
+    var preset = clone(found || PRESETS.filter(function (item) { return item.id === "custom-openai"; })[0]);
+    if (preset.apiKeyRequired === undefined) preset.apiKeyRequired = true;
+    return preset;
   }
 
   function clamp(value, fallback, min, max) {
@@ -146,6 +158,7 @@
       vendorBase: trimBase(input.vendorBase != null ? input.vendorBase : preset.vendorBase),
       model: model,
       visionModel: String(input.visionModel != null ? input.visionModel : preset.visionModel || model).trim(),
+      apiKeyRequired: preset.apiKeyRequired !== false,
       chatTimeout: clamp(input.chatTimeout, 30000, 3000, 120000),
       visionTimeout: clamp(input.visionTimeout, 45000, 3000, 120000),
       temperature: clamp(input.temperature != null ? Number(input.temperature) : 0.4, 0.4, 0, 2)
