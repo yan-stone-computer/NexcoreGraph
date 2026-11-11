@@ -14,7 +14,7 @@
 | 完整 Git 提交历史 | 已整理并推送 | Web、三端、文档、测试和仓库卫生按主题分组提交；`9426b9f..3816d95` 已推送，本地/远端计数 `0/0` | 在已授权账号下确认提交图；匿名 API 仍为 404 |
 | 环境变量模板 | 已满足 | `web/NexcoreGraph_web/.env.example` | 不得上传真实 `.env` |
 | 依赖清单 | 已满足 | Web 运行仅需现代浏览器 + Python 静态服务；测试需 Node 24；技术文档构建需 Python/docx/ReportLab/LibreOffice | 无 |
-| 技术文档 PDF | 已生成并逐页栅格复核 | `deliverables/传智杯_Web端_提交材料_20261110/01_技术文档/启核图策-Web端技术文档.pdf`，实测 25 页 | 复核通过，含全屋多域业务与图文；提交前留档哈希 |
+| 技术文档 PDF | 已生成并逐页栅格复核 | `deliverables/传智杯_Web端_提交材料_20261111/01_技术文档/启核图策-Web端技术文档.pdf`，实测 28 页 | 复核通过，含全屋多域、多平台模型接入和自有工程复用；提交前留档哈希 |
 | AI 选型、集成与优化 | 已覆盖 | 技术文档“AI 技术方案”“临期救援”“家庭智策”“GraphRAG”“Agent 与安全”章节 | 无 |
 | 技术创新点 | 已覆盖 | Pareto 非支配集、组合约束菜单、反事实沙盘、决策回放、全屋跨域风险去重、本地确定性多域问答 | 无 |
 | 应用创新点 | 已覆盖 | 从食材扩展到药箱、健身、工具借用、家电保修、衣橱、书籍、宠物与清洁耗材 | 无 |
@@ -51,7 +51,7 @@ cd web/NexcoreGraph_web
 node --test tests/*.test.js
 ```
 
-预期：14 项 Web 单元测试全部通过。
+预期：21 项 Web 单元测试全部通过。
 
 ```powershell
 cd ../..
@@ -76,7 +76,7 @@ python tools/verify_rescue_web.py `
 python -c "from pathlib import Path; import pymupdf; p=next(Path('deliverables').glob('*Web*/*/*技术文档.pdf')); print(len(pymupdf.open(p)))"
 ```
 
-要求：页数不超过 30。本次实测 25 页，家庭智策表格、图表、页眉页脚与 10 个生活域说明均已逐页检查。
+要求：页数不超过 30。本次实测 28 页，多平台模型接入、家庭智策表格、图表、页眉页脚与 10 个生活域说明均已逐页检查。
 
 ## 五、Git 仓库核验
 

@@ -32,8 +32,9 @@ window.DB = {
   aiUsage: [],
   /* 管理员端系统配置模板（F10.5/F10.6） */
   config: {
-    model: "DeepSeek-V3",
-    visionModel: "Agnes-Vision",
+    provider: "多平台可切换",
+    model: "",
+    visionModel: "",
     webSearch: true,
     searchCacheMin: 10,
     rateLimitPerDay: 200,

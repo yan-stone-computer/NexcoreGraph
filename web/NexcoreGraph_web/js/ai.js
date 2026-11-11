@@ -1,6 +1,6 @@
 /* 启核图策 · AI 编排层（完整文档第 3 篇 M2.5，Web 端落地）
-   - P0-1 意图路由：greet/where/qty/expiry 本地快答（0 次模型调用）；cook/creative/nutrition/summary 走 /api/ai/chat（Agnes），
-     Agnes 不可用时退回本地降级回答，并在回复里注明"0 次模型调用"，不冒充模型结果
+   - P0-1 意图路由：greet/where/qty/expiry 本地快答（0 次模型调用）；cook/creative/nutrition/summary 走当前配置模型，
+     模型不可用时退回本地降级回答，并在回复里注明"0 次模型调用"，不冒充模型结果
    - P0-2 受约束工具协议 v2：[调整] 库存、shopping_add，白名单执行，先预览后生效
    - P0-3 营养标注（约，估算）+ AI 创新菜谱
    - P0-6 看板简报：统计由代码计算，模型仅润色
@@ -233,7 +233,7 @@
     return { type: "shopping_add", name: name, qty: numAfter(text, 1) + " " + ((text.match(/(个|盒|瓶|袋|把|罐|份|包)/) || ["单位"])[0]) };
   }
 
-  /* ---------- 模型类回复：Agnes + GraphRAG（单次调用，失败降级本地回答） ----------
+  /* ---------- 模型类回复：当前平台配置 + GraphRAG（单次调用，失败降级本地回答） ----------
      红线 3：单请求 ≤2 次模型调用（本链路仅 1 次；社区摘要为离线预计算，不在对话请求内） */
   function agnesReply(intent, text) {
     return window.GRAPHRAG.ask(text).then(function (r) {
@@ -247,7 +247,7 @@
         if (intent === "creative") out.action = "creative";
         if (intent === "shopping_add") {
           var card = parseShoppingAdd(text);
-          if (card) { out.card = card; out.text = "确认后我会把该项加入采购清单（预览如下，Agnes 已理解需求）："; }
+          if (card) { out.card = card; out.text = "确认后我会把该项加入采购清单（预览如下，当前模型已理解需求）："; }
         }
         return out;
       }
@@ -260,19 +260,19 @@
           };
           if (intent === "cook") out.action = "generatePlans";
         }
-        out.text += "（Agnes 暂不可用：" + (r.error || "网络异常") + "，已降级本地回答；图谱事实仍可查）";
+        out.text += "（当前模型暂不可用：" + (r.error || "网络异常") + "，已降级本地回答；图谱事实仍可查）";
         out.src = "本地降级 · GraphRAG " + r.mode + "（0 次模型调用）";
         return out;
       });
     }).catch(function () {
       return modelReply(intent, text, true).then(function (out) {
-        out.src = "本地降级（Agnes 未接入，0 次模型调用）";
+        out.src = "本地降级（模型未接入，0 次模型调用）";
         return out;
       });
     });
   }
 
-  /* ---------- 本地降级回复（Agnes 不可用时的兜底；内容全部来自本地数据，不冒充模型） ---------- */
+  /* ---------- 本地降级回复（模型不可用时的兜底；内容全部来自本地数据，不冒充模型） ---------- */
   function modelReply(intent, text, degraded) {
     var t0 = Date.now();
     var p = new Promise(function (resolve) {

@@ -64,7 +64,7 @@ GET /.env 200
 
 ### 求解器单元测试
 
-`node --test tests/*.test.js`：14/14 通过。
+`node --test tests/*.test.js`：21/21 通过。
 
 覆盖：
 
@@ -76,6 +76,8 @@ GET /.env 200
 - 空库存
 - 全屋资源、库存估值、生活资产与跨域风险汇总
 - 药箱临期/过期/低库存、健身器材约束训练、工具保修/维护/借出
+- OpenAI Compatible、Anthropic Messages、Gemini GenerateContent 请求构造与响应解析
+- 多平台视觉请求、Base URL/模型/超时规范化和 Key 掩码
 - 浏览器不读取 dotenv
 - Web 启动脚本使用安全静态服务器
 
@@ -111,11 +113,24 @@ GET /.env 200
 - 食物、药箱、健身、工具、全屋资产五类 AI 回答均返回本地确定性结果；
 - 跨域回答明确显示 0 次模型调用，不依赖在线模型。
 
+### 多平台模型配置复验
+
+真实浏览器切换 11 个平台/自定义模板，并验证：
+
+- DeepSeek 模板自动填入 Base URL 与 `deepseek-chat`。
+- Claude 模板自动切换为 `Anthropic Messages`。
+- Gemini 模板自动切换为 `Gemini GenerateContent`。
+- Base URL、文本模型、视觉模型和超时均可编辑。
+- API Key 输入不回显已保存值，只显示末四位掩码。
+- 设置页在 390px 宽度下无横向溢出，平台选择组件可见。
+- 控制台异常 0。
+
 三轮核心结果一致：控制台异常 0，平板横向溢出 0，手机横向溢出 0。新增证据截图：
 
 - `qa/shots/17-family-domains.png`
 - `qa/shots/18-household-overview.png`
 - `qa/shots/19-life-assets.png`
+- `qa/shots/20-ai-providers.png`
 
 ### 页面与资源
 

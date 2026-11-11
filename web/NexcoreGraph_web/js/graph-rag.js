@@ -225,14 +225,14 @@
         ok: true, text: r.text, mode: ev.mode, evidence: ev,
         model: r.model, ms: r.ms, tokens: r.tokens, degraded: false,
         via: r.via,
-        src: "Agnes · " + r.model + "（" + (r.via === "direct" ? "厂商直连" : "自建网关") +
+        src: "模型 · " + r.model + "（" + (r.via === "direct" ? "多平台直连" : "自建网关") +
           "）+ GraphRAG（" + ev.mode + "）"
       };
     }).catch(function (err) {
       return {
         ok: false, text: fallbackText || "", mode: ev.mode, evidence: ev,
         model: "本地降级", ms: 0, degraded: true, error: err && err.message,
-        src: "本地图谱事实（Agnes 不可用，已降级）· " + ev.mode
+        src: "本地图谱事实（模型不可用，已降级）· " + ev.mode
       };
     });
   }

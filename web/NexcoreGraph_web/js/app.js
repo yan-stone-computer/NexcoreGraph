@@ -1514,16 +1514,93 @@
     );
   }
 
+  function aiProviderPresets() {
+    return window.AI_PROVIDERS ? window.AI_PROVIDERS.presets : [];
+  }
+
+  function aiProtocolLabel(protocol) {
+    return {
+      openai: "OpenAI Compatible",
+      anthropic: "Anthropic Messages",
+      gemini: "Gemini GenerateContent"
+    }[protocol] || "自定义协议";
+  }
+
+  function aiProviderOptions(current) {
+    return aiProviderPresets().map(function (provider) {
+      return '<button type="button" class="ai-provider-option' + (provider.id === current ? " active" : "") +
+        '" data-action="ai:provider" data-provider="' + esc(provider.id) + '" aria-pressed="' +
+        (provider.id === current) + '"><strong>' + esc(provider.label) + '</strong><small>' +
+        esc(provider.note) + "</small></button>";
+    }).join("");
+  }
+
+  function applyProviderPreset(providerId) {
+    var provider = window.AI_PROVIDERS ? window.AI_PROVIDERS.get(providerId) : null;
+    if (!provider) return null;
+    var hidden = document.getElementById("ai-provider");
+    var base = document.getElementById("agnes-base");
+    var model = document.getElementById("agnes-model");
+    var visionModel = document.getElementById("agnes-vision-model");
+    var protocol = document.getElementById("ai-protocol");
+    var note = document.getElementById("ai-provider-note");
+    if (hidden) hidden.value = provider.id;
+    if (base) base.value = provider.vendorBase || "";
+    if (model) model.value = provider.model || "";
+    if (visionModel) visionModel.value = provider.visionModel || "";
+    if (protocol) protocol.textContent = aiProtocolLabel(provider.protocol);
+    if (note) note.textContent = provider.note || "";
+    Array.prototype.forEach.call(document.querySelectorAll(".ai-provider-option"), function (button) {
+      var active = button.getAttribute("data-provider") === provider.id;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    return provider;
+  }
+
+  function readAiForm() {
+    var providerId = (document.getElementById("ai-provider") || {}).value || "custom-openai";
+    var provider = window.AI_PROVIDERS ? window.AI_PROVIDERS.get(providerId) : {};
+    var existing = window.AGNES ? window.AGNES.cfg() : {};
+    var typedKey = (document.getElementById("agnes-key") || {}).value || "";
+    return window.AGNES.saveCfg({
+      provider: providerId,
+      protocol: provider.protocol || "openai",
+      apiKey: typedKey.trim() || existing.apiKey || "",
+      model: ((document.getElementById("agnes-model") || {}).value || "").trim(),
+      visionModel: ((document.getElementById("agnes-vision-model") || {}).value || "").trim(),
+      vendorBase: ((document.getElementById("agnes-base") || {}).value || "").trim().replace(/\/+$/, ""),
+      baseUrl: ((document.getElementById("gw-base") || {}).value || "").trim().replace(/\/+$/, ""),
+      prefer: (document.getElementById("agnes-prefer") || {}).value || "gateway",
+      chatTimeout: parseInt((document.getElementById("ai-chat-timeout") || {}).value, 10) || 30000,
+      visionTimeout: parseInt((document.getElementById("ai-vision-timeout") || {}).value, 10) || 45000
+    });
+  }
+
   function viewSettings() {
     var theme = DB.theme === "dark";
     var curPalette = palette();
     var members = DB.members[DB.familyId] || [];
-    var inv = DB.invite;
+    var inv = DB.invite || { code: "-", expiresInDays: 0, used: 0, max: 0, revoked: true };
     var prof = DB.profile || {};
     var isAdmin = DB.user.role === "管理员";
     var readOnly = DB.user.role === "只读";
     var st = window.API.getStats();
     var acfg = window.AGNES ? window.AGNES.cfg() : {};
+    var providerLabel = (aiProviderPresets().filter(function (provider) {
+      return provider.id === acfg.provider;
+    })[0] || {}).label || "自定义接入";
+    var savedKeyHint = acfg.apiKey && window.AGNES
+      ? "已保存 " + window.AGNES.maskKey(acfg.apiKey) + "，留空则保持原 Key"
+      : "填写平台 API Key";
+    var connectionText = "未检测；点击「测试连接」探测网关与当前平台";
+    if (S.aiStatus) {
+      connectionText = S.aiStatus.ok
+        ? '已连接 <span class="num">' + esc(S.aiStatus.base) + "</span> · " +
+          (S.aiStatus.mode === "lan-self-hosted" ? "局域网自建服务器（数据不出局域网）" : "自建服务器") +
+          (S.aiStatus.ai === "ready" ? " · 网关就绪" : S.aiStatus.ai === "no-key" ? " · 网关未配模型 Key" : "")
+        : "未连接自建服务器 · " + esc(S.aiStatus.error || "AI 走多平台直连");
+    }
     var memberRows = members
       .map(function (m) {
         var removable = isAdmin && m.phone !== DB.user.phone && m.role !== "管理员";
@@ -1591,31 +1668,36 @@
       "</div>" +
 
       /* AI 通道与服务器连接（对齐鸿蒙端「我的 → 服务器连接」） */
-      '<div class="card" style="margin-top:24px"><div class="card-title" style="margin-bottom:8px">服务器连接 · AI 通道</div>' +
+      '<div class="card ai-config-card" style="margin-top:24px"><div class="card-title" style="margin-bottom:8px">服务器连接 · AI 通道</div>' +
       '<div class="card-sub" style="margin-bottom:10px">快答与构图 0 次模型调用；仅模型类问题与社区摘要走大模型（单请求 ≤2 次，红线 3）。调用失败自动降级本地回答。</div>' +
       '<div class="setting-row"><div><div class="setting-title">当前连接</div><div class="setting-desc">' +
-      (S.aiStatus
-        ? (S.aiStatus.ok
-            ? '已连接 <span class="num">' + esc(S.aiStatus.base) + "</span> · " +
-              (S.aiStatus.mode === "lan-self-hosted" ? "局域网自建服务器（数据不出局域网）" : "自建服务器") +
-              (S.aiStatus.ai === "ready" ? " · 网关就绪" : S.aiStatus.ai === "no-key" ? " · 网关未配 Key（后端设 AGNES_API_KEY）" : "")
-            : "未连接自建服务器 · " + esc(S.aiStatus.error || "AI 走厂商直连"))
-        : "未检测；点击「测试连接」探测本机后端") + "</div></div>" +
+      connectionText + "</div></div>" +
       '<span class="badge ' + (S.aiStatus && S.aiStatus.ok ? "badge-teal" : "badge-muted") + '">' +
-      (S.aiStatus && S.aiStatus.ok ? "自建网关" : (acfg.prefer === "direct" ? "厂商直连" : "未探测")) + "</span></div>" +
+      (S.aiStatus && S.aiStatus.ok ? "自建网关" : (acfg.prefer === "direct" ? providerLabel : "未探测")) + "</span></div>" +
       '<div class="field"><label for="gw-base">后端地址（留空自动探测本机 3000 端口）</label><input id="gw-base" value="' + esc(acfg.baseUrl || "") + '" placeholder="http://192.168.x.x:3000"/></div>' +
       '<div class="field"><label for="agnes-prefer">通道策略</label><select id="agnes-prefer">' +
-      '<option value="gateway"' + (acfg.prefer !== "direct" ? " selected" : "") + ">自建网关优先，连不上回落到厂商直连</option>" +
-      '<option value="direct"' + (acfg.prefer === "direct" ? " selected" : "") + ">只用厂商直连（本机 Key）</option>" +
+      '<option value="gateway"' + (acfg.prefer !== "direct" ? " selected" : "") + ">自建网关优先，连不上回落到当前平台</option>" +
+      '<option value="direct"' + (acfg.prefer === "direct" ? " selected" : "") + ">只用当前平台直连</option>" +
       "</select></div>" +
-      '<div class="card-sub" style="margin:12px 0 8px">厂商直连通道（自建网关不可用时使用，Key 仅存本机 localStorage）</div>' +
-      '<div class="field"><label for="agnes-key">API Key</label><input id="agnes-key" value="' + esc(acfg.apiKey || "") + '" placeholder="sk-…"/></div>' +
-      '<div class="grid-2"><div class="field"><label for="agnes-model">模型</label><input id="agnes-model" value="' + esc(acfg.model || "agnes-2.5-flash") + '"/></div>' +
-      '<div class="field"><label for="agnes-base">厂商 Base URL</label><input id="agnes-base" value="' + esc(acfg.vendorBase || "") + '"/></div></div>' +
-      '<div style="display:flex;gap:8px;margin-top:12px">' +
+      '<div class="ai-channel-head"><div><div class="card-sub">多平台直连 · 选择平台后自动填入协议、Base URL 与常用模型，仍可全部手改</div>' +
+      '<div class="ai-protocol-line"><span id="ai-protocol" class="badge badge-teal">' + aiProtocolLabel(acfg.protocol) + '</span>' +
+      '<span id="ai-provider-note">' + esc((aiProviderPresets().filter(function (provider) { return provider.id === acfg.provider; })[0] || {}).note || "自定义接入") + "</span></div></div>" +
+      '<span class="ai-key-state">' + esc(savedKeyHint) + "</span></div>" +
+      '<input type="hidden" id="ai-provider" value="' + esc(acfg.provider || "custom-openai") + '"/>' +
+      '<div class="ai-provider-grid" role="group" aria-label="模型平台预设">' + aiProviderOptions(acfg.provider) + "</div>" +
+      '<div class="grid-2"><div class="field"><label for="agnes-base">Base URL</label><input id="agnes-base" value="' + esc(acfg.vendorBase || "") + '" placeholder="https://api.example.com/v1"/></div>' +
+      '<div class="field"><label for="agnes-key">API Key</label><div class="secret-input"><input id="agnes-key" type="password" autocomplete="new-password" value="" placeholder="' + esc(savedKeyHint) + '"/>' +
+      '<button type="button" class="secret-toggle" data-action="ai:toggle-key" aria-label="显示或隐藏 API Key">显示</button></div></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="agnes-model">文本 / 对话模型</label><input id="agnes-model" value="' + esc(acfg.model || "") + '" placeholder="填写平台模型 ID"/></div>' +
+      '<div class="field"><label for="agnes-vision-model">视觉 / 多模态模型</label><input id="agnes-vision-model" value="' + esc(acfg.visionModel || "") + '" placeholder="可留空，复用文本模型"/></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="ai-chat-timeout">对话超时（毫秒）</label><input id="ai-chat-timeout" class="num" value="' + (acfg.chatTimeout || 30000) + '"/></div>' +
+      '<div class="field"><label for="ai-vision-timeout">视觉超时（毫秒）</label><input id="ai-vision-timeout" class="num" value="' + (acfg.visionTimeout || 45000) + '"/></div></div>' +
+      '<div class="ai-security-note"><strong>密钥边界</strong><span>直连 Key 仅存本机 localStorage，不进入家庭同步快照；公网部署建议改走自建网关。</span></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' +
       '<button class="btn btn-primary btn-sm" data-action="agnes:save" data-busy="agnes">保存配置</button>' +
       '<button class="btn btn-ghost btn-sm" data-action="agnes:test" data-busy="agnes">测试连接</button>' +
-      '<span class="badge badge-muted" style="align-self:center">platform.agnes-ai.cn</span></div></div>' +
+      '<button class="btn btn-ghost btn-sm" data-action="ai:clear-key" data-busy="agnes">清除本机 Key</button>' +
+      '<span class="badge badge-muted" style="align-self:center">协议适配 · 模型可替换</span></div></div>' +
 
       '<div class="card" style="margin-top:24px"><div class="card-title" style="margin-bottom:8px">外观</div>' +
       '<div class="setting-row"><div><div class="setting-title">深色模式</div><div class="setting-desc">默认浅色（冷白底 + 启核绿），与鸿蒙端一致</div></div><button class="switch' + (theme ? " on" : "") + '" data-action="theme:toggle" data-busy="theme" aria-label="切换深色模式" role="switch" aria-checked="' + theme + '"></button></div>' +
@@ -2996,35 +3078,49 @@
         window.__WB_ASK = el.getAttribute("data-q") || "";
         render();
         break;
-      case "agnes:save":
+      case "ai:provider": {
+        var preset = applyProviderPreset(el.getAttribute("data-provider"));
+        if (preset) toast("已载入 " + preset.label + " 模板，可继续修改并保存");
+        break;
+      }
+      case "ai:toggle-key": {
+        var keyInput = document.getElementById("agnes-key");
+        if (!keyInput) break;
+        var show = keyInput.type === "password";
+        keyInput.type = show ? "text" : "password";
+        el.textContent = show ? "隐藏" : "显示";
+        el.setAttribute("aria-label", show ? "隐藏 API Key" : "显示 API Key");
+        break;
+      }
+      case "ai:clear-key":
         runBusy("agnes", function () {
-          return Promise.resolve().then(function () {
-            var key = (document.getElementById("agnes-key") || {}).value || "";
-            var model = (document.getElementById("agnes-model") || {}).value || "agnes-2.5-flash";
-            var vendor = (document.getElementById("agnes-base") || {}).value || "";
-            var gw = (document.getElementById("gw-base") || {}).value || "";
-            var prefer = (document.getElementById("agnes-prefer") || {}).value || "gateway";
-            window.AGNES.saveCfg({
-              apiKey: key.trim(),
-              model: model.trim(),
-              vendorBase: vendor.trim().replace(/\/+$/, "") || "https://api.agnes-ai.cn/v1",
-              baseUrl: gw.trim().replace(/\/+$/, ""),
-              prefer: prefer
-            });
-            S.aiStatus = null;
-          });
+          window.AGNES.saveCfg({ apiKey: "" });
+          S.aiStatus = null;
         }, function () {
-          toast("AI 通道配置已保存（仅存本机 localStorage）");
+          toast("本机 API Key 已清除");
+          render();
         });
         break;
+      case "agnes:save": {
+        readAiForm();
+        S.aiStatus = null;
+        runBusy("agnes", function () {
+          return Promise.resolve();
+        }, function () {
+          toast("平台、Base URL、模型与密钥配置已保存（仅本机）");
+        });
+        break;
+      }
       case "agnes:test":
+        readAiForm();
+        S.aiStatus = null;
         runBusy("agnes", function () {
           return window.AGNES.test().then(function (r) {
             var g = r.gateway || {};
             S.aiStatus = g.ok
               ? { ok: true, base: g.base, mode: g.mode, ai: g.ai }
               : { ok: false, error: g.error || "未发现本机后端",
-                  direct: r.direct && r.direct.ok ? "厂商直连可用" : "" };
+                  direct: r.direct && r.direct.ok ? "平台直连可用" : "" };
             return r;
           });
         }, function (r) {
@@ -3033,8 +3129,8 @@
           toast(g.ok
             ? "自建网关连接正常 · " + g.base + (g.ai === "ready" ? " · 网关就绪" : " · 网关未配 Key")
             : "未发现自建后端" + (d.ok
-                ? " · 厂商直连可用（" + d.model + " · " + d.ms + "ms）"
-                : " · 厂商直连也不可用：" + (d.error || "无 Key")));
+                ? " · " + (d.provider || "平台") + " 直连可用（" + d.model + " · " + d.ms + "ms）"
+                : " · 平台直连也不可用：" + (d.error || "无 Key")));
         });
         break;
     }

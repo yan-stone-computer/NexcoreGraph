@@ -25,7 +25,8 @@ webapp/
 │  ├─ domains.js         药箱、健身、器具借用、家电保修、生活资产与全屋风险算法
 │  ├─ domain-view.js     家庭智策全景、食材、药箱、健身、工具家电与生活资产交互
 │  ├─ mockapi.js         业务状态层：校验、日志、持久化、执行与撤销
-│  ├─ agnes.js           AI 网关/厂商直连、健康探测、超时与错误分类
+│  ├─ ai-providers.js    OpenAI Compatible / Anthropic / Gemini 多平台请求适配
+│  ├─ agnes.js           AI 双通道、健康探测、超时与错误分类
 │  ├─ graph.js          个人资源图谱构图与检索算子
 │  ├─ graph-rag.js      证据装配、GraphRAG 和社区摘要
 │  ├─ ai.js              AI 编排层（P0-1 意图路由 / P0-2 受约束工具 / P0-3 营养标注+创新菜谱 / P0-6 简报）
@@ -50,6 +51,7 @@ webapp/
 | F10 管理员端 | 独立入口 `admin.html`（管理员角色鉴权）：用户管理（禁用/启用）、家庭管理（容量/成员/邀请码）、数据审计（日志 + 云端快照）、AI 用量（次数/费用/限流）、系统配置（模型/联网开关/识别阈值/推送模板）、知识库管理（编辑 + 保存草稿 + 版本发布） |
 | F11 临期救援 | 确定性多目标评分、Pareto 非支配集、1–3 道菜约束组合、1/15/30/60 分钟沙盘、反事实排除、推荐依据、步骤与替代建议、预览确认、执行撤销和累计救回统计 |
 | F12 家庭智策 | 全屋全景显示总资源、估值、生活资产与跨域风险；食材进入 Pareto 救援；药箱扫描有效期、过期与低库存；健身根据身高体重/年龄/目标/水平/周频次和现有器材生成 BMI、目标心率与训练日；工具家电扫描保修、维护、借用人和归还期限；衣橱、书籍、宠物用品、清洁耗材提供数量、估值、临期与低库存汇总；跨域 AI 回答覆盖资产、借出和风险 |
+| F13 多平台模型接入 | 内置 OpenAI、DeepSeek、通义千问、Moonshot、Claude、Gemini、智谱、SiliconFlow 与自定义网关模板；可编辑 Base URL、文本模型、视觉模型、超时、通道策略和 API Key；自动适配三种请求协议，Key 掩码显示且不进入同步快照 |
 
 ## 三、部署运行步骤
 
@@ -60,7 +62,7 @@ webapp/
    - 浏览器访问 `http://127.0.0.1:8080`
    - 服务会拒绝 `.env`、点文件、目录列表和路径穿越；不要改用会公开目录的临时服务器
    - VS Code：安装 Live Server 插件 → 右键 index.html → Open with Live Server
-4. 不要将 `.env` 放进 Web 静态目录。推荐在自建后端配置真实 AI Key，或在设置页为单台本机临时填写；浏览器不会下载 dotenv 文件。
+4. 不要将 `.env` 放进 Web 静态目录。打开“设置 → 服务器连接 · AI 通道”，可选择主流平台、填写 Base URL、文本/视觉模型和 API Key；公网部署推荐在自建后端配置真实 Key。浏览器不会下载 dotenv 文件。
 5. 登录使用邮箱和真实邮件验证码。评审账号在后端数据库中创建，不在前端硬编码固定验证码。
 6. 管理员端：访问 `admin.html`，使用管理员邮箱完成验证码登录。
 7. 救援功能 30 秒体验：登录 → AI 工作台“今晚先救哪几样” → 临期救援 → 查看组合菜单与推荐依据 → 预览并执行 → 在方案页撤销。
@@ -72,6 +74,8 @@ cd web/NexcoreGraph_web
 node --check js/domains.js
 node --check js/domain-view.js
 node --check js/mockapi.js
+node --check js/ai-providers.js
+node --check js/agnes.js
 node --check js/ai.js
 node --check js/app.js
 node --test tests/*.test.js
@@ -81,10 +85,11 @@ python tools/verify_rescue_web.py `
   --url "http://127.0.0.1:8080/index.html#/rescue" `
   --domain-shot "web/NexcoreGraph_web/qa/shots/17-family-domains.png" `
   --overview-shot "web/NexcoreGraph_web/qa/shots/18-household-overview.png" `
-  --assets-shot "web/NexcoreGraph_web/qa/shots/19-life-assets.png"
+  --assets-shot "web/NexcoreGraph_web/qa/shots/19-life-assets.png" `
+  --settings-shot "web/NexcoreGraph_web/qa/shots/20-ai-providers.png"
 ```
 
-端到端脚本会在临时浏览器中注入九个生活域的评审数据，验证导航、筛选、决策抽屉、预览、执行、撤销、库存 CRUD、搜索、药箱、健身身体数据、工具借用、生活资产、跨域 AI 和移动端溢出；不会污染本机浏览器数据。
+端到端脚本会在临时浏览器中注入九个生活域的评审数据，验证导航、筛选、决策抽屉、预览、执行、撤销、库存 CRUD、搜索、药箱、健身身体数据、工具借用、生活资产、跨域 AI、多平台配置切换和移动端溢出；不会污染本机浏览器数据。
 
 ## 五、团队信息
 
@@ -98,9 +103,9 @@ python tools/verify_rescue_web.py `
 | 变量 | 用途 | 是否必填 |
 |---|---|---|
 | `NEXCORE_API_BASE` | 自建 AI 后端地址；留空时自动探测同源与 localhost:3000 | 否 |
-| `AGNES_API_KEY` | 厂商直连 Key，推荐只放服务端；本机演示可从设置页填写 | 使用直连时必填 |
-| `AGNES_MODEL` | 文本模型名称 | 否 |
-| `AGNES_VENDOR_BASE` | 厂商兼容接口地址 | 否 |
+| `AGNES_API_KEY` | 自建网关兼容变量名；服务端填写真实 Key，Web 设置页也可给本机直连保存 Key | 使用网关或直连时必填 |
+| `AGNES_MODEL` | 自建网关使用的模型 ID；不再限定单一厂商 | 否 |
+| `AGNES_VENDOR_BASE` | 自建网关的 OpenAI Compatible Base URL | 否 |
 | `AGNES_CHAT_TIMEOUT_MS` | 对话超时，默认 30000ms | 否 |
 | `AGNES_VISION_TIMEOUT_MS` | 视觉识别超时，默认 45000ms | 否 |
 
@@ -108,6 +113,7 @@ python tools/verify_rescue_web.py `
 
 - **数据存储**：业务状态使用 `nexcore_web_db_v3` 持久化；初始业务库为空，登录后由后端快照恢复。聊天/库存刷新不丢，图片以压缩缩略图存储。
 - **AI 说明**：文本链路支持“自建网关优先 + 厂商直连回落”，视觉走 `/api/ai/vision`。临期救援的库存匹配、排序、缺料和估值均为确定性代码计算，模型只解释；失败时仍保留规则结果，不冒充模型输出。
+- **多平台说明**：设置页提供 11 个平台/自定义模板，支持 OpenAI Compatible、Anthropic Messages 和 Gemini GenerateContent。平台预设只填默认值，Base URL、文本模型、视觉模型和超时均可手改。完整矩阵见 [AI模型多平台接入与自有工程复用.md](../../docs/AI模型多平台接入与自有工程复用.md)。
 - **多域说明**：全屋资源数、估值、生活资产、风险域、药箱临期、训练指标、保修与借出倒计时均由 `domains.js` 计算。药品只做库存、有效期、存放和安全提醒，不提供处方或诊断。
 - **AI 行为红线自查**：数量/位置/日期一律本地查询产出；`[调整]`/`shopping_add` 均为预览确认制；简报数字与看板同源（`computeStats`）。
 - **HTTPS**：生产部署必须 HTTPS（摄像头 / Web Push / Service Worker 依赖）。

@@ -260,6 +260,7 @@ const testModelFallback = process.argv[8] === "1";
 const domainShot = process.argv[9] || "";
 const overviewShot = process.argv[10] || "";
 const assetsShot = process.argv[11] || "";
+const settingsShot = process.argv[12] || "";
 const fs = require("fs");
 let id = 0;
 const pending = new Map();
@@ -455,6 +456,19 @@ ws.onopen = async () => {
     const toolsReply = await window.AI.reply("工具箱什么时候保修");
     const householdReply = await window.AI.reply("全屋生活资产和借出情况怎么样");
 
+    document.querySelector('[data-action="overlay:open"][data-type="settings"]').click();
+    await waitFor(() => document.getElementById("ai-provider"));
+    const providerOptions = document.querySelectorAll(".ai-provider-option").length;
+    document.querySelector('[data-action="ai:provider"][data-provider="deepseek"]').click();
+    const deepseekLoaded = document.getElementById("agnes-base").value.includes("api.deepseek.com") &&
+      document.getElementById("agnes-model").value === "deepseek-chat";
+    document.querySelector('[data-action="ai:provider"][data-provider="anthropic"]').click();
+    const anthropicLoaded = document.getElementById("ai-protocol").textContent.includes("Anthropic") &&
+      document.getElementById("agnes-base").value.includes("api.anthropic.com");
+    document.querySelector('[data-action="agnes:save"]').click();
+    await waitFor(() => window.AGNES.cfg().provider === "anthropic");
+    const providerSettings = providerOptions >= 9 && deepseekLoaded && anthropicLoaded;
+
     return {
       navigation: rescueTitleVisible,
       initialCards,
@@ -488,6 +502,8 @@ ws.onopen = async () => {
         householdReply: householdReply.domain === "household" &&
           householdReply.model === false && householdReply.text.includes("生活资产"),
         toolsLoanReply: toolsReply.text.includes("借出"),
+        providerSettings,
+        providerOptions,
         medicineAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "medicine"; }),
         warrantyAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "warranty"; }),
         loanAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "loan"; }),
@@ -579,6 +595,24 @@ ws.onopen = async () => {
       fs.writeFileSync(assetsShot, Buffer.from(assetsImage.result.data, "base64"));
     }
   }
+  if (settingsShot) {
+    await send("Runtime.evaluate", {
+      expression: `document.querySelector('[data-action="overlay:open"][data-type="settings"]')?.click()`
+    });
+    await sleep(600);
+    await send("Runtime.evaluate", {
+      expression: `document.querySelector('[data-action="ai:provider"][data-provider="anthropic"]')?.click()`
+    });
+    await sleep(250);
+    await send("Runtime.evaluate", {
+      expression: `document.querySelector(".ai-config-card")?.scrollIntoView({block:"start"})`
+    });
+    await sleep(200);
+    const settingsImage = await send("Page.captureScreenshot", {
+      format: "png", captureBeyondViewport: false
+    });
+    fs.writeFileSync(settingsShot, Buffer.from(settingsImage.result.data, "base64"));
+  }
   await send("Runtime.evaluate", { expression: `location.hash = "#/rescue"` });
   await sleep(900);
   await send("Emulation.setDeviceMetricsOverride", {
@@ -619,6 +653,22 @@ ws.onopen = async () => {
     });
     fs.writeFileSync(mobileShot, Buffer.from(image.result.data, "base64"));
   }
+  await send("Runtime.evaluate", {
+    expression: `document.querySelector('[data-action="overlay:open"][data-type="settings"]')?.click()`
+  });
+  await sleep(400);
+  const settingsOverflow = await send("Runtime.evaluate", {
+    expression: `JSON.stringify({
+      overflowX: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+      providerVisible: Boolean(document.getElementById("ai-provider"))
+    })`,
+    returnByValue: true
+  });
+  const settingsMobile = JSON.parse(settingsOverflow.result.result.value);
+  if (value) {
+    value.settingsMobileOverflowX = settingsMobile.overflowX;
+    value.settingsProviderVisible = settingsMobile.providerVisible;
+  }
   console.log(JSON.stringify(value, null, 2));
   ws.close();
 };
@@ -639,6 +689,7 @@ def main():
     parser.add_argument("--domain-shot", default="")
     parser.add_argument("--overview-shot", default="")
     parser.add_argument("--assets-shot", default="")
+    parser.add_argument("--settings-shot", default="")
     args = parser.parse_args()
     edge = find_edge()
     port = free_port()
@@ -676,6 +727,7 @@ def main():
                 args.domain_shot,
                 args.overview_shot,
                 args.assets_shot,
+                args.settings_shot,
             ],
             capture_output=True,
             text=True,

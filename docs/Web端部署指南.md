@@ -110,9 +110,9 @@ DB_PASSWORD=替换为强密码
 DB_NAME=tianshu
 
 AGNES_API_KEY=替换为服务端密钥
-AGNES_BASE_URL=https://api.agnes-ai.cn/v1
-AGNES_MODEL=agnes-2.0-flash
-AGNES_MODEL_ALT=agnes-3.0-flash
+AGNES_BASE_URL=https://api.deepseek.com/v1
+AGNES_MODEL=deepseek-chat
+AGNES_MODEL_ALT=deepseek-reasoner
 AI_TIMEOUT_MS=25000
 AI_RPM=20
 
@@ -126,6 +126,11 @@ SMS_ENDPOINT=
 SMS_API_KEY=
 AUTH_SHOW_CODE=0
 ```
+
+服务端网关变量名沿用 `AGNES_*` 兼容层，但地址和模型并不锁定厂商；任何 OpenAI Compatible 服务均可替换。
+浏览器用户也可在“设置 → 服务器连接 · AI 通道”切换 OpenAI、DeepSeek、通义千问、Moonshot、Claude、
+Gemini、智谱、SiliconFlow 或自定义网关，并填写 Base URL、文本模型、视觉模型和 Key。
+直连 Key 只存本机；公网部署仍建议由服务端网关持有真实 Key。
 
 安全要求：
 
@@ -409,13 +414,17 @@ python tools/verify_rescue_web.py \
     "assets": true,
     "householdReply": true,
     "toolsLoanReply": true,
+    "providerSettings": true,
+    "providerOptions": 11,
     "medicineAlert": true,
     "warrantyAlert": true,
     "loanAlert": true
   },
   "consoleErrors": [],
   "tabletOverflowX": 0,
-  "mobileOverflowX": 0
+  "mobileOverflowX": 0,
+  "settingsMobileOverflowX": 0,
+  "settingsProviderVisible": true
 }
 ```
 

@@ -2,7 +2,8 @@
 
    双通道（红线不变：数值由代码计算、写操作先预览、单请求 ≤2 次模型调用；本层只发 1 次）：
      ① 自建网关：POST {后端 base}/api/ai/chat | /api/ai/vision（服务端持有模型密钥）
-     ② 厂商直连：POST {vendorBase}/chat/completions（Key 存在本机 localStorage，设置页可改）
+     ② 多平台直连：OpenAI Compatible / Anthropic Messages / Gemini GenerateContent
+        Base URL、协议、文本模型、视觉模型和 Key 均由设置页配置
 
    顺序：设置页 prefer=gateway（默认）时先试自建网关，连不上再回落厂商直连；
         prefer=direct 时直接用厂商直连。两条路都失败才由调用方降级本地快答。
@@ -19,8 +20,11 @@
   var DEFAULTS = {
     baseUrl: "",                                        /* 自建后端地址；留空=自动探测 */
     apiKey: "",                                         /* 厂商直连用；仅来自设置页并保存在本机 */
-    model: "agnes-2.5-flash",
-    vendorBase: "https://api.agnes-ai.cn/v1",
+    provider: "custom-openai",
+    protocol: "openai",
+    model: "",
+    visionModel: "",
+    vendorBase: "",
     prefer: "gateway",                                  /* gateway | direct */
     enabled: true,
     chatTimeout: 30000,
@@ -42,7 +46,10 @@
     Object.keys(DEFAULTS).forEach(function (k) {
       out[k] = c[k] !== undefined ? c[k] : DEFAULTS[k];
     });
-    return out;
+    Object.keys(c).forEach(function (k) {
+      if (out[k] === undefined) out[k] = c[k];
+    });
+    return window.AI_PROVIDERS ? window.AI_PROVIDERS.normalizeConfig(out) : out;
   }
 
   /* 旧配置迁移：早先的 nexcore_agnes_cfg_v1 里 baseUrl 指厂商地址，搬到 vendorBase */
@@ -53,6 +60,8 @@
       if (!old) return;
       var m = {};
       /* 旧的 demo Key 不再沿用：改用设置页 */
+      m.provider = "custom-openai";
+      m.protocol = "openai";
       if (old.model) m.model = old.model;
       if (old.baseUrl) m.vendorBase = old.baseUrl;
       if (old.enabled !== undefined) m.enabled = old.enabled;
@@ -64,6 +73,7 @@
   function saveCfg(patch) {
     var c = cfg();
     Object.keys(patch || {}).forEach(function (k) { c[k] = patch[k]; });
+    if (window.AI_PROVIDERS) c = window.AI_PROVIDERS.normalizeConfig(c);
     localStorage.setItem(LS_KEY, JSON.stringify(c));
     resolvedBase = "";
     serverMode = "";
@@ -179,20 +189,20 @@
     if (!c.apiKey) {
       return Promise.reject(boom("no-key", "未配置 API Key"));
     }
-    var body = {
-      model: c.model,
-      messages: (opts.system ? [{ role: "system", content: opts.system }] : []).concat(messages),
-      temperature: opts.temperature != null ? opts.temperature : 0.4,
-      max_tokens: opts.maxTokens || 600
-    };
+    if (!window.AI_PROVIDERS) return Promise.reject(boom("bad-request", "多平台模型适配器未加载"));
+    if (!c.vendorBase || !c.model) {
+      return Promise.reject(boom("bad-request", "请先填写 Base URL 与模型名称"));
+    }
+    var request = window.AI_PROVIDERS.buildChatRequest(c, messages, {
+      system: opts.system,
+      maxTokens: opts.maxTokens,
+      temperature: opts.temperature
+    });
     var t0 = Date.now();
-    return fetchTimed(trimUrl(c.vendorBase) + "/chat/completions", {
+    return fetchTimed(request.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: "Bearer " + c.apiKey
-      },
-      body: JSON.stringify(body)
+      headers: request.headers,
+      body: JSON.stringify(request.body)
     }, c.chatTimeout).then(function (res) {
       if (!res.ok) {
         return res.text().catch(function () { return ""; }).then(function (txt) {
@@ -204,17 +214,19 @@
       }
       return res.json();
     }).then(function (data) {
-      var text = data && data.choices && data.choices[0] && data.choices[0].message
-        ? data.choices[0].message.content : "";
+      var parsed = window.AI_PROVIDERS.parseChatResponse(c, data);
+      var text = parsed.text;
       if (!text) throw boom("server", "模型返回为空");
       lastError = null;
       lastVia = "direct";
       return {
-        text: String(text).trim(),
-        model: (data && data.model) || c.model,
+        text: text,
+        model: parsed.model || c.model,
         ms: Date.now() - t0,
-        tokens: (data && data.usage && data.usage.total_tokens) || 0,
-        via: "direct"
+        tokens: parsed.tokens || 0,
+        via: "direct",
+        provider: c.provider,
+        protocol: c.protocol
       };
     });
   }
@@ -320,43 +332,33 @@
     var c = cfg();
     var direct = function () {
       if (!c.apiKey) return Promise.reject(boom("no-key", "未配置 API Key"));
+      if (!window.AI_PROVIDERS) return Promise.reject(boom("bad-request", "多平台模型适配器未加载"));
+      if (!c.vendorBase || !(c.visionModel || c.model)) {
+        return Promise.reject(boom("bad-request", "请先填写视觉模型与 Base URL"));
+      }
       var t0 = Date.now();
-      return fetchTimed(trimUrl(c.vendorBase) + "/chat/completions", {
+      var request = window.AI_PROVIDERS.buildVisionRequest(c, opts.imageBase64, opts.hints, VISION_RULES);
+      return fetchTimed(request.url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          Authorization: "Bearer " + c.apiKey
-        },
-        body: JSON.stringify({
-          model: c.model,
-          temperature: 0.1,
-          max_tokens: 900,
-          messages: [
-            { role: "system", content: "你是家庭物品识别引擎，只输出 JSON 数组，没有家庭物品时输出 []。" },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: VISION_RULES + (opts.hints ? "\n已知线索：" + String(opts.hints).slice(0, 200) : "") },
-                { type: "image_url", image_url: { url: "data:image/jpeg;base64," + opts.imageBase64 } }
-              ]
-            }
-          ]
-        })
+        headers: request.headers,
+        body: JSON.stringify(request.body)
       }, c.visionTimeout).then(function (res) {
         if (!res.ok) throw boom("server", "视觉识别失败（" + res.status + "）");
         return res.json();
       }).then(function (data) {
-        var txt = data && data.choices && data.choices[0] && data.choices[0].message
-          ? data.choices[0].message.content : "";
+        var parsed = window.AI_PROVIDERS.parseChatResponse(c, data);
+        var txt = parsed.text;
         lastError = null;
         lastVia = "direct";
         return {
           items: normalizeItems(parseVisionItems(txt)),
-          model: (data && data.model) || c.model,
+          model: parsed.model || c.visionModel || c.model,
           ms: Date.now() - t0,
           trail: [],
           noHouseholdItems: parseVisionItems(txt).length === 0,
-          via: "direct"
+          via: "direct",
+          provider: c.provider,
+          protocol: c.protocol
         };
       });
     };
@@ -408,7 +410,13 @@
       var t0 = Date.now();
       return vendorChat([{ role: "user", content: "回复「ok」两个字母即可。" }],
         { maxTokens: 16, temperature: 0 }).then(function (r) {
-          out.direct = { ok: true, model: r.model, ms: Date.now() - t0 };
+          out.direct = {
+            ok: true,
+            model: r.model,
+            provider: r.provider || c.provider,
+            protocol: r.protocol || c.protocol,
+            ms: Date.now() - t0
+          };
           return out;
         }, function (err) {
           out.direct = { ok: false, error: (err && err.message) || "直连失败" };
@@ -422,7 +430,17 @@
   }
 
   function status() {
-    return { base: resolvedBase, mode: serverMode, ai: aiState, ms: healthMs, via: lastVia };
+    var c = cfg();
+    return {
+      base: resolvedBase,
+      mode: serverMode,
+      ai: aiState,
+      ms: healthMs,
+      via: lastVia,
+      provider: c.provider,
+      protocol: c.protocol,
+      model: c.model
+    };
   }
 
   window.AGNES = {
@@ -432,6 +450,8 @@
     cfg: cfg,
     saveCfg: saveCfg,
     status: status,
+    providers: function () { return window.AI_PROVIDERS ? window.AI_PROVIDERS.presets.slice() : []; },
+    maskKey: function (value) { return window.AI_PROVIDERS ? window.AI_PROVIDERS.maskKey(value) : ""; },
     lastError: function () { return lastError; },
     lastVia: function () { return lastVia; }
   };

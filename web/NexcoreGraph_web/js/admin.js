@@ -259,9 +259,11 @@
     var c = DB.config;
     return (
       '<div class="view" style="max-width:760px"><div class="view-head"><div><h1 class="view-title">系统配置</h1><p class="view-sub">模型参数 · 联网搜索 · 识别阈值 · 推送模板（F10.5 / F10.6）</p></div></div>' +
-      '<div class="card"><div class="card-title" style="margin-bottom:12px">AI 模型</div>' +
-      '<div class="grid-2"><div class="field"><label for="cfg-model">对话/规划模型</label><input id="cfg-model" value="' + esc(c.model) + '"/></div>' +
-      '<div class="field"><label for="cfg-vision">视觉识别模型</label><input id="cfg-vision" value="' + esc(c.visionModel) + '"/></div></div>' +
+      '<div class="card"><div class="card-title" style="margin-bottom:6px">AI 模型</div>' +
+      '<div class="card-sub" style="margin-bottom:12px">运行时平台、Base URL、模型与 Key 由用户设置页或服务端网关决定；这里维护审计展示和默认说明。</div>' +
+      '<div class="field"><label for="cfg-provider">接入平台说明</label><input id="cfg-provider" value="' + esc(c.provider || "多平台可切换") + '" placeholder="OpenAI 兼容 / Anthropic / Gemini"/></div>' +
+      '<div class="grid-2"><div class="field"><label for="cfg-model">对话/规划模型</label><input id="cfg-model" value="' + esc(c.model) + '" placeholder="填写平台模型 ID"/></div>' +
+      '<div class="field"><label for="cfg-vision">视觉识别模型</label><input id="cfg-vision" value="' + esc(c.visionModel) + '" placeholder="可留空，复用文本模型"/></div></div>' +
       '<div class="grid-2"><div class="field"><label for="cfg-unit">对话单价（¥/千次）</label><input id="cfg-unit" class="num" value="' + c.unitPrice + '"/></div>' +
       '<div class="field"><label for="cfg-vunit">视觉单价（¥/千次）</label><input id="cfg-vunit" class="num" value="' + c.visionPrice + '"/></div></div>' +
       '<div class="grid-2"><div class="field"><label for="cfg-threshold">识别置信阈值</label><input id="cfg-threshold" class="num" value="' + c.identifyThreshold + '"/></div>' +
@@ -536,6 +538,7 @@
         /* 先读值再 runBusy：runBusy 会先重渲染重建输入框 */
         var g = function (id) { var e2 = document.getElementById(id); return e2 ? e2.value : ""; };
         var cfgVals = {
+          provider: g("cfg-provider"),
           model: g("cfg-model"),
           visionModel: g("cfg-vision"),
           unitPrice: parseFloat(g("cfg-unit")) || 0.002,
