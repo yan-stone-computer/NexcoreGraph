@@ -38,12 +38,9 @@
   gap: $spacing-md;
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   padding: $spacing-xl $spacing-lg;
-}
-
-.cameraIcon {
-  font-size: 88rpx;
 }
 
 .cameraText {
@@ -61,7 +58,7 @@
   height: 88rpx;
   min-width: 320rpx;
   padding: 0 $spacing-xl;
-  background: linear-gradient(135deg, $color-primary 0%, $color-primary-dark 100%);
+  background: $color-primary;
   border-radius: $radius-button;
   color: #FFFFFF;
   font-size: $font-size-lg;
@@ -85,7 +82,7 @@
   min-width: 240rpx;
   padding: 0 $spacing-lg;
   background: $color-bg-hover;
-  border: 2rpx solid rgba(201, 168, 106, 0.4);
+  border: 2rpx solid $color-primary-light;
   border-radius: $radius-button;
   color: $color-primary-dark;
   font-size: $font-size-md;
@@ -113,7 +110,7 @@
 .targetValue {
   font-size: $font-size-sm;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.14);
+  background: $color-primary-container;
   padding: 10rpx 24rpx;
   border-radius: $radius-button;
 }
@@ -127,6 +124,7 @@
 .resultCard {
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   padding: $spacing-md $spacing-lg;
   display: flex;
@@ -138,18 +136,6 @@
   display: flex;
   align-items: center;
   gap: $spacing-md;
-}
-
-.resultEmoji {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: $radius-sm;
-  background: $color-bg-hover;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36rpx;
-  flex-shrink: 0;
 }
 
 .resultNameRow {
@@ -175,7 +161,7 @@
 .attentionTag {
   font-size: $font-size-xs;
   color: $color-error;
-  background: rgba(192, 58, 43, 0.1);
+  background: $color-error-container;
   padding: 4rpx 16rpx;
   border-radius: $radius-xs;
   white-space: nowrap;
@@ -198,8 +184,9 @@
   flex: 1;
   min-width: 0;
   height: 64rpx;
-  background: $color-bg-hover;
+  background: $color-bg-sunken;
   border-radius: $radius-sm;
+  border: 1rpx solid $color-border;
   padding: 0 $spacing-md;
   font-size: $font-size-sm;
   color: $color-text-primary;

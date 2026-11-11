@@ -7,6 +7,7 @@ import { vision, type VisionItem } from '@/services/agnes'
 import { KB } from '@/data/knowledge'
 import demoFridge from '@/assets/fridge.jpg'
 import AppIcon from '@/components/AppIcon'
+import ItemGlyph from '@/components/ItemGlyph'
 import TourTip from '@/components/TourTip'
 import { TOUR, type TourStep } from '@/services/demoTour'
 import { advanceTour, currentTourStep, stopTour } from '@/services/tourStore'
@@ -42,17 +43,13 @@ const IntakePage: React.FC = () => {
     })
   })
 
-  const kbFor = (name: string): { key: string; emoji: string; unit: string } => {
+  const kbFor = (name: string): { key: string; unit: string } => {
     const keys = Object.keys(KB.foods)
     const key = keys.filter((k) => {
       const n = KB.foods[k].name
       return n.indexOf(name) > -1 || name.indexOf(n) > -1
     })[0] || ''
-    const fallback: Record<string, string> = {
-      鸡蛋: '🥚', 番茄: '🍅', 番茄酱: '🍅', 牛奶: '🥛', 青菜: '🥬',
-      猪肉: '🥩', 酸奶: '🥤', 黄瓜: '🥒', 香蕉: '🍌', 面包: '🍞'
-    }
-    return { key, emoji: fallback[name] || '🧺', unit: '个' }
+    return { key, unit: '个' }
   }
 
   const toIntake = (items: VisionItem[], img: string): IntakeResult[] => items.map((it, i) => {
@@ -60,7 +57,7 @@ const IntakePage: React.FC = () => {
     const days = Math.max(0, Number(it.expDays) || 0)
     return {
       id: 'vision-' + Date.now() + '-' + i,
-      emoji: meta.emoji,
+      emoji: '',
       img,
       name: it.name,
       category: it.category || '家庭物品',
@@ -206,7 +203,7 @@ const IntakePage: React.FC = () => {
             {results.map((r) => (
               <View key={r.id} className={styles.resultCard}>
                 <View className={styles.resultHead}>
-                  <View className={styles.resultEmoji}><Text>{r.emoji || '❔'}</Text></View>
+                  <ItemGlyph name={r.name} img={r.img} kbKey={r.kbKey} size={86} />
                   <View className={styles.resultNameRow}>
                     <Text className={styles.resultName}>{r.name || '待归类'}</Text>
                     <Text className={styles.resultSrc}>{r.price ? '¥' + r.price + '（' + r.priceSrc + '）' : r.priceSrc} · {r.exp}</Text>

@@ -13,16 +13,13 @@
   justify-content: space-between;
   padding: $spacing-md $page-padding;
   background: $color-bg-card;
+  border-bottom: 1rpx solid $color-divider;
 }
 
 .headTitle {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
-}
-
-.mascot {
-  font-size: 36rpx;
 }
 
 .headName {
@@ -40,7 +37,7 @@
 .headBtn {
   font-size: $font-size-xs;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.16);
+  background: $color-primary-container;
   padding: 10rpx 20rpx;
   border-radius: $radius-button;
   white-space: nowrap;
@@ -81,14 +78,13 @@
 }
 
 .avatarAi {
-  background: rgba(201, 168, 106, 0.18);
+  background: $color-primary-container;
   color: $color-primary-dark;
-  font-size: 32rpx;
 }
 
 .avatarMe {
-  background: rgba(165, 128, 60, 0.2);
-  color: #2E8F63;
+  background: $color-accent-container;
+  color: $color-primary-dark;
 }
 
 .body {
@@ -120,7 +116,7 @@
 
 .bubbleMe {
   background: $color-primary;
-  color: #FFFFFF;
+  color: #0B2A1C;
   border-top-right-radius: 4rpx;
 }
 
@@ -139,7 +135,7 @@
 .srcNote {
   font-size: $font-size-xs;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.14);
+  background: $color-primary-container;
   padding: 2rpx 12rpx;
   border-radius: $radius-xs;
 }
@@ -147,7 +143,7 @@
 .aiTag {
   font-size: $font-size-xs;
   color: $color-primary-dark;
-  border: 1rpx solid rgba(201, 168, 106, 0.45);
+  border: 1rpx solid $color-primary-light;
   padding: 0 10rpx;
   border-radius: $radius-xs;
 }
@@ -178,6 +174,7 @@
   width: 100%;
   background: $color-bg-card;
   border-radius: $radius-md;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   padding: $spacing-md;
   display: flex;
@@ -192,6 +189,12 @@
   font-size: $font-size-xs;
   color: $color-primary-dark;
   font-weight: $font-weight-medium;
+}
+
+.cardTitleLabel {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
 }
 
 .cardRow {
@@ -223,7 +226,7 @@
   padding: 0 $spacing-lg;
   background: $color-primary;
   border-radius: $radius-button;
-  color: #FFFFFF;
+  color: #0B2A1C;
   font-size: $font-size-xs;
 
   &:active {
@@ -267,9 +270,12 @@
 }
 
 .planChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
   font-size: $font-size-xs;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.14);
+  background: $color-primary-container;
   padding: 12rpx 24rpx;
   border-radius: $radius-button;
   white-space: nowrap;
@@ -293,7 +299,8 @@
 .inputBox {
   flex: 1;
   min-width: 0;
-  background: $color-bg-hover;
+  background: $color-bg-sunken;
+  border: 1rpx solid $color-border;
   border-radius: $radius-round;
   padding: 0 $spacing-lg;
   height: 76rpx;
@@ -312,7 +319,7 @@
   padding: 0 $spacing-lg;
   background: $color-primary;
   border-radius: $radius-button;
-  color: #FFFFFF;
+  color: #0B2A1C;
   font-size: $font-size-md;
   font-weight: $font-weight-medium;
 

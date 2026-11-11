@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(180deg, rgba(201, 168, 106, 0.18) 0%, $color-bg-page 100%);
+  background: linear-gradient(180deg, #EAF5F1 0%, $color-bg-page 56%);
 }
 
 .logoBox {
@@ -51,6 +51,7 @@
   width: 100%;
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   padding: $spacing-xl $spacing-lg;
   display: flex;
@@ -87,9 +88,9 @@
   @include button-reset;
   height: 96rpx;
   margin-top: $spacing-sm;
-  background: linear-gradient(135deg, $color-primary 0%, $color-primary-dark 100%);
+  background: $color-primary;
   border-radius: $radius-button;
-  color: #FFFFFF;
+  color: #0B2A1C;
   font-size: $font-size-lg;
   font-weight: $font-weight-semibold;
 
@@ -105,8 +106,9 @@
 
 .hintCard {
   width: 100%;
-  background: rgba(201, 168, 106, 0.1);
+  background: $color-primary-container;
   border-radius: $radius-md;
+  border: 1rpx solid $color-primary-light;
   padding: $spacing-md $spacing-lg;
   display: flex;
   flex-direction: column;

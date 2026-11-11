@@ -236,7 +236,10 @@ const WorkbenchPage: React.FC = () => {
         </Text>
         {c.reason ? <Text className={styles.cardReason}>{c.reason}</Text> : null}
         {c.done ? (
-          <Text className={styles.doneBadge}>✅ 已生效</Text>
+          <View className={styles.doneBadge}>
+            <AppIcon name="check" size={22} />
+            <Text>已生效</Text>
+          </View>
         ) : c.cancelled ? (
           <Text className={styles.cancelledBadge}>已取消</Text>
         ) : (

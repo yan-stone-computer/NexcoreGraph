@@ -12,12 +12,13 @@
 // ============================================
 
 // 品牌主题色
-$color-primary: #57D794;          // 徽标 30% 绿青（填充）
-$color-primary-light: #A8EBC8;    // 浅底派生
-$color-primary-dark: #2E8F63;     // 浅底上的深绿文字（对比度 ≥4.5:1）
+$color-primary: #57D794;
+$color-primary-light: #B7F2D3;
+$color-primary-dark: #2E8F63;
+$color-primary-container: #DCF6E8;
 
 // 强调色（AI / 悬浮 / 通知）
-$color-accent: #3DD0AE;           // 徽标 45% 过渡青
+$color-accent: #3DD0AE;
 $color-accent-container: #D9F4EE;
 
 // 功能色
@@ -29,22 +30,22 @@ $color-error: #C53D3D;
 $color-error-container: #F7E0DE;
 $color-info: #3DD0AE;
 
-// 背景色：暖纸底与绿色主色形成家庭生活感，页面仍以内容为先
-$color-bg-page: #F4F1E8;
-$color-bg-card: #FFFEFA;
-$color-bg-hover: #E8F1E9;
-$color-bg-sunken: #E7EDE6;
+// 背景色与 Web / 鸿蒙共用：冷白操作底 + 纯白内容面
+$color-bg-page: #F5F9FB;
+$color-bg-card: #FFFFFF;
+$color-bg-hover: #E9F1F5;
+$color-bg-sunken: #EDF3F7;
 
 // 文本色
-$color-text-primary: #18251F;
-$color-text-secondary: #40534A;
-$color-text-tertiary: #667A70;
-$color-text-disabled: #B7C6D9;
+$color-text-primary: #0E1424;
+$color-text-secondary: #3C4C5C;
+$color-text-tertiary: #6B7C8C;
+$color-text-disabled: #93A1B0;
 $color-text-white: #FFFFFF;
 
 // 边框色
-$color-border: #D7E2DA;
-$color-divider: #E6EDE7;
+$color-border: rgba(18, 60, 80, 0.14);
+$color-divider: #E9F1F5;
 
 // 库色调（与鸿蒙 Tokens.tone() 同值，浅色态）
 $tone-teal: #0F8C87;

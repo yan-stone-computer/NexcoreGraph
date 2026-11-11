@@ -2,27 +2,17 @@
 
 .itemRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: $spacing-md;
   padding: $spacing-lg;
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
 }
 
 .avatar {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: $radius-md;
-  background: $color-bg-hover;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.emoji {
-  font-size: 44rpx;
+  margin-top: 4rpx;
 }
 
 .body {
@@ -50,8 +40,8 @@
 .privateTag {
   flex-shrink: 0;
   font-size: $font-size-xs;
-  color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.18);
+  color: $tone-violet;
+  background: $tone-violet-bg;
   padding: 2rpx 12rpx;
   border-radius: $radius-xs;
 }
@@ -75,8 +65,8 @@
 
 .lowTag {
   font-size: $font-size-xs;
-  color: #5B893B;
-  background: rgba(47, 125, 79, 0.12);
+  color: $color-warning;
+  background: $color-warning-container;
   padding: 2rpx 12rpx;
   border-radius: $radius-xs;
 }

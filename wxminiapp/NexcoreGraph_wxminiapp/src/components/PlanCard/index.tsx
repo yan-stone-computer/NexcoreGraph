@@ -49,7 +49,10 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, onExecute, onRollback, busy }
                   className={classnames(styles.chip, active && styles.chipActive, done && styles.chipDisabled)}
                   onClick={() => !done && toggle(u.name)}
                 >
-                  <Text>{active ? '☑' : '☐'} {u.name} × {u.qty}</Text>
+                  <View className={classnames(styles.checkbox, active && styles.checkboxOn)}>
+                    {active ? <AppIcon name="check" size={18} /> : null}
+                  </View>
+                  <Text>{u.name} × {u.qty}</Text>
                 </View>
               )
             })}

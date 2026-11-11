@@ -9,6 +9,7 @@ import { useStore } from '@/store/useStore'
 import { snapshot } from '@/services/graph'
 import { aggregate } from '@/services/graphQuery'
 import { openAiWorkbench } from '@/services/aiContext'
+import ItemGlyph from '@/components/ItemGlyph'
 import type { GraphDoc, GraphNode } from '@/services/graphQuery'
 import styles from './index.module.scss'
 import classnames from 'classnames'
@@ -265,7 +266,10 @@ const GraphPage: React.FC = () => {
                 className={styles.itemRow}
                 onClick={() => askAi(it.name + ' 还能放几天')}
               >
-                <Text className={styles.itemName}>{it.emoji} {it.name}</Text>
+                <View className={styles.itemIdentity}>
+                  <ItemGlyph name={it.name} img={it.img} kbKey={it.kbKey} size={56} />
+                  <Text className={styles.itemName}>{it.name}</Text>
+                </View>
                 <Text className={styles.itemMeta}>
                   {it.qty}{it.unit}
                   {it.expDays != null && it.expDays < 9000 ? ' · ' + it.expDays + ' 天' : ''}

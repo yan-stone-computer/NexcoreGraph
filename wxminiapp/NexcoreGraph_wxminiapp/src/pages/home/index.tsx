@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from 'react'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useStore } from '@/store/useStore'
 import { api } from '@/services/api'
 import { briefingText } from '@/services/ai'
 import { graphBrief } from '@/services/graph'
 import { greetWord, toneColor } from '@/utils/format'
-import StatCard from '@/components/StatCard'
 import EmptyState from '@/components/EmptyState'
 import AppIcon, { type IconName } from '@/components/AppIcon'
+import pantry from '@/assets/photos/pantry.webp'
 import TourTip from '@/components/TourTip'
 import { TOUR, type TourStep } from '@/services/demoTour'
 import { advanceTour, currentTourStep, startTour, stopTour } from '@/services/tourStore'
@@ -95,11 +95,39 @@ const HomePage: React.FC = () => {
         </View>
       </View>
 
-      <View className={styles.statsGrid}>
-        <StatCard wide label="物品总数" value={String(stats.totalItems)} unit="件" icon="package" color="#2E8F63" onClick={() => Taro.switchTab({ url: '/pages/library/index' })} />
-        <StatCard label="临期提醒" value={String(stats.expiringN)} unit="件" icon="alerts" color="#C53D3D" onClick={() => go('/pages/alerts/index')} />
-        <StatCard label="低库存" value={String(stats.lowN)} unit="件" icon="warning" color="#B87D16" onClick={() => go('/pages/alerts/index')} />
-        <StatCard label="本月花费" value={'¥' + stats.spent} unit={'/ ¥' + stats.budget} icon="stats" color="#5B893B" />
+      <View className={styles.heroCard}>
+        <Image className={styles.heroImage} src={pantry} mode="aspectFill" />
+        <View className={styles.heroOverlay} />
+        <View className={styles.heroContent}>
+          <View className={styles.heroBrand}>
+            <View className={styles.heroMark}><AppIcon name="ai" size={28} /></View>
+            <Text>家庭资源实时视图</Text>
+          </View>
+          <Text className={styles.heroTitle}>
+            {stats.totalItems} 件资源，{stats.expiringN} 件临期
+          </Text>
+          <Text className={styles.heroSub}>
+            {db.libraries.length} 个资源库 · 健康度 {stats.health}% · 本月已用 ¥{stats.spent}
+          </Text>
+          <View className={styles.heroMetrics}>
+            <View className={styles.heroMetric} onClick={() => go('/pages/alerts/index')}>
+              <Text className={styles.heroMetricValue}>{stats.lowN}</Text>
+              <Text className={styles.heroMetricLabel}>低库存</Text>
+            </View>
+            <View className={styles.heroMetric} onClick={() => go('/pages/plans/index')}>
+              <Text className={styles.heroMetricValue}>{stats.planPct}%</Text>
+              <Text className={styles.heroMetricLabel}>方案完成</Text>
+            </View>
+            <View className={styles.heroMetric}>
+              <Text className={styles.heroMetricValue}>{stats.daysLeft}</Text>
+              <Text className={styles.heroMetricLabel}>预计可用天数</Text>
+            </View>
+          </View>
+          <View className={styles.heroAction} onClick={() => Taro.switchTab({ url: '/pages/workbench/index' })}>
+            <Text>问问 AI 今天怎么安排</Text>
+            <AppIcon name="send" size={24} />
+          </View>
+        </View>
       </View>
 
       <View className={styles.card}>
@@ -185,7 +213,7 @@ const HomePage: React.FC = () => {
         ) : (
           db.daily.map((t) => (
             <View key={t.id} className={styles.dailyRow} onClick={() => toggleDaily(t.id)}>
-              <Text className={styles.checkbox}>{t.done ? '☑' : '☐'}</Text>
+              <View className={styles.checkbox}>{t.done ? <AppIcon name="check" size={24} /> : null}</View>
               <Text className={styles.dailyText}>{t.text}</Text>
             </View>
           ))

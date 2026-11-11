@@ -91,6 +91,12 @@
   border-bottom: 1rpx dashed #E9F1F5;
   &:last-of-type { border-bottom: none; }
 }
+.itemIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
 .itemName { font-size: 24rpx; color: #0E1424; }
 .itemMeta { font-size: 22rpx; color: #6B7C8C; }
 .detailActions { display: flex; margin-top: 8rpx; }

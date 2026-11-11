@@ -498,7 +498,10 @@ const MinePage: React.FC = () => {
         ) : (
           db.aiUsage.slice(0, 5).map((u, i) => (
             <View key={i} className={styles.usageRow}>
-              <Text className={styles.usageRoute}>{u.model === '本地快答' ? '⚡ ' + u.model : u.route}</Text>
+              <View className={styles.usageRoute}>
+                <AppIcon name={u.model === '本地快答' ? 'ai' : 'server'} size={22} />
+                <Text>{u.model === '本地快答' ? '本地快答' : u.route}</Text>
+              </View>
               <View className={styles.usageMeta}>
                 <Text>{u.model === '本地快答' ? '' : u.model + ' · '}</Text>
                 <Text>{u.model === '本地快答' ? '直答' : u.ms + 'ms'}</Text>

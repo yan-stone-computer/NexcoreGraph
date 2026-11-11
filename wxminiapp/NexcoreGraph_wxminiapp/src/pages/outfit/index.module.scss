@@ -10,8 +10,8 @@
   padding: 34rpx;
   border-radius: 36rpx;
   color: #fff;
-  background: linear-gradient(145deg, #174c3d, #2d6b55);
-  box-shadow: 0 22rpx 42rpx rgba(31, 76, 60, 0.2);
+  background: #0E1424;
+  box-shadow: 0 22rpx 46rpx rgba(10, 18, 36, 0.20);
 }
 
 .eyebrow {
@@ -49,7 +49,7 @@
   border: 1rpx solid rgba(255, 255, 255, 0.22);
   border-radius: 999rpx;
   font-size: 22rpx;
-  color: #f5e2b8;
+  color: #B7F2D3;
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -58,6 +58,7 @@
   padding: 30rpx;
   border-radius: 30rpx;
   background: $color-bg-card;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
 }
 
@@ -91,7 +92,7 @@
   display: block;
   margin-top: 24rpx;
   padding-top: 20rpx;
-  border-top: 1rpx solid rgba(72, 95, 84, 0.12);
+  border-top: 1rpx solid $color-divider;
   font-size: 21rpx;
   line-height: 1.6;
   color: $color-text-tertiary;
@@ -107,8 +108,8 @@
   padding: 12rpx 18rpx;
   border-radius: 14rpx;
   font-size: 23rpx;
-  color: #365044;
-  background: #f2eee5;
+  color: $color-primary-dark;
+  background: $color-primary-container;
 }
 
 .hint {
@@ -126,8 +127,8 @@
   text-align: center;
   font-size: 26rpx;
   font-weight: 600;
-  color: #fff;
-  background: #245a47;
+  color: #0B2A1C;
+  background: $color-primary;
 }
 
 .loading {

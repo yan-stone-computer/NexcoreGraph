@@ -12,12 +12,12 @@
 .hero {
   border-radius: $radius-xl;
   padding: $spacing-xl;
-  background: #132a23;
+  background: #0E1424;
   color: $color-text-white;
   display: flex;
   flex-direction: column;
   gap: $spacing-lg;
-  box-shadow: 0 18rpx 46rpx rgba(19, 42, 35, 0.18);
+  box-shadow: 0 20rpx 48rpx rgba(10, 18, 36, 0.20);
 }
 
 .heroTop {
@@ -41,8 +41,8 @@
 .live {
   flex-shrink: 0;
   font-size: $font-size-xs;
-  color: #bde9d2;
-  border: 1rpx solid rgba(189, 233, 210, 0.45);
+  color: #B7F2D3;
+  border: 1rpx solid rgba(183, 242, 211, 0.34);
   border-radius: $radius-button;
   padding: 8rpx 16rpx;
   white-space: nowrap;
@@ -51,7 +51,7 @@
 .heroLine {
   font-size: $font-size-md;
   line-height: $line-height-loose;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(242, 248, 244, 0.68);
 }
 
 .facts {
@@ -82,7 +82,8 @@
   display: flex;
   gap: $spacing-sm;
   padding: 6rpx;
-  background: rgba(255, 255, 255, 0.72);
+  background: $color-bg-card;
+  border: 1rpx solid $color-border;
   border-radius: $radius-button;
   box-shadow: $shadow-card;
 }

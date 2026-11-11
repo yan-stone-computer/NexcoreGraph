@@ -27,7 +27,7 @@
 .refreshBtn {
   font-size: $font-size-xs;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.16);
+  background: $color-primary-container;
   padding: 12rpx 24rpx;
   border-radius: $radius-button;
   white-space: nowrap;
@@ -49,6 +49,7 @@
   gap: $spacing-md;
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   padding: $spacing-md $spacing-lg;
 }
@@ -57,7 +58,7 @@
   width: 56rpx;
   height: 56rpx;
   border-radius: $radius-sm;
-  background: rgba(201, 168, 106, 0.14);
+  background: $color-primary-container;
   display: flex;
   align-items: center;
   justify-content: center;

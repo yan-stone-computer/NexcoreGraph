@@ -3,9 +3,11 @@ import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useStore } from '@/store/useStore'
 import { api } from '@/services/api'
+import ItemGlyph from '@/components/ItemGlyph'
 import EmptyState from '@/components/EmptyState'
 import NameInputModal from '@/components/NameInputModal'
-import AppIcon, { libraryIcon } from '@/components/AppIcon'
+import AppIcon from '@/components/AppIcon'
+import LibraryArt from '@/components/LibraryArt'
 import { expColor, expLabel } from '@/utils/format'
 import type { Library } from '@/types'
 import styles from './index.module.scss'
@@ -155,7 +157,7 @@ const LibraryPage: React.FC = () => {
             <>
               {results.items.map((it) => (
                 <View key={it.id} className={styles.resultRow} onClick={() => openLib(it.libId)}>
-                  <Text className={styles.resultEmoji}>{it.emoji || '📦'}</Text>
+                  <ItemGlyph name={it.name} size={68} />
                   <View className={styles.resultBody}>
                     <Text className={styles.resultName}>{it.name}</Text>
                     <Text className={styles.resultMeta}>{it.lib} · {it.pos} · {it.qty} {it.unit}</Text>
@@ -185,12 +187,12 @@ const LibraryPage: React.FC = () => {
           <View className={styles.libGrid}>
             {db.libraries.map((lib) => (
               <View key={lib.id} className={styles.libCard} onClick={() => openLib(lib.id)} hoverClass={styles.libHover} onLongPress={() => libMenu(lib)}>
-                <View className={styles.libIcon}>
-                  <AppIcon name={libraryIcon(lib.icon)} size={52} />
+                <LibraryArt cover icon={lib.icon} name={lib.name} tone={lib.tone} />
+                <View className={styles.libContent}>
+                  <Text className={styles.libName}>{lib.name}</Text>
+                  <Text className={styles.libDesc}>{lib.desc}</Text>
+                  <Text className={styles.libCount}>{lib.count} 件资源</Text>
                 </View>
-                <Text className={styles.libName}>{lib.name}</Text>
-                <Text className={styles.libDesc}>{lib.desc}</Text>
-                <Text className={styles.libCount}>{lib.count} 件</Text>
               </View>
             ))}
           </View>

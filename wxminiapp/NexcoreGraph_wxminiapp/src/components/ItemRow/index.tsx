@@ -2,6 +2,7 @@ import React from 'react'
 import { View, Text } from '@tarojs/components'
 import styles from './index.module.scss'
 import { expColor, expLabel } from '@/utils/format'
+import ItemGlyph from '@/components/ItemGlyph'
 import type { Item } from '@/types'
 
 interface ItemRowProps {
@@ -16,9 +17,13 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, onMinus, onPlus, onEdit, onDele
   const low = (item.lowAt || 0) > 0 && item.qty <= item.lowAt
   return (
     <View className={styles.itemRow}>
-      <View className={styles.avatar} onClick={onEdit}>
-        <Text className={styles.emoji}>{item.emoji || '📦'}</Text>
-      </View>
+      <ItemGlyph
+        className={styles.avatar}
+        name={item.name}
+        img={item.img}
+        kbKey={item.kbKey}
+        size={96}
+      />
       <View className={styles.body} onClick={onEdit}>
         <View className={styles.nameLine}>
           <Text className={styles.name}>{item.name}</Text>

@@ -13,20 +13,9 @@
   gap: $spacing-md;
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   padding: $spacing-lg;
-}
-
-.libIcon {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: $radius-md;
-  background: rgba(201, 168, 106, 0.14);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 48rpx;
-  flex-shrink: 0;
 }
 
 .libBody {
@@ -60,7 +49,7 @@
   gap: 4rpx;
   font-size: $font-size-xs;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.16);
+  background: $color-primary-container;
   padding: 12rpx 20rpx;
   border-radius: $radius-button;
   white-space: nowrap;
@@ -74,6 +63,7 @@
 .formCard {
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   padding: $spacing-lg;
   display: flex;
@@ -104,8 +94,9 @@
   flex: 1;
   min-width: 0;
   height: 72rpx;
-  background: $color-bg-hover;
+  background: $color-bg-sunken;
   border-radius: $radius-sm;
+  border: 1rpx solid $color-border;
   padding: 0 $spacing-md;
   font-size: $font-size-md;
   color: $color-text-primary;
@@ -160,9 +151,12 @@
 }
 
 .addItemBtn {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
   font-size: $font-size-sm;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.16);
+  background: $color-primary-container;
   padding: 12rpx 24rpx;
   border-radius: $radius-button;
   white-space: nowrap;

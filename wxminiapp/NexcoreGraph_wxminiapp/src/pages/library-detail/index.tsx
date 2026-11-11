@@ -5,13 +5,13 @@ import { useStore } from '@/store/useStore'
 import { api } from '@/services/api'
 import ItemRow from '@/components/ItemRow'
 import EmptyState from '@/components/EmptyState'
-import AppIcon, { libraryIcon } from '@/components/AppIcon'
+import AppIcon from '@/components/AppIcon'
+import LibraryArt from '@/components/LibraryArt'
 import type { Item, Library } from '@/types'
 import styles from './index.module.scss'
 
 interface FormState {
   name: string
-  emoji: string
   qty: string
   unit: string
   price: string
@@ -19,7 +19,7 @@ interface FormState {
   pos: string
 }
 
-const EMPTY_FORM: FormState = { name: '', emoji: '📦', qty: '1', unit: '个', price: '', expDays: '7', pos: '未设置' }
+const EMPTY_FORM: FormState = { name: '', qty: '1', unit: '个', price: '', expDays: '7', pos: '未设置' }
 
 const LibraryDetailPage: React.FC = () => {
   const router = useRouter()
@@ -48,7 +48,7 @@ const LibraryDetailPage: React.FC = () => {
   const openEdit = (item: Item) => {
     setEditing(item)
     setForm({
-      name: item.name, emoji: item.emoji || '📦', qty: String(item.qty), unit: item.unit,
+      name: item.name, qty: String(item.qty), unit: item.unit,
       price: item.price ? String(item.price) : '', expDays: String(item.expDays), pos: item.pos || ''
     })
     setFormOpen(true)
@@ -62,7 +62,7 @@ const LibraryDetailPage: React.FC = () => {
     try {
       const invoke = useStore.getState().invoke
       const data = {
-        name: form.name.trim(), emoji: form.emoji || '📦', qty: parseFloat(form.qty) || 1,
+        name: form.name.trim(), emoji: '', qty: parseFloat(form.qty) || 1,
         unit: form.unit || '个', price: parseFloat(form.price) || 0,
         expDays: parseInt(form.expDays, 10) || 7, pos: form.pos || '未设置'
       }
@@ -107,7 +107,7 @@ const LibraryDetailPage: React.FC = () => {
   return (
     <View className={styles.page}>
       <View className={styles.libHead}>
-        <View className={styles.libIcon}><AppIcon name={libraryIcon(lib.icon)} size={54} /></View>
+        <LibraryArt icon={lib.icon} name={lib.name} tone={lib.tone} size={104} />
         <View className={styles.libBody}>
           <Text className={styles.libName}>{lib.name}</Text>
           <Text className={styles.libMeta}>{lib.desc} · {lib.count} 件</Text>
@@ -137,10 +137,6 @@ const LibraryDetailPage: React.FC = () => {
             <Input className={styles.formInput} value={form.name} placeholder="如：酸奶" placeholderClass={styles.formPlaceholder} onInput={(e) => setF('name', e.detail.value)} />
           </View>
           <View className={styles.formRow}>
-            <Text className={styles.formLabel}>图标</Text>
-            <Input className={styles.formInput} value={form.emoji} placeholder="如：🥤" placeholderClass={styles.formPlaceholder} onInput={(e) => setF('emoji', e.detail.value)} />
-          </View>
-          <View className={styles.formRow}>
             <Text className={styles.formLabel}>数量</Text>
             <Input className={styles.formInput} value={form.qty} type="digit" placeholder="数量" placeholderClass={styles.formPlaceholder} onInput={(e) => setF('qty', e.detail.value)} />
             <Input className={styles.formInput} value={form.unit} placeholder="单位" placeholderClass={styles.formPlaceholder} onInput={(e) => setF('unit', e.detail.value)} />
@@ -166,7 +162,10 @@ const LibraryDetailPage: React.FC = () => {
 
       <View className={styles.itemTitle}>
         <Text className={styles.itemTitleText}>物品清单</Text>
-        <View className={styles.addItemBtn} onClick={openAdd}><Text>＋ 添加物品</Text></View>
+        <View className={styles.addItemBtn} onClick={openAdd}>
+          <AppIcon name="plus" size={22} />
+          <Text>添加物品</Text>
+        </View>
       </View>
 
       <View className={styles.list}>
@@ -185,7 +184,7 @@ const LibraryDetailPage: React.FC = () => {
           ))
         )}
       </View>
-      <Text className={styles.tip}>＋ / − 直接调整数量，编辑可修改单价、保质期等</Text>
+      <Text className={styles.tip}>使用加减按钮调整数量；编辑可修改单价、保质期和位置。</Text>
     </View>
   )
 }

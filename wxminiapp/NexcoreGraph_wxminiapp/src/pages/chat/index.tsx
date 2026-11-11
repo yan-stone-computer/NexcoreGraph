@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useStore } from '@/store/useStore'
 import { api, nowTime } from '@/services/api'
 import { reply } from '@/services/ai'
+import AppIcon from '@/components/AppIcon'
 import type { ChatMsg } from '@/types'
 import styles from './index.module.scss'
 import classnames from 'classnames'
@@ -105,7 +106,10 @@ const ChatPage: React.FC = () => {
     return (
       <View className={styles.card}>
         <View className={styles.cardTitle}>
-          <Text>{c.type === 'adjust' ? '✏️ 库存调整预览' : '🛒 加入采购清单预览'}</Text>
+          <View className={styles.cardTitleLabel}>
+            <AppIcon name={c.type === 'adjust' ? 'plans' : 'shopping'} size={24} />
+            <Text>{c.type === 'adjust' ? '库存调整预览' : '加入采购清单预览'}</Text>
+          </View>
           <Text className={styles.cardReason}>{c.type === 'adjust' ? '（F5.5 先预览后生效）' : '（P0-2 shopping_add）'}</Text>
         </View>
         <Text className={styles.cardRow}>
@@ -115,7 +119,10 @@ const ChatPage: React.FC = () => {
         </Text>
         {c.reason ? <Text className={styles.cardReason}>{c.reason}</Text> : null}
         {c.done ? (
-          <Text className={styles.doneBadge}>✅ 已生效</Text>
+          <View className={styles.doneBadge}>
+            <AppIcon name="check" size={22} />
+            <Text>已生效</Text>
+          </View>
         ) : c.cancelled ? (
           <Text className={styles.cancelledBadge}>已取消</Text>
         ) : (
@@ -137,7 +144,8 @@ const ChatPage: React.FC = () => {
     return (
       <View className={styles.planChips}>
         <View className={styles.planChip} onClick={goPlans} hoverClass={styles.planChipHover}>
-          <Text>{'📋 查看 ' + msg.plans.length + ' 个方案 ›'}</Text>
+          <AppIcon name="plans" size={24} />
+          <Text>{'查看 ' + msg.plans.length + ' 个方案 ›'}</Text>
         </View>
       </View>
     )
@@ -147,7 +155,7 @@ const ChatPage: React.FC = () => {
     <View className={styles.page}>
       <View className={styles.head}>
         <View className={styles.headTitle}>
-          <Text className={styles.mascot}>🪐</Text>
+          <AppIcon name="ai" size={38} />
           <Text className={styles.headName}>AI 助手</Text>
         </View>
         <View className={styles.headBtns}>

@@ -47,9 +47,10 @@
 }
 
 .greet {
-  font-size: $font-size-xxl;
+  font-size: 52rpx;
   font-weight: $font-weight-bold;
   color: $color-text-primary;
+  letter-spacing: -1rpx;
 }
 
 .sub {
@@ -57,16 +58,126 @@
   color: $color-text-tertiary;
 }
 
-.statsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.heroCard {
+  min-height: 430rpx;
+  border-radius: $radius-xl;
+  overflow: hidden;
+  position: relative;
+  background: $color-text-primary;
+  box-shadow: 0 24rpx 52rpx rgba(10, 16, 32, 0.18);
+}
+
+.heroImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(10, 16, 32, 0.94) 0%, rgba(10, 16, 32, 0.74) 56%, rgba(10, 16, 32, 0.42) 100%),
+    linear-gradient(0deg, rgba(87, 215, 148, 0.12), transparent 55%);
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  min-height: 430rpx;
+  padding: $spacing-xl;
+  display: flex;
+  flex-direction: column;
   gap: $spacing-md;
+}
+
+.heroBrand {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: $font-size-xs;
+  color: rgba(242, 248, 244, 0.74);
+  letter-spacing: 1rpx;
+}
+
+.heroMark {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: $radius-sm;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heroTitle {
+  max-width: 590rpx;
+  font-size: 46rpx;
+  line-height: 1.25;
+  font-weight: $font-weight-bold;
+  color: #F2F8F4;
+  letter-spacing: -1rpx;
+}
+
+.heroSub {
+  font-size: $font-size-sm;
+  color: rgba(242, 248, 244, 0.66);
+  line-height: $line-height-normal;
+}
+
+.heroMetrics {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $spacing-sm;
+}
+
+.heroMetric {
+  min-height: 84rpx;
+  padding: $spacing-sm 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+  border-top: 1rpx solid rgba(242, 248, 244, 0.16);
+}
+
+.heroMetricValue {
+  font-size: 32rpx;
+  font-weight: $font-weight-bold;
+  color: #B1EB59;
+  font-variant-numeric: tabular-nums;
+}
+
+.heroMetricLabel {
+  font-size: 20rpx;
+  color: rgba(242, 248, 244, 0.58);
+}
+
+.heroAction {
+  align-self: flex-start;
+  min-height: 68rpx;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: 0 $spacing-lg;
+  border-radius: $radius-button;
+  background: #B1EB59;
+  color: #21320A;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+
+  &:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
 }
 
 .card {
   padding: $spacing-lg;
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
   display: flex;
   flex-direction: column;
@@ -153,7 +264,7 @@
 .barPurchase {
   width: 16rpx;
   border-radius: 0 $radius-xs $radius-xs 0;
-  background: #A8EBC8;
+  background: $color-primary-container;
 }
 
 .trendLabel {
@@ -189,7 +300,7 @@
   width: 16rpx;
   height: 16rpx;
   border-radius: 4rpx;
-  background: #A8EBC8;
+  background: $color-primary-container;
   display: inline-block;
 }
 
@@ -220,7 +331,7 @@
   gap: 4rpx;
   font-size: $font-size-sm;
   color: $color-primary-dark;
-  background: rgba(201, 168, 106, 0.16);
+  background: $color-primary-container;
   padding: 8rpx 20rpx;
   border-radius: $radius-button;
 }
@@ -232,8 +343,17 @@
 }
 
 .checkbox {
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 10rpx;
+  border: 1rpx solid $color-border;
+  background: $color-bg-card;
   font-size: $font-size-lg;
   color: $color-primary-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .dailyText {
@@ -258,16 +378,13 @@
   padding: $spacing-lg $spacing-xs;
   background: $color-bg-card;
   border-radius: $radius-lg;
+  border: 1rpx solid $color-border;
   box-shadow: $shadow-card;
 
   &.quickHover {
     opacity: 0.9;
     transform: scale(0.97);
   }
-}
-
-.quickEmoji {
-  font-size: 44rpx;
 }
 
 .quickLabel {
