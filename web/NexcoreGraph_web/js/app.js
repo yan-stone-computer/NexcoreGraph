@@ -227,6 +227,26 @@
     }
   }
 
+  /* 浮层表单统一提交入口：此前只有登录/聊天表单绑定了 submit，
+     导致“手动添加物品、创建/重命名库”按钮点击后没有对应 action。 */
+  function bindOverlayForms() {
+    var actions = {
+      "lib-create-form": "lib:create",
+      "lib-rename-form": "lib:rename",
+      "item-form": "item:save",
+      "item-edit-form": "item:save"
+    };
+    Object.keys(actions).forEach(function (id) {
+      var form = document.getElementById(id);
+      if (!form || form.__submitBound) return;
+      form.__submitBound = true;
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        handleAction(actions[id], form);
+      });
+    });
+  }
+
   /* ---------- 工具 ---------- */
   function esc(s) {
     return String(s == null ? "" : s)
@@ -1906,6 +1926,7 @@
       if (opanel) opanel.classList.add(enteringOv ? "enter" : "no-anim");
       document.body.appendChild(onode);
     }
+    bindOverlayForms();
     window.scrollTo(0, sameView ? prevScroll : 0);
     if (S.overlay === "search") {
       var so = document.getElementById("search-input");

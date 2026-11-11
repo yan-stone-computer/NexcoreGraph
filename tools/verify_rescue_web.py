@@ -238,6 +238,10 @@ ws.onopen = async () => {
     nav.click();
     await waitFor(() => document.body.innerText.includes("临期救援驾驶舱"));
     await waitFor(() => document.querySelectorAll(".rescue-card").length > 0);
+    const rescueTitleVisible = document.body.innerText.includes("临期救援驾驶舱");
+    const paretoVisible = document.body.innerText.includes("PARETO");
+    const noModelLabel = document.body.innerText.includes("0 次模型调用") ||
+      document.body.innerText.includes("离线可运行");
     const initialCards = document.querySelectorAll(".rescue-card").length;
     const portfolio = await waitFor(() => document.querySelector(".rescue-portfolio")?.innerText);
     const timeButton = document.querySelector('[data-rescue-action="time"][data-value="15"]');
@@ -265,8 +269,43 @@ ws.onopen = async () => {
       const hit = window.API.getState().libraries.flatMap(l => l.items || []).find(it => it.id === row.id);
       return hit && hit.qty === row.before;
     });
+
+    document.querySelector('[data-action="nav:go"][data-view="libraries"]').click();
+    await waitFor(() => document.querySelector('[data-action="lib:open"][data-id="fridge"]'));
+    document.querySelector('[data-action="lib:open"][data-id="fridge"]').click();
+    await waitFor(() => document.querySelectorAll(".item-row").length > 0);
+    const testItem = window.API.getState().libraries[0].items[0];
+    const beforeStep = testItem.qty;
+    document.querySelector('[data-action="item:plus"][data-id="' + testItem.id + '"]').click();
+    await waitFor(() => testItem.qty === beforeStep + 1);
+    const inventoryStep = testItem.qty === beforeStep + 1;
+
+    document.querySelector('[data-action="nav:go"][data-view="libraries"]').click();
+    await waitFor(() => document.querySelector('[data-action="lib:open"][data-id="fridge"]'));
+    document.querySelector('[data-action="lib:open"][data-id="fridge"]').click();
+    const addButton = await waitFor(() => document.querySelector('[data-action="item:add"][data-lib="fridge"]'));
+    addButton.click();
+    await waitFor(() => document.getElementById("item-form"));
+    document.getElementById("it-name").value = "测试酸奶";
+    document.getElementById("it-qty").value = "2";
+    document.getElementById("it-unit").value = "盒";
+    document.getElementById("it-price").value = "9.9";
+    document.getElementById("it-exp").value = "5";
+    document.getElementById("it-pos").value = "冷藏区中层";
+    document.getElementById("item-form").requestSubmit();
+    await waitFor(() => !document.getElementById("item-form"), 8000);
+    const manualAdd = window.API.getState().libraries[0].items.some(it => it.name === "测试酸奶" && it.qty === 2);
+
+    document.querySelector('[data-action="overlay:open"][data-type="search"]').click();
+    const searchInput = await waitFor(() => document.getElementById("search-input"));
+    searchInput.value = "测试酸奶";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await waitFor(() => Array.from(document.querySelectorAll(".search-result"))
+      .some(el => el.textContent.includes("测试酸奶")), 5000);
+    const search = document.body.innerText.includes("测试酸奶");
+
     return {
-      navigation: document.body.innerText.includes("临期救援驾驶舱"),
+      navigation: rescueTitleVisible,
       initialCards,
       portfolio: Boolean(portfolio),
       filter,
@@ -274,8 +313,11 @@ ws.onopen = async () => {
       previewBeforeWrite,
       execute: Boolean(executed),
       undoRestoresStock,
-      paretoVisible: document.body.innerText.includes("PARETO"),
-      noModelLabel: document.body.innerText.includes("0 次模型调用") || document.body.innerText.includes("离线可运行"),
+      paretoVisible,
+      noModelLabel,
+      inventoryStep,
+      manualAdd,
+      search,
       consoleErrors: []
     };
   })()`;
@@ -285,6 +327,11 @@ ws.onopen = async () => {
     returnByValue: true
   });
   let value = result.result && result.result.result ? result.result.result.value : null;
+  const probeException = result.result && result.result.exceptionDetails;
+  if (probeException) {
+    value = value || {};
+    value.probeException = (probeException.exception && probeException.exception.description) || probeException.text;
+  }
   if (!value) {
     const detail = result.result && result.result.exceptionDetails;
     value = {
@@ -322,6 +369,8 @@ ws.onopen = async () => {
       expression: `document.querySelector('#rescue-overlay [data-rescue-action="close-overlay"]').click()`
     });
   }
+  await send("Runtime.evaluate", { expression: `location.hash = "#/rescue"` });
+  await sleep(900);
   await send("Emulation.setDeviceMetricsOverride", {
     width: 1024, height: 768, deviceScaleFactor: 1, mobile: false
   });
