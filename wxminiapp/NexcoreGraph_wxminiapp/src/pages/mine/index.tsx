@@ -11,6 +11,7 @@ import { loadSession } from '@/services/session'
 import { exportCsv, importCsv, requestSubscribe } from '@/services/exportcsv'
 import type { SyncStatus } from '@/types'
 import AppIcon from '@/components/AppIcon'
+import BrandHeader from '@/components/BrandHeader'
 import styles from './index.module.scss'
 import classnames from 'classnames'
 
@@ -292,11 +293,12 @@ const MinePage: React.FC = () => {
 
   return (
     <View className={styles.page}>
+      <View className={styles.brandBar}><BrandHeader /></View>
       <View className={styles.userCard}>
         <View className={styles.avatar}><Text>{db.user?.initial || '我'}</Text></View>
         <View className={styles.userBody}>
           <Text className={styles.userName}>{db.user?.name || '未登录'}</Text>
-          <Text className={styles.userMeta}>{db.family?.name || '—'} · {db.family?.memberCount ?? 0} 人</Text>
+          <Text className={styles.userMeta}>{db.family?.name || '未设置'} · {db.family?.memberCount ?? 0} 人</Text>
           <Text className={styles.roleTag}>{db.user?.role || '游客'}</Text>
         </View>
       </View>

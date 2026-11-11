@@ -7,6 +7,10 @@
   gap: $spacing-lg;
 }
 
+.brandBar {
+  margin: 0 (-$page-padding);
+}
+
 .searchBar {
   display: flex;
   align-items: center;

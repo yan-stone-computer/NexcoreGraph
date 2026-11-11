@@ -110,7 +110,7 @@ const LibraryDetailPage: React.FC = () => {
         <LibraryArt icon={lib.icon} name={lib.name} tone={lib.tone} size={104} />
         <View className={styles.libBody}>
           <Text className={styles.libName}>{lib.name}</Text>
-          <Text className={styles.libMeta}>{lib.desc} · {lib.count} 件</Text>
+          <Text className={styles.libMeta}>共 {lib.count} 件资源 · 点击物品可调整数量</Text>
         </View>
         <View className={styles.headActions}>
       {/* M-A5 / MX4：库级 AI 上下文入口；衣柜直接带入“通勤穿搭”场景问题 */}

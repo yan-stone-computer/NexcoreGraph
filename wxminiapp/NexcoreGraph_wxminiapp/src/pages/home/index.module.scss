@@ -7,6 +7,10 @@
   gap: $spacing-lg;
 }
 
+.brandBar {
+  margin: 0 (-$page-padding);
+}
+
 .header {
   padding: $spacing-md 0 $spacing-sm;
   display: flex;

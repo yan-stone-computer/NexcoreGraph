@@ -166,7 +166,7 @@ export function helpText(): string {
   const lines: string[] = ['我认识的指令（命中就本地执行，0 次模型调用）：']
   CMD_GROUPS.forEach((g) => {
     lines.push('【' + g + '】')
-    CMD_HELP.filter((r) => r[0] === g).forEach((r) => lines.push('· ' + r[1] + '　—　' + r[2]))
+    CMD_HELP.filter((r) => r[0] === g).forEach((r) => lines.push('· ' + r[1] + '：' + r[2]))
   })
   return lines.join('\n')
 }

@@ -7,6 +7,7 @@ import ItemGlyph from '@/components/ItemGlyph'
 import EmptyState from '@/components/EmptyState'
 import NameInputModal from '@/components/NameInputModal'
 import AppIcon from '@/components/AppIcon'
+import BrandHeader from '@/components/BrandHeader'
 import LibraryArt from '@/components/LibraryArt'
 import { expColor, expLabel } from '@/utils/format'
 import type { Library } from '@/types'
@@ -32,6 +33,20 @@ const LibraryPage: React.FC = () => {
   const [results, setResults] = useState<SearchResult | null>(null)
   const [nameModal, setNameModal] = useState<{ title: string; placeholder: string; initial?: string; onSubmit: (v: string) => void } | null>(null)
   const timer = useRef<any>(null)
+
+  const librarySubtitle = (icon: string) => {
+    const labels: Record<string, string> = {
+      fridge: '低温食材与日常储备',
+      medicine: '药品与健康用品',
+      tools: '工具与维修备件',
+      wardrobe: '衣物与季节收纳',
+      books: '图书与学习资料',
+      pet: '宠物食品与用品',
+      fitness: '运动与健身器材',
+      appliances: '家电与保修档案'
+    }
+    return labels[icon] || '家庭资源集合'
+  }
 
   useDidShow(() => refresh())
 
@@ -118,6 +133,7 @@ const LibraryPage: React.FC = () => {
 
   return (
     <View className={styles.page}>
+      <View className={styles.brandBar}><BrandHeader /></View>
       <View className={styles.searchBar}>
         <AppIcon name="search" size={30} />
         <Input
@@ -190,7 +206,7 @@ const LibraryPage: React.FC = () => {
                 <LibraryArt cover icon={lib.icon} name={lib.name} tone={lib.tone} />
                 <View className={styles.libContent}>
                   <Text className={styles.libName}>{lib.name}</Text>
-                  <Text className={styles.libDesc}>{lib.desc}</Text>
+                  <Text className={styles.libDesc}>{librarySubtitle(lib.icon)}</Text>
                   <Text className={styles.libCount}>{lib.count} 件资源</Text>
                 </View>
               </View>

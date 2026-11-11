@@ -178,7 +178,7 @@ export function subgraph(doc: GraphDoc, filter: SubgraphFilter = {}): { nodes: G
   return { nodes: ns, edges: es }
 }
 
-/** aggregate(communityId)：社区实时统计（数值 100% 代码计算 —— 红线 1） */
+/** aggregate(communityId)：社区实时统计（数值 100% 代码计算，红线 1） */
 export function aggregate(doc: GraphDoc, cid: string): Community | null {
   const c = doc.communities.filter((x) => x.id === cid)[0]
   if (!c) return null

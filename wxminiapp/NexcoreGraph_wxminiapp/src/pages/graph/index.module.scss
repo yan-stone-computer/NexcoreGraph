@@ -1,3 +1,5 @@
+@use '@/styles/variables.scss' as *;
+
 /* 资源图谱页（M-A2）：canvas + 列表降级 + 详情面板 */
 .page {
   display: flex;
@@ -15,7 +17,7 @@
 .tab {
   font-size: 22rpx;
   color: #6B7C8C;
-  background: #FFFFFF;
+  background: $color-bg-card;
   border: 1rpx solid #E4EDF3;
   border-radius: 999rpx;
   padding: 8rpx 24rpx;
@@ -36,14 +38,14 @@
 .canvas {
   width: 100%;
   height: 52vh;
-  background: #FFFFFF;
+  background: $color-bg-card;
   border-top: 1rpx solid #E9F1F5;
   border-bottom: 1rpx solid #E9F1F5;
 }
 
 .listView {
   height: 52vh;
-  background: #FFFFFF;
+  background: $color-bg-card;
   border-top: 1rpx solid #E9F1F5;
   border-bottom: 1rpx solid #E9F1F5;
 }
@@ -71,7 +73,7 @@
 }
 .detailCard {
   margin: 16rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
-  background: #FFFFFF;
+  background: $color-bg-card;
   border: 1rpx solid #E4EDF3;
   border-radius: 20rpx;
   padding: 20rpx 24rpx;
@@ -104,7 +106,7 @@
   flex: 1;
   text-align: center;
   font-size: 24rpx;
-  color: #FFFFFF;
+  color: #0B2A1C;
   background: #57D794;
   border-radius: 999rpx;
   padding: 14rpx 0;

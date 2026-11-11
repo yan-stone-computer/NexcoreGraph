@@ -8,6 +8,7 @@ import { graphBrief } from '@/services/graph'
 import { greetWord, toneColor } from '@/utils/format'
 import EmptyState from '@/components/EmptyState'
 import AppIcon, { type IconName } from '@/components/AppIcon'
+import BrandHeader from '@/components/BrandHeader'
 import pantry from '@/assets/photos/pantry.webp'
 import TourTip from '@/components/TourTip'
 import { TOUR, type TourStep } from '@/services/demoTour'
@@ -82,11 +83,12 @@ const HomePage: React.FC = () => {
 
   return (
     <View className={styles.page}>
+      <View className={styles.brandBar}><BrandHeader /></View>
       <View className={styles.header}>
         <View className={styles.headerTop}>
           <View className={styles.headerText}>
             <Text className={styles.greet}>{greetWord()}，{db.user?.name || '家人'}</Text>
-            <Text className={styles.sub}>{new Date().getMonth() + 1} 月 {new Date().getDate()} 日 · 家庭空间：{db.family?.name || '—'}</Text>
+            <Text className={styles.sub}>{new Date().getMonth() + 1} 月 {new Date().getDate()} 日 · 家庭空间：{db.family?.name || '未设置'}</Text>
           </View>
           <View className={styles.tourBtn} onClick={beginGuide}>
             <AppIcon name="ai" size={24} />
@@ -156,7 +158,7 @@ const HomePage: React.FC = () => {
                 <View className={styles.barPurchase} style={{ height: Math.round((stats.trend.purchase[i] / trendMax) * 88) + 'rpx' }} />
                 <View className={styles.barConsume} style={{ height: Math.round((stats.trend.consume[i] / trendMax) * 88) + 'rpx' }} />
               </View>
-              <Text className={styles.trendLabel}>{label.replace('/', '')}</Text>
+              <Text className={styles.trendLabel}>{label.split('/')[1]}日</Text>
             </View>
           ))}
         </View>

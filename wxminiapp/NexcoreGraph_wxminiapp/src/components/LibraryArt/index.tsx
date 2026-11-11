@@ -51,7 +51,7 @@ const LibraryArt: React.FC<Props> = ({ icon, name, tone = 'teal', size = 88, cov
           <AppIcon name={libraryIcon(icon)} size={Math.round(size * 0.5)} />
         </View>
       ) : null}
-      {cover ? (
+      {cover && photo ? (
         <View className={styles.coverBadge} style={{ color: colors.fg, background: colors.bg }}>
           <AppIcon name={libraryIcon(icon)} size={26} />
         </View>

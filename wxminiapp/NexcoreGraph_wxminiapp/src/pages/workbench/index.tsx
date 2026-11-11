@@ -15,6 +15,7 @@ import { consumeAiWorkbenchContext } from '@/services/aiContext'
 import { evaluatePolicy, type AgentProposal } from '@/services/policy'
 import { simulate } from '@/services/simulation'
 import AppIcon from '@/components/AppIcon'
+import BrandHeader from '@/components/BrandHeader'
 import type { ChatMsg } from '@/types'
 import styles from './index.module.scss'
 import classnames from 'classnames'
@@ -274,6 +275,7 @@ const WorkbenchPage: React.FC = () => {
 
   return (
     <View className={styles.page}>
+      <BrandHeader />
       <View className={styles.head}>
         <View className={styles.headTitle}>
           <AppIcon name="ai" size={54} />

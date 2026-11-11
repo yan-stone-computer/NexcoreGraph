@@ -97,7 +97,7 @@ const GraphPage: React.FC = () => {
     ctx.fillStyle = '#0E1424'
     ctx.arc(cx, cy, 26, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = '#FFFFFF'
+    ctx.fillStyle = '#FEFEFE'
     ctx.font = '12px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -106,7 +106,7 @@ const GraphPage: React.FC = () => {
     ns.forEach((n) => {
       const hot = n.expiring > 0
       ctx.beginPath()
-      ctx.fillStyle = selected === n.id ? '#57D794' : '#FFFFFF'
+      ctx.fillStyle = selected === n.id ? '#57D794' : '#FEFEFE'
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
       ctx.fill()
       if (hot) { /* 临期红虚线圈 */

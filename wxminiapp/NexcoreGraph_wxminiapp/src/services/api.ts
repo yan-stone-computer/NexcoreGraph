@@ -237,7 +237,7 @@ function computeStats(): Stats {
   db.logs.forEach((l) => {
     if (l.kind === 'consume' && l.name && Date.now() - l.ts < 7 * dayMs) byName[l.name] = (byName[l.name] || 0) + (l.n || 0)
   })
-  const top = Object.keys(byName).sort((a, b) => byName[b] - byName[a])[0] || '—'
+  const top = Object.keys(byName).sort((a, b) => byName[b] - byName[a])[0] || '暂无'
   const fridgeItems = (findLib('fridge') || { items: [] }).items || []
   const edible = fridgeItems.filter((i2) => i2.expDays < 9000 && i2.expDays > 0)
   const meals = Math.max(1, Math.round(edible.length * 1.2))

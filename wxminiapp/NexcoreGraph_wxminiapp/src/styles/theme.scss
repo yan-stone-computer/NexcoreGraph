@@ -2,7 +2,7 @@
 // 主题配色变量（启核图策 · 启核色板 · 浅色为默认）
 //
 // 与鸿蒙端 entry/src/main/ets/common/Tokens.ets 的 NC_LT 同一套值，
-// 也与 Web 端 web/NexcoreGraph_web/css/tokens.css 的默认色板同值——
+// 与 Web 端 web/NexcoreGraph_web/css/tokens.css 的默认色板同值。
 // 三端只允许改令牌、不允许在页面里写死颜色。
 //
 // 色板由来：取自官方徽标像素的绿→青→蓝三段渐变。
@@ -32,7 +32,7 @@ $color-info: #3DD0AE;
 
 // 背景色与 Web / 鸿蒙共用：冷白操作底 + 纯白内容面
 $color-bg-page: #F5F9FB;
-$color-bg-card: #FFFFFF;
+$color-bg-card: #FEFEFE;
 $color-bg-hover: #E9F1F5;
 $color-bg-sunken: #EDF3F7;
 
@@ -41,7 +41,7 @@ $color-text-primary: #0E1424;
 $color-text-secondary: #3C4C5C;
 $color-text-tertiary: #6B7C8C;
 $color-text-disabled: #93A1B0;
-$color-text-white: #FFFFFF;
+$color-text-white: #F2F8F4;
 
 // 边框色
 $color-border: rgba(18, 60, 80, 0.14);

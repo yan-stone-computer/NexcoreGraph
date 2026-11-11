@@ -254,7 +254,7 @@ export function ask(question: string, fallbackText = ''): Promise<AskResult> {
   const ev = ragEvidence(question)
   const trace = makeTrace(question, ev.mode)
   /* 双通道共用同一份「代码算好的证据」：自建网关按 intent+evidence 拼系统提示，厂商直连通道用 system。
-     红线 1 不变——数字全部来自本地图谱查询。 */
+     红线 1 不变，数字全部来自本地图谱查询。 */
   return chat({
     intent: 'graph-ask',
     question: question,
