@@ -197,41 +197,50 @@
     if (!c.vendorBase || !c.model) {
       return Promise.reject(boom("bad-request", "请先填写 Base URL 与模型名称"));
     }
-    var request = window.AI_PROVIDERS.buildChatRequest(c, messages, {
-      system: opts.system,
-      maxTokens: opts.maxTokens,
-      temperature: opts.temperature
-    });
     var t0 = Date.now();
-    return fetchTimed(request.url, {
-      method: "POST",
-      headers: request.headers,
-      body: JSON.stringify(request.body)
-    }, c.chatTimeout).then(function (res) {
-      if (!res.ok) {
-        return res.text().catch(function () { return ""; }).then(function (txt) {
-          var msg = "模型服务 " + res.status + (txt ? " · " + txt.slice(0, 120) : "");
-          if (res.status === 401 || res.status === 403) throw boom("unauthorized", "API Key 无效或无权限");
-          if (res.status === 402 || res.status === 429) throw boom("quota", "额度不足或被限流");
-          throw boom("server", msg);
-        });
-      }
-      return res.json();
-    }).then(function (data) {
-      var parsed = window.AI_PROVIDERS.parseChatResponse(c, data);
-      var text = parsed.text;
-      if (!text) throw boom("server", "模型返回为空");
-      lastError = null;
-      lastVia = "direct";
-      return {
-        text: text,
-        model: parsed.model || c.model,
-        ms: Date.now() - t0,
-        tokens: parsed.tokens || 0,
-        via: "direct",
-        provider: c.provider,
-        protocol: c.protocol
-      };
+    var invoke = function (model, fallbackUsed) {
+      var requestConfig = window.AI_PROVIDERS.normalizeConfig(Object.assign({}, c, { model: model }));
+      var request = window.AI_PROVIDERS.buildChatRequest(requestConfig, messages, {
+        system: opts.system,
+        maxTokens: opts.maxTokens,
+        temperature: opts.temperature
+      });
+      return fetchTimed(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(request.body)
+      }, c.chatTimeout).then(function (res) {
+        if (!res.ok) {
+          return res.text().catch(function () { return ""; }).then(function (txt) {
+            var msg = "模型服务 " + res.status + (txt ? " · " + txt.slice(0, 120) : "");
+            if (res.status === 401 || res.status === 403) throw boom("unauthorized", "API Key 无效或无权限");
+            if (res.status === 402 || res.status === 429) throw boom("quota", "额度不足或被限流");
+            throw boom("server", msg);
+          });
+        }
+        return res.json();
+      }).then(function (data) {
+        var parsed = window.AI_PROVIDERS.parseChatResponse(requestConfig, data);
+        var text = parsed.text;
+        if (!text) throw boom("server", "模型返回为空");
+        lastError = null;
+        lastVia = "direct";
+        return {
+          text: text,
+          model: parsed.model || model,
+          ms: Date.now() - t0,
+          tokens: parsed.tokens || 0,
+          via: "direct",
+          provider: c.provider,
+          protocol: c.protocol,
+          fallbackUsed: fallbackUsed
+        };
+      });
+    };
+    return invoke(c.model, false).catch(function (err) {
+      var fallbackKinds = ["quota", "server", "timeout", "network"];
+      if (!c.fallbackModel || c.fallbackModel === c.model || fallbackKinds.indexOf(err.aiKind) < 0) throw err;
+      return invoke(c.fallbackModel, true);
     });
   }
 

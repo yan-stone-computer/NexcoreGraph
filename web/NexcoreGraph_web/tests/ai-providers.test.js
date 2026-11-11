@@ -4,9 +4,14 @@ const providers = require("../js/ai-providers.js");
 
 test("提供主流平台预设与自定义接入入口", () => {
   const ids = providers.presets.map((item) => item.id);
-  for (const id of ["openai", "deepseek", "qwen", "moonshot", "anthropic", "gemini", "zhipu", "ollama", "custom-openai"]) {
+  for (const id of [
+    "openai", "deepseek", "qwen", "moonshot", "anthropic", "gemini",
+    "zhipu", "siliconflow", "ollama", "agnes",
+    "custom-openai", "custom-anthropic", "custom-gemini"
+  ]) {
     assert.equal(ids.includes(id), true, `missing preset: ${id}`);
   }
+  assert.equal(providers.presets.length, 13);
   assert.equal(providers.get("anthropic").protocol, "anthropic");
   assert.equal(providers.get("gemini").protocol, "gemini");
   assert.equal(providers.get("deepseek").protocol, "openai");

@@ -51,7 +51,7 @@ cd web/NexcoreGraph_web
 node --test tests/*.test.js
 ```
 
-预期：22 项 Web 单元测试全部通过。
+预期：23 项 Web 单元测试全部通过。
 
 ```powershell
 cd ../..

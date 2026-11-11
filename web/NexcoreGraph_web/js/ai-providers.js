@@ -94,6 +94,15 @@
       note: "本机模型 · 可留空 Key"
     },
     {
+      id: "agnes",
+      label: "Agnes（旧配置兼容）",
+      protocol: "openai",
+      vendorBase: "https://api.agnes-ai.cn/v1",
+      model: "agnes-2.0-flash",
+      visionModel: "agnes-2.5-flash",
+      note: "OpenAI 兼容 · 保留旧配置迁移"
+    },
+    {
       id: "custom-openai",
       label: "自定义 OpenAI 兼容",
       protocol: "openai",
@@ -123,6 +132,18 @@
   ];
 
   var PROTOCOLS = ["openai", "anthropic", "gemini"];
+  var CONTEXT_WINDOWS = {
+    openai: 128000,
+    deepseek: 64000,
+    qwen: 128000,
+    moonshot: 8192,
+    anthropic: 200000,
+    gemini: 1000000,
+    zhipu: 128000,
+    siliconflow: 32768,
+    ollama: 32768,
+    agnes: 32768
+  };
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -136,6 +157,8 @@
     var found = PRESETS.filter(function (item) { return item.id === id; })[0];
     var preset = clone(found || PRESETS.filter(function (item) { return item.id === "custom-openai"; })[0]);
     if (preset.apiKeyRequired === undefined) preset.apiKeyRequired = true;
+    if (preset.contextWindow === undefined) preset.contextWindow = CONTEXT_WINDOWS[preset.id] || 32768;
+    if (preset.maxTokens === undefined) preset.maxTokens = 600;
     return preset;
   }
 
@@ -158,6 +181,9 @@
       vendorBase: trimBase(input.vendorBase != null ? input.vendorBase : preset.vendorBase),
       model: model,
       visionModel: String(input.visionModel != null ? input.visionModel : preset.visionModel || model).trim(),
+      fallbackModel: String(input.fallbackModel || "").trim(),
+      contextWindow: clamp(input.contextWindow, preset.contextWindow || 32768, 4096, 1000000),
+      maxTokens: clamp(input.maxTokens, preset.maxTokens || 600, 1, 8192),
       apiKeyRequired: preset.apiKeyRequired !== false,
       chatTimeout: clamp(input.chatTimeout, 30000, 3000, 120000),
       visionTimeout: clamp(input.visionTimeout, 45000, 3000, 120000),

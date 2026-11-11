@@ -16,7 +16,7 @@ import build_oral_script_docx as core  # noqa: E402
 def add_web_metric_strip(doc):
     metrics = (
         ("08:00", "完整主口播"),
-        ("12 个", "模型平台模板"),
+        ("13 个", "模型平台模板"),
         ("60 秒", "答辩浓缩版"),
     )
     table = doc.add_table(rows=1, cols=3)

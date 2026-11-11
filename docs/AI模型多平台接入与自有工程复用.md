@@ -14,6 +14,8 @@
 2. `ai-providers.js` 把请求归一化为 OpenAI Compatible、Anthropic Messages、Gemini GenerateContent 三种协议。
 3. `agnes.js` 保留“自建网关优先、平台直连回落”的双通道策略，失败后进入本地确定性降级。
 
+直连通道还支持备用模型、上下文窗口和最大输出配置。主模型遇到 429、5xx、超时或网络错误时只重试一次备用模型，避免无限调用和成本失控。
+
 模型只能组织语言和候选结构。库存数量、临期判断、Pareto 排序、训练计划、保修与借用风险仍由代码计算。
 
 ## 二、内置平台模板
@@ -28,7 +30,8 @@
 | Google Gemini | GenerateContent | `https://generativelanguage.googleapis.com/v1beta` | Key、模型 |
 | 智谱 GLM | OpenAI Compatible | `https://open.bigmodel.cn/api/paas/v4` | Key、文本/视觉模型 |
 | SiliconFlow | OpenAI Compatible | `https://api.siliconflow.cn/v1` | Key、平台模型 ID |
-| Ollama | OpenAI Compatible | `http://127.0.0.1:11434/v1` | 本机模型、Base URL、可选 Key |
+| Ollama | OpenAI Compatible | `http://127.0.0.1:11434/v1` | 本机模型、可选择不填 Key |
+| Agnes（旧配置兼容） | OpenAI Compatible | `https://api.agnes-ai.cn/v1` | 旧模型与旧 Base URL 迁移 |
 | 自定义 OpenAI 兼容 | OpenAI Compatible | 用户填写 | vLLM、Ollama、One API、企业网关 |
 | 自定义 Anthropic 兼容 | Messages API | 用户填写 | 自定义代理 |
 | 自定义 Gemini 兼容 | GenerateContent | 用户填写 | 自定义代理 |
@@ -55,6 +58,7 @@
 - Gemini 使用模型路径和 Key 查询参数。
 - 三种协议的视觉请求都携带图片数据。
 - 已保存 Key 只展示掩码。
+- 主模型 429 后只切换一次备用模型，调用次数保持为 2。
 
 这些测试不访问真实模型，不需要 Key，可在评审机器离线运行。
 

@@ -1542,12 +1542,18 @@
     var base = document.getElementById("agnes-base");
     var model = document.getElementById("agnes-model");
     var visionModel = document.getElementById("agnes-vision-model");
+    var fallbackModel = document.getElementById("agnes-fallback-model");
+    var contextWindow = document.getElementById("ai-context-window");
+    var maxTokens = document.getElementById("ai-max-tokens");
     var protocol = document.getElementById("ai-protocol");
     var note = document.getElementById("ai-provider-note");
     if (hidden) hidden.value = provider.id;
     if (base) base.value = provider.vendorBase || "";
     if (model) model.value = provider.model || "";
     if (visionModel) visionModel.value = provider.visionModel || "";
+    if (fallbackModel) fallbackModel.value = "";
+    if (contextWindow) contextWindow.value = provider.contextWindow || 32768;
+    if (maxTokens) maxTokens.value = provider.maxTokens || 600;
     if (protocol) protocol.textContent = aiProtocolLabel(provider.protocol);
     if (note) note.textContent = provider.note || "";
     Array.prototype.forEach.call(document.querySelectorAll(".ai-provider-option"), function (button) {
@@ -1569,6 +1575,9 @@
       apiKey: typedKey.trim() || existing.apiKey || "",
       model: ((document.getElementById("agnes-model") || {}).value || "").trim(),
       visionModel: ((document.getElementById("agnes-vision-model") || {}).value || "").trim(),
+      fallbackModel: ((document.getElementById("agnes-fallback-model") || {}).value || "").trim(),
+      contextWindow: parseInt((document.getElementById("ai-context-window") || {}).value, 10) || 32768,
+      maxTokens: parseInt((document.getElementById("ai-max-tokens") || {}).value, 10) || 600,
       vendorBase: ((document.getElementById("agnes-base") || {}).value || "").trim().replace(/\/+$/, ""),
       baseUrl: ((document.getElementById("gw-base") || {}).value || "").trim().replace(/\/+$/, ""),
       prefer: (document.getElementById("agnes-prefer") || {}).value || "gateway",
@@ -1692,8 +1701,11 @@
       '<button type="button" class="secret-toggle" data-action="ai:toggle-key" aria-label="显示或隐藏 API Key">显示</button></div></div></div>' +
       '<div class="grid-2"><div class="field"><label for="agnes-model">文本 / 对话模型</label><input id="agnes-model" value="' + esc(acfg.model || "") + '" placeholder="填写平台模型 ID"/></div>' +
       '<div class="field"><label for="agnes-vision-model">视觉 / 多模态模型</label><input id="agnes-vision-model" value="' + esc(acfg.visionModel || "") + '" placeholder="可留空，复用文本模型"/></div></div>' +
-      '<div class="grid-2"><div class="field"><label for="ai-chat-timeout">对话超时（毫秒）</label><input id="ai-chat-timeout" class="num" value="' + (acfg.chatTimeout || 30000) + '"/></div>' +
-      '<div class="field"><label for="ai-vision-timeout">视觉超时（毫秒）</label><input id="ai-vision-timeout" class="num" value="' + (acfg.visionTimeout || 45000) + '"/></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="agnes-fallback-model">备用模型</label><input id="agnes-fallback-model" value="' + esc(acfg.fallbackModel || "") + '" placeholder="主模型限流或不可用时自动切换"/></div>' +
+      '<div class="field"><label for="ai-context-window">上下文窗口（tokens）</label><input id="ai-context-window" class="num" inputmode="numeric" value="' + (acfg.contextWindow || 32768) + '"/></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="ai-max-tokens">最大输出（tokens）</label><input id="ai-max-tokens" class="num" inputmode="numeric" value="' + (acfg.maxTokens || 600) + '"/></div>' +
+      '<div class="field"><label for="ai-chat-timeout">对话超时（毫秒）</label><input id="ai-chat-timeout" class="num" value="' + (acfg.chatTimeout || 30000) + '"/></div></div>' +
+      '<div class="field"><label for="ai-vision-timeout">视觉超时（毫秒）</label><input id="ai-vision-timeout" class="num" value="' + (acfg.visionTimeout || 45000) + '"/></div>' +
       '<div class="ai-security-note"><strong>密钥边界</strong><span>直连 Key 仅存本机 localStorage，不进入家庭同步快照；公网部署建议改走自建网关。</span></div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' +
       '<button class="btn btn-primary btn-sm" data-action="agnes:save" data-busy="agnes">保存配置</button>' +
@@ -3109,7 +3121,7 @@
         runBusy("agnes", function () {
           return Promise.resolve();
         }, function () {
-          toast("平台、Base URL、模型与密钥配置已保存（仅本机）");
+          toast("平台、模型链、上下文预算与密钥配置已保存（仅本机）");
         });
         break;
       }
@@ -3120,9 +3132,9 @@
           return window.AGNES.test().then(function (r) {
             var g = r.gateway || {};
             S.aiStatus = g.ok
-              ? { ok: true, base: g.base, mode: g.mode, ai: g.ai }
+              ? { ok: true, base: g.base, mode: g.mode, ai: g.ai, direct: r.direct }
               : { ok: false, error: g.error || "未发现本机后端",
-                  direct: r.direct && r.direct.ok ? "平台直连可用" : "" };
+                  direct: r.direct };
             return r;
           });
         }, function (r) {
