@@ -57,6 +57,7 @@ npm run verify:weapp
 
 $env:WEAPP_AUTOMATOR_WS='ws://127.0.0.1:9422'
 node ..\..\tools\test_weapp_runtime.js
+node ..\..\tools\capture_weapp_pages.js
 ```
 
 多轮真实复核结果见 `docs/qa/启核图策-微信小程序端多轮复核报告.md`。
