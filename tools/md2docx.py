@@ -329,6 +329,11 @@ def main():
                 if mch:
                     chapter = mch.group(1)
                     tbl_no = 0
+                else:
+                    mch = re.match(r'^(\d+)[.、]', title)
+                    if mch:
+                        chapter = int(mch.group(1))
+                        tbl_no = 0
         elif line.startswith('# '):
             h = doc.add_heading(line[2:].strip(), level=0)
             h.alignment = WD_ALIGN_PARAGRAPH.CENTER
