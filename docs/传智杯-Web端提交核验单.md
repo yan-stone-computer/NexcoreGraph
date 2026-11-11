@@ -94,6 +94,7 @@ git remote -v
 4. 推送到远端后，在 GitHub/Gitee 页面确认提交图和 Public/评审权限。
 
 启动、性能、真实 AI 降级和跨端复核证据见 `docs/Web端-启动与多轮复核报告.md`。
+本地、局域网和公网 HTTPS 部署步骤见 `docs/Web端部署指南.md`，配套模板位于 `deploy/`。
 
 ## 六、演示主路径
 

@@ -1,0 +1,24 @@
+[Unit]
+Description=NexcoreGraph Web backend
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nexcore
+Group=nexcore
+Environment=NODE_ENV=production
+WorkingDirectory=/srv/nexcoregraph/harmonyosapp/NexcoreGraph_harmonyos/backend
+EnvironmentFile=/srv/nexcoregraph/harmonyosapp/NexcoreGraph_harmonyos/backend/.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=-/srv/nexcoregraph/harmonyosapp/NexcoreGraph_harmonyos/backend/tts-cache
+
+[Install]
+WantedBy=multi-user.target

@@ -58,6 +58,8 @@ cd ../..
 python tools/verify_rescue_web.py --url "file:///D:/ProjectFiles/GithubPackage/NexcoreGraph/web/NexcoreGraph_web/index.html#/rescue"
 ```
 
+部署、公网 HTTPS、Nginx 与管理端配置见 [docs/Web端部署指南.md](docs/Web端部署指南.md)。
+
 ### 微信小程序
 
 ```bash
