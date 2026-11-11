@@ -59,7 +59,7 @@ python tools/verify_rescue_web.py --url "file:///D:/ProjectFiles/GithubPackage/N
 ```
 
 部署、公网 HTTPS、Nginx 与管理端配置见 [docs/Web端部署指南.md](docs/Web端部署指南.md)。
-正式演示口播、90 秒电梯版、真实操作分镜和评委问答见 [docs/Web端-高分口播与操作手册.md](docs/Web端-高分口播与操作手册.md)。
+正式演示、60 秒救场版、全功能操作分镜和评委问答见 [docs/submission/启核图策-Web端-评委冲击版全功能口播稿.md](docs/submission/启核图策-Web端-评委冲击版全功能口播稿.md)。
 
 ### 微信小程序
 
