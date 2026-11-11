@@ -103,9 +103,10 @@
     db.libraries.forEach(function (lib) {
       (lib.items || []).forEach(function (it) {
         var where = lib.name + " · " + (it.pos || "未设置");
+        var isMedicine = !!it.med || lib.icon === "pill" || /药箱|药品|药柜/.test(lib.name || "");
         /* expDays = 0/空 表示"不适用"（衣物、工具、厨具这类没有保质期），不参与临期与过期判断 */
         if (it.expDays != null && it.expDays > 0 && it.expDays < 9000) {
-          if (it.med && it.expDays <= crit) {
+          if (isMedicine && it.expDays <= crit) {
             out.push({ id: it.id + "-med", type: "medicine", icon: "pill", tone: "red", text: it.name + " " + it.expDays + " 天后到期，请确认库存（F3.12）", meta: "刚刚 · " + where });
           } else if (it.expDays <= crit) {
             out.push({ id: it.id + "-c", type: "expiring", icon: "clock", tone: "red", text: it.name + " " + it.expDays + " 天后到期，建议优先消耗", meta: "刚刚 · " + where });
@@ -116,9 +117,13 @@
         if (it.warrantyDays != null && it.warrantyDays <= 30) {
           out.push({ id: it.id + "-w", type: "warranty", icon: "shield", tone: "muted", text: it.name + " " + it.warrantyDays + " 天后过保修期（F3.13）", meta: "本周 · " + where });
         }
+        if (it.maintenanceDays != null && it.maintenanceDays <= 14) {
+          out.push({ id: it.id + "-maint", type: "maintenance", icon: "wrench", tone: "amber", text: it.name + " " + it.maintenanceDays + " 天后进入维护周期", meta: "本周 · " + where });
+        }
         if ((it.lowAt || 0) > 0 && it.qty <= it.lowAt) {
           out.push({ id: it.id + "-low", type: "low", icon: "package", tone: "teal", text: it.name + " 低于阈值（阈值 " + it.lowAt + " " + it.unit + "，当前 " + it.qty + " " + it.unit + "）", meta: "刚刚 · 规则自动化（D4 lowAt）" });
         }
+        it.med = isMedicine;
         it.expiring = it.expDays != null && it.expDays > 0 && it.expDays <= soon && it.expDays < 9000;
       });
     });
@@ -451,6 +456,9 @@
           id: nid("it"), no: nextNo(), name: data.name, emoji: data.emoji || "📦", img: data.img || "", kbKey: kbKey,
           qty: parseFloat(data.qty) || 1, unit: data.unit || "个", price: parseFloat(data.price) || 0, priceSrc: data.priceSrc || "手动",
           expDays: expDays, pos: data.pos || "未设置", lowAt: (window.KB.foods[kbKey] || {}).lowAt || 0,
+          warrantyDays: data.warrantyDays === "" || data.warrantyDays == null ? null : Math.max(0, parseInt(data.warrantyDays, 10) || 0),
+          maintenanceDays: data.maintenanceDays === "" || data.maintenanceDays == null ? null : Math.max(0, parseInt(data.maintenanceDays, 10) || 0),
+          med: !!data.med || lib.icon === "pill",
           addedAt: new Date().getDate(), private: !!data.private
         };
         lib.items.push(item);
@@ -472,6 +480,8 @@
           if (k === "qty") it.qty = Math.max(0, parseFloat(patch[k]) || 0);
           else if (k === "price") it.price = parseFloat(patch[k]) || 0;
           else if (k === "expDays") it.expDays = parseInt(patch[k], 10) || 7;
+          else if (k === "warrantyDays" || k === "maintenanceDays") it[k] = patch[k] === "" || patch[k] == null ? null : Math.max(0, parseInt(patch[k], 10) || 0);
+          else if (k === "med") it.med = !!patch[k];
           else it[k] = patch[k];
         });
         pushLog("item", "编辑物品「" + it.name + "」");
@@ -700,6 +710,14 @@
         savedItems: history.reduce(function (sum, row) { return sum + (Number(row.items) || 0); }, 0),
         savedValue: Math.round(history.reduce(function (sum, row) { return sum + (Number(row.savedValue) || 0); }, 0) * 100) / 100
       };
+    },
+
+    domainAnalysis: function () {
+      if (!window.DOMAINS) throw new Error("家庭智策模块未加载");
+      return Promise.resolve(window.DOMAINS.analyze(db.libraries, Object.assign({}, db.profile || {}, {
+        alertSoon: (db.settings && db.settings.alertSoon) || 7,
+        body: (db.profile && db.profile.body) || null
+      })));
     },
 
     /* P0-3 AI 创新菜谱：优先消耗临期食材 */

@@ -87,14 +87,28 @@ def test_db():
         item("it-cucumber", "黄瓜", "cucumber", 2, "根", 5, 3, "果蔬抽屉"),
         item("it-shrimp", "虾", "shrimp", 1, "袋", 36, 1, "冷冻区"),
     ]
+    medicine = [
+        item("med-ibuprofen", "布洛芬", "", 1, "盒", 18, 2, "药箱上层"),
+        item("med-bandage", "创可贴", "", 8, "片", 9, 120, "药箱下层"),
+    ]
+    fitness = [
+        item("fitness-dumbbell", "可调哑铃", "", 1, "对", 299, 9000, "健身角"),
+        item("fitness-mat", "瑜伽垫", "", 1, "张", 89, 9000, "客厅"),
+    ]
+    tools = [
+        item("tool-drill", "电钻", "", 1, "把", 399, 9000, "储物间"),
+        item("tool-screwdriver", "螺丝刀套装", "", 1, "套", 99, 9000, "工具箱"),
+    ]
+    tools[0]["warrantyDays"] = 12
+    tools[0]["maintenanceDays"] = 20
     return {
         "user": {"name": "验收员", "phone": "reviewer@example.com", "role": "管理员", "initial": "验"},
-        "family": {"id": "fam-review", "name": "评审体验家庭"},
-        "familyId": "fam-review",
-        "families": [{"id": "fam-review", "name": "评审体验家庭", "memberCount": 3}],
+        "family": {"id": "fam-review-local", "name": "评审体验家庭"},
+        "familyId": "fam-review-local",
+        "families": [{"id": "fam-review-local", "name": "评审体验家庭", "memberCount": 3}],
         "users": [],
         "members": {
-            "fam-review": [
+            "fam-review-local": [
                 {"name": "验收员", "phone": "reviewer@example.com", "role": "管理员"},
                 {"name": "成员", "phone": "member@example.com", "role": "成员"},
             ]
@@ -108,6 +122,33 @@ def test_db():
                 "count": len(items),
                 "desc": "临期救援验收库存",
                 "items": items,
+            },
+            {
+                "id": "medicine",
+                "name": "家庭药箱",
+                "icon": "pill",
+                "tone": "red",
+                "count": len(medicine),
+                "desc": "药品与急救用品",
+                "items": medicine,
+            },
+            {
+                "id": "fitness",
+                "name": "健身角",
+                "icon": "dumbbell",
+                "tone": "teal",
+                "count": len(fitness),
+                "desc": "家用健身器材",
+                "items": fitness,
+            },
+            {
+                "id": "tools",
+                "name": "维修工具箱",
+                "icon": "wrench",
+                "tone": "slate",
+                "count": len(tools),
+                "desc": "维修工具与保修",
+                "items": tools,
             }
         ],
         "alerts": [],
@@ -157,6 +198,7 @@ const mobileShot = process.argv[5] || "";
 const workbenchShot = process.argv[6] || "";
 const drawerShot = process.argv[7] || "";
 const testModelFallback = process.argv[8] === "1";
+const domainShot = process.argv[9] || "";
 const fs = require("fs");
 let id = 0;
 const pending = new Map();
@@ -196,7 +238,9 @@ ws.onopen = async () => {
     });
   }
   await send("Page.reload");
-  await sleep(2200);
+  await sleep(900);
+  await send("Runtime.evaluate", { expression: `if (window.LIVEFLOW) window.LIVEFLOW.stop()` });
+  await sleep(1300);
   await send("Runtime.evaluate", { expression: `location.hash = "#/aiwork"` });
   await sleep(1300);
   const workbenchResult = await send("Runtime.evaluate", {
@@ -304,6 +348,40 @@ ws.onopen = async () => {
       .some(el => el.textContent.includes("测试酸奶")), 5000);
     const search = document.body.innerText.includes("测试酸奶");
 
+    document.querySelector('[data-action="nav:go"][data-view="domains"]').click();
+    await waitFor(() => document.querySelectorAll(".domain-domain-card").length === 3);
+    document.querySelector('[data-domain-action="tab"][data-value="fitness"]').click();
+    const bodyForm = await waitFor(() => document.getElementById("body-profile-form"));
+    document.getElementById("body-height").value = "175";
+    document.getElementById("body-weight").value = "78";
+    document.getElementById("body-age").value = "30";
+    document.getElementById("body-days").value = "3";
+    document.getElementById("body-goal").value = "减脂";
+    document.getElementById("body-level").value = "新手";
+    document.getElementById("body-limitations").value = "";
+    bodyForm.requestSubmit();
+    await waitFor(() => {
+      const profile = window.API.getState().profile || {};
+      return profile.body && profile.body.weight === 78 &&
+        document.body.innerText.includes("114–133");
+    }, 8000);
+    const fitness = document.body.innerText.includes("训练方案") &&
+      document.body.innerText.includes("哑铃");
+    document.querySelector('[data-domain-action="tab"][data-value="medicine"]').click();
+    await sleep(250);
+    const medicineText = document.body.innerText;
+    const medicine = medicineText.includes("布洛芬") &&
+      medicineText.includes("药箱风险队列");
+    document.querySelector('[data-domain-action="tab"][data-value="tools"]').click();
+    await sleep(250);
+    const toolsText = document.body.innerText;
+    const tools = toolsText.includes("电钻") &&
+      toolsText.includes("工具健康与保修");
+    const domainData = await window.API.domainAnalysis();
+    const fitnessReply = await window.AI.reply("根据我的身体数据推荐训练方案");
+    const medicineReply = await window.AI.reply("药箱有哪些风险");
+    const toolsReply = await window.AI.reply("工具箱什么时候保修");
+
     return {
       navigation: rescueTitleVisible,
       initialCards,
@@ -318,6 +396,23 @@ ws.onopen = async () => {
       inventoryStep,
       manualAdd,
       search,
+      domains: {
+        medicine,
+        fitness,
+        tools,
+        medicineItems: domainData.medicine.totalItems,
+        fitnessEquipment: domainData.fitness.equipment.length,
+        toolItems: domainData.tools.totalItems,
+        fitnessReply: fitnessReply.domain === "fitness" && fitnessReply.model === false,
+        medicineReply: medicineReply.domain === "medicine" && medicineReply.model === false,
+        toolsReply: toolsReply.domain === "tools" && toolsReply.model === false,
+        medicineAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "medicine"; }),
+        warrantyAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "warranty"; }),
+        libraryDebug: window.API.getState().libraries.map(function (lib) {
+          return { id: lib.id, icon: lib.icon, count: (lib.items || []).length };
+        }),
+        contentText: document.getElementById("domain-content").innerText.slice(0, 240)
+      },
       consoleErrors: []
     };
   })()`;
@@ -368,6 +463,18 @@ ws.onopen = async () => {
     await send("Runtime.evaluate", {
       expression: `document.querySelector('#rescue-overlay [data-rescue-action="close-overlay"]').click()`
     });
+  }
+  if (domainShot) {
+    await send("Runtime.evaluate", { expression: `location.hash = "#/domains"` });
+    await sleep(700);
+    await send("Runtime.evaluate", {
+      expression: `document.querySelector('[data-domain-action="tab"][data-value="fitness"]')?.click()`
+    });
+    await sleep(350);
+    const domainImage = await send("Page.captureScreenshot", {
+      format: "png", captureBeyondViewport: false
+    });
+    fs.writeFileSync(domainShot, Buffer.from(domainImage.result.data, "base64"));
   }
   await send("Runtime.evaluate", { expression: `location.hash = "#/rescue"` });
   await sleep(900);
@@ -426,6 +533,7 @@ def main():
     parser.add_argument("--workbench-shot", default="")
     parser.add_argument("--drawer-shot", default="")
     parser.add_argument("--test-model-fallback", action="store_true")
+    parser.add_argument("--domain-shot", default="")
     args = parser.parse_args()
     edge = find_edge()
     port = free_port()
@@ -460,6 +568,7 @@ def main():
                 args.workbench_shot,
                 args.drawer_shot,
                 "1" if args.test_model_fallback else "0",
+                args.domain_shot,
             ],
             capture_output=True,
             text=True,

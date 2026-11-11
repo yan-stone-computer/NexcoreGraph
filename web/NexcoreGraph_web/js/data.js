@@ -18,7 +18,13 @@ window.DB = {
   settings: { private: true, chat: true, expiry: true, digest: true, low: true, alertSoon: 7, alertCritical: 3 },
 
   /* P0-4 家庭偏好档案：仅本地存储，不同步（D7） */
-  profile: { people: 3, dislikes: "", goal: "均衡", enabled: true },
+  profile: {
+    people: 3,
+    dislikes: "",
+    goal: "均衡",
+    enabled: true,
+    body: { height: 170, weight: 65, age: 30, goal: "减脂", level: "新手", days: 3, limitations: "" }
+  },
   /* D6：Store.budget 月度预算，默认 600 */
   budget: 600,
 

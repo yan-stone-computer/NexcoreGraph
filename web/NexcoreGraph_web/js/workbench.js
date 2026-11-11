@@ -74,6 +74,7 @@
       var plans = "";
       if (m.plans && m.plans.length) plans = '<div class="plan-chip-row"><button class="btn btn-soft btn-sm" data-action="overlay:open" data-type="plans">📋 查看 ' + m.plans.length + " 个方案</button></div>";
       if (m.candidates && m.candidates.length) plans += '<div class="plan-chip-row"><button class="btn btn-soft btn-sm" data-action="nav:go" data-view="rescue">打开临期救援驾驶舱</button></div>';
+      if (m.domain) plans += '<div class="plan-chip-row"><button class="btn btn-soft btn-sm" data-action="nav:go" data-view="domains">打开家庭智策</button></div>';
       var card = "";
       if (m.card && !m.card.done && !m.card.cancelled) {
         card = '<div class="chat-card"><div class="chat-card-row">' + esc(m.card.name) + "：" + (m.card.from != null ? m.card.from + " → " + m.card.to + " " + esc(m.card.unit || "") : esc(m.card.qty || "")) + '</div><div class="chat-card-actions"><span class="chat-card-title">写操作需确认后生效（F5.5）</span></div></div>';
@@ -183,6 +184,7 @@
       var msg = { who: "ai", text: reply.text, time: "刚刚", src: reply.src || (reply.model ? "模型生成" : "本地快答 · 0 次模型调用") };
       if (reply.card) msg.card = reply.card;
       if (reply.candidates) msg.candidates = reply.candidates;
+      if (reply.domain) msg.domain = reply.domain;
       var after = function () {
         typing = false;
         refreshChat();

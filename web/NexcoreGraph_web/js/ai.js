@@ -55,6 +55,9 @@
     var t = text || "";
     if (/^(hi|hello|你好|您好|在吗|嗨)/i.test(t) || t === "在么") return "greet";
     if (/先吃什么|今晚吃什么|临期.*做|快过期.*做|救哪|清库存.*做/.test(t)) return "rescue";
+    if (/健身|训练方案|训练计划|锻炼.*器材|器材.*训练/.test(t)) return "fitness";
+    if (/药箱|药品.*风险|药品.*管理|药快没了/.test(t)) return "medicine";
+    if (/工具箱|工具.*保修|工具.*维护|保修.*工具/.test(t)) return "tools";
     if (/放哪|在哪里|在哪|哪儿|找到/.test(t)) return "where";
     if (/还剩|剩多少|有多少|几个|几盒|几瓶|数量/.test(t) && !/调整|改/.test(t)) return "qty";
     if (/保质期|能放|多久|过期|变质|几天/.test(t)) return "expiry";
@@ -134,6 +137,49 @@
         portfolio: result.portfolio,
         model: false,
         src: "Pareto 救援求解器 · 0 次模型调用"
+      };
+    });
+  }
+
+  function domainReply(kind) {
+    return window.API.domainAnalysis().then(function (result) {
+      window.API.logAiUsage("/api/ai/chat", 0, "家庭智策", { mode: kind });
+      if (kind === "fitness") {
+        var plan = result.fitness.plan;
+        var first = plan.sessions[0];
+        return {
+          text: "按你的身体数据和现有器材计算：BMI " + plan.bmi + "（" + plan.bmiLabel + "），目标心率约 " +
+            plan.targetHeartRate.min + "–" + plan.targetHeartRate.max + " 次/分钟，每周训练 " +
+            plan.sessions.length + " 天。可用器材：" + plan.equipmentUsed.join("、") +
+            "。第一天建议：" + first.moves.map(function (move) { return move.name; }).join("、") +
+            "。" + plan.safetyNotes[0],
+          domain: "fitness",
+          model: false,
+          src: "身体画像 + 器材覆盖求解 · 0 次模型调用"
+        };
+      }
+      if (kind === "medicine") {
+        var medicine = result.medicine;
+        return {
+          text: medicine.totalItems
+            ? "药箱当前 " + medicine.totalItems + " 件，临期 " + medicine.expiringItems.length +
+              " 项、过期 " + medicine.expiredItems.length + " 项、低库存 " +
+              medicine.lowStock.length + " 项。" + medicine.notes.join(" ")
+            : "还没有药箱数据。可以先创建“家庭药箱”资源库，再录入药品有效期。",
+          domain: "medicine",
+          model: false,
+          src: "药箱有效期与库存规则 · 0 次模型调用"
+        };
+      }
+      var tools = result.tools;
+      return {
+        text: tools.totalItems
+          ? "工具箱当前 " + tools.totalItems + " 件，临近保修 " + tools.warrantySoon.length +
+            " 项、待维护 " + tools.maintenanceSoon.length + " 项。" + tools.notes.join(" ")
+          : "还没有工具箱数据。可以先创建“维修工具箱”资源库。",
+        domain: "tools",
+        model: false,
+        src: "工具保修与维护规则 · 0 次模型调用"
       };
     });
   }
@@ -271,6 +317,7 @@
     }
     var intent = route(text);
     if (intent === "rescue") return rescueReply();
+    if (intent === "fitness" || intent === "medicine" || intent === "tools") return domainReply(intent);
     var fast = fastReply(intent, text);
     if (fast) {
       window.API.logAiUsage("/api/ai/chat", 0, "本地快答");

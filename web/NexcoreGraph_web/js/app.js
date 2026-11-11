@@ -1196,6 +1196,9 @@
         var rescueLink = m.candidates && m.candidates.length
           ? '<button class="btn btn-soft btn-sm" data-action="nav:go" data-view="rescue">' + icon("flame", 13) + " 打开临期救援</button>"
           : "";
+        if (m.domain) {
+          rescueLink += '<button class="btn btn-soft btn-sm" data-action="nav:go" data-view="domains">' + icon("dumbbell", 13) + " 打开家庭智策</button>";
+        }
         return (
           '<div class="msg ' + (m.who === "me" ? "user" : "ai") + '">' +
           '<div class="msg-avatar ' + m.who + '">' + (m.who === "me" ? esc(DB.user.initial) : icon("sparkles", 15)) + "</div>" +
@@ -1717,8 +1720,11 @@
       '<div class="grid-2"><div class="field"><label for="it-qty">数量</label><input id="it-qty" class="num" value="1"/></div>' +
       '<div class="field"><label for="it-unit">单位</label><input id="it-unit" value="个"/></div></div>' +
       '<div class="grid-2"><div class="field"><label for="it-price">价格（¥）</label><input id="it-price" class="num" value="0"/></div>' +
-      '<div class="field"><label for="it-exp">保质期（天）</label><input id="it-exp" class="num" value="7"/></div></div>' +
+      '<div class="field"><label for="it-exp">有效期 / 保质期（天）</label><input id="it-exp" class="num" value="7"/></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="it-warranty">剩余保修（天，可选）</label><input id="it-warranty" class="num" placeholder="如 30"/></div>' +
+      '<div class="field"><label for="it-maint">距维护周期（天，可选）</label><input id="it-maint" class="num" placeholder="如 14"/></div></div>' +
       '<div class="field"><label for="it-pos">存放位置</label><input id="it-pos" placeholder="如：冷藏区底层"/></div>' +
+      '<label class="setting-row"><div><div class="setting-title">按药品管理</div><div class="setting-desc">药箱默认开启；参与药品有效期与补货预警</div></div><input id="it-med" type="checkbox"' + (lib.icon === "pill" ? " checked" : "") + '/></label>' +
       '<div class="setting-row"><div><div class="setting-title">仅自己可见</div><div class="setting-desc">共享库与协作中不展示（F2.5）</div></div><button class="switch" type="button" data-action="switch:toggle" aria-label="切换私有" role="switch" aria-checked="false"></button></div>' +
       '<button class="btn btn-primary" type="submit" data-busy="item:save">添加到「' + esc(lib.name) + "」</button>" +
       "</form>"
@@ -1733,8 +1739,11 @@
       '<div class="grid-2"><div class="field"><label for="it-qty">数量</label><input id="it-qty" class="num" value="' + it.qty + '"/></div>' +
       '<div class="field"><label for="it-unit">单位</label><input id="it-unit" value="' + esc(it.unit) + '"/></div></div>' +
       '<div class="grid-2"><div class="field"><label for="it-price">价格（¥）</label><input id="it-price" class="num" value="' + it.price + '"/></div>' +
-      '<div class="field"><label for="it-exp">保质期（天）</label><input id="it-exp" class="num" value="' + it.expDays + '"/></div></div>' +
+      '<div class="field"><label for="it-exp">有效期 / 保质期（天）</label><input id="it-exp" class="num" value="' + it.expDays + '"/></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="it-warranty">剩余保修（天）</label><input id="it-warranty" class="num" value="' + (it.warrantyDays == null ? "" : it.warrantyDays) + '"/></div>' +
+      '<div class="field"><label for="it-maint">距维护周期（天）</label><input id="it-maint" class="num" value="' + (it.maintenanceDays == null ? "" : it.maintenanceDays) + '"/></div></div>' +
       '<div class="field"><label for="it-pos">存放位置</label><input id="it-pos" value="' + esc(it.pos) + '"/></div>' +
+      '<label class="setting-row"><div><div class="setting-title">按药品管理</div><div class="setting-desc">参与药品有效期与补货预警</div></div><input id="it-med" type="checkbox"' + (it.med ? " checked" : "") + '/></label>' +
       '<div class="setting-row"><div><div class="setting-title">仅自己可见</div><div class="setting-desc">共享库与协作中不展示（F2.5）</div></div><button class="switch' + (it.private ? " on" : "") + '" type="button" data-action="switch:toggle" aria-label="切换私有" role="switch" aria-checked="' + !!it.private + '"></button></div>' +
       '<div style="display:flex;gap:12px;margin-top:8px"><button class="btn btn-primary" type="submit" data-busy="item:save">保存</button>' +
       '<button class="btn btn-ghost" type="button" data-action="item:del" data-busy="item:del">删除物品</button></div>' +
@@ -1747,6 +1756,7 @@
     login: viewLogin,
     aiwork: function () { return window.WORKBENCH ? window.WORKBENCH.view() : viewDashboard(); },
     rescue: function () { return window.RESCUE_VIEW ? window.RESCUE_VIEW.view() : viewDashboard(); },
+    domains: function () { return window.DOMAIN_VIEW ? window.DOMAIN_VIEW.view() : viewDashboard(); },
     graph: function () { return window.GRAPHVIEW ? window.GRAPHVIEW.view() : viewDashboard(); },
     dashboard: viewDashboard,
     libraries: viewLibraries,
@@ -1756,6 +1766,7 @@
   var NAV = [
     { id: "aiwork", label: "AI 工作台", icon: "sparkles" },
     { id: "rescue", label: "临期救援", icon: "flame" },
+    { id: "domains", label: "家庭智策", icon: "dumbbell" },
     { id: "dashboard", label: "首页看板", icon: "dashboard" },
     { id: "libraries", label: "资源库", icon: "library" },
     { id: "graph", label: "资源图谱", icon: "graph" },
@@ -1907,6 +1918,9 @@
     if (S.view === "rescue" && window.RESCUE_VIEW) {
       try { window.RESCUE_VIEW.bind(viewEl, render); } catch (e) {}
     }
+    if (S.view === "domains" && window.DOMAIN_VIEW) {
+      try { window.DOMAIN_VIEW.bind(viewEl, render); } catch (e) {}
+    }
     var viewKey = S.view + "|" + (S.libId || "");
     var ovKey = S.overlay || "";
     var enteringView = viewKey !== lastViewKey;
@@ -1971,6 +1985,7 @@
             var msg = { who: "ai", text: reply.text, time: "刚刚" };
             if (reply.card) msg.card = reply.card;
             if (reply.candidates) msg.candidates = reply.candidates;
+            if (reply.domain) msg.domain = reply.domain;
             if (reply.action === "generatePlans") {
               return API.generatePlans().then(function (plans) {
                 msg.plans = plans.map(function (p) { return p.id; });
@@ -2439,6 +2454,9 @@
           unit: document.getElementById("it-unit").value,
           price: document.getElementById("it-price").value,
           expDays: document.getElementById("it-exp").value,
+          warrantyDays: document.getElementById("it-warranty").value,
+          maintenanceDays: document.getElementById("it-maint").value,
+          med: document.getElementById("it-med").checked,
           pos: document.getElementById("it-pos").value,
           private: sw ? sw.classList.contains("on") : false
         };

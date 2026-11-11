@@ -25,7 +25,18 @@
     fitness: "运动器材", books: "图书", pet: "宠物", appliances: "家电工具"
   };
   function sceneOfLib(lib) { return LIB_SCENE[lib.id] || "其他"; }
-  function catOfLib(lib) { return { medicine: "药品", wardrobe: "衣物", tools: "工具", fitness: "运动", books: "图书", pet: "宠物", appliances: "家电" }[lib.id] || "杂物"; }
+  function catOfLib(lib) {
+    var domain = window.DOMAINS ? window.DOMAINS.domainOf(lib) : "";
+    if (domain === "medicine") return "药品";
+    if (domain === "fitness") return "运动";
+    if (domain === "tools") return "工具";
+    if (lib.icon === "shirt") return "衣物";
+    if (lib.icon === "book") return "图书";
+    if (lib.icon === "paw") return "宠物";
+    if (lib.icon === "plug") return "家电";
+    if (lib.icon === "fridge") return "食材";
+    return { medicine: "药品", wardrobe: "衣物", tools: "工具", fitness: "运动", books: "图书", pet: "宠物", appliances: "家电" }[lib.id] || "杂物";
+  }
 
   /* 口语别名 → kbKey（与 ai.js 归一口径一致） */
   var NAME_TO_KB = {};   /* 构建时由 KB.foods + 别名表填充 */
