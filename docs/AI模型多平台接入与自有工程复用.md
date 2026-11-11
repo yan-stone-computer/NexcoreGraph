@@ -28,6 +28,7 @@
 | Google Gemini | GenerateContent | `https://generativelanguage.googleapis.com/v1beta` | Key、模型 |
 | 智谱 GLM | OpenAI Compatible | `https://open.bigmodel.cn/api/paas/v4` | Key、文本/视觉模型 |
 | SiliconFlow | OpenAI Compatible | `https://api.siliconflow.cn/v1` | Key、平台模型 ID |
+| Ollama | OpenAI Compatible | `http://127.0.0.1:11434/v1` | 本机模型、Base URL、可选 Key |
 | 自定义 OpenAI 兼容 | OpenAI Compatible | 用户填写 | vLLM、Ollama、One API、企业网关 |
 | 自定义 Anthropic 兼容 | Messages API | 用户填写 | 自定义代理 |
 | 自定义 Gemini 兼容 | GenerateContent | 用户填写 | 自定义代理 |
