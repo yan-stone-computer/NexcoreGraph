@@ -6,6 +6,7 @@ import barcodeIntakeTest from './BarcodeIntake.test';
 import reminderPlannerTest from './ReminderPlanner.test';
 import policyEngineTest from './PolicyEngine.test';
 import localRestoreTest from './LocalRestore.test';
+import commandsTest from './Commands.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -16,4 +17,5 @@ export default function testsuite() {
   reminderPlannerTest();
   policyEngineTest();
   localRestoreTest();
+  commandsTest();
 }
