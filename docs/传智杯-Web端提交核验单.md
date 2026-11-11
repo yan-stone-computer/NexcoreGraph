@@ -8,7 +8,7 @@
 
 | 官网要求 | 状态 | 证据与位置 | 提交前动作 |
 |---|---|---|---|
-| GitHub/Gitee 代码仓库 | 已推送，匿名访问仍为 404 | 远端 `https://github.com/yan-stone-computer/NexcoreGraph.git`；分支 `codex/web-competition-submission` 当前提交为 `22b2b0d` | 仓库当前不公开；提交前必须设为 Public，或向评审提供访问权限 |
+| GitHub/Gitee 代码仓库 | 已推送，匿名访问仍为 404 | 远端 `https://github.com/yan-stone-computer/NexcoreGraph.git`；分支 `codex/web-competition-submission` 当前提交为 `92ae7f7` | 仓库当前不公开；提交前必须设为 Public，或向评审提供访问权限 |
 | 代码结构清晰、有效注释、主流规范 | 已满足 | `README.md`、`web/NexcoreGraph_web/README.md`、`web/NexcoreGraph_web/CODE-STYLE.md`、模块头注释 | 无 |
 | README 项目介绍、架构、运行、团队 | 已满足 | `README.md` 与 Web README | 提交前再跑一次链接检查 |
 | 完整 Git 提交历史 | 已整理并推送 | Web、三端、文档、测试和仓库卫生按主题分组提交；多平台模型接入已作为独立主题提交并推送 | 在已授权账号下确认提交图；匿名 API 仍为 404 |
