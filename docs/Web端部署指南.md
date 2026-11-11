@@ -1,7 +1,7 @@
 # 启核图策 NexcoreGraph Web 端部署指南
 
-> 适用版本：2026-11-11  
-> 适用目录：`web/NexcoreGraph_web` + `harmonyosapp/NexcoreGraph_harmonyos/backend`  
+> 适用版本：2026-11-11
+> 适用目录：`web/NexcoreGraph_web` + `harmonyosapp/NexcoreGraph_harmonyos/backend`
 > 已验证环境：Windows、Node.js 24、Python 3.14、MySQL 8、Edge
 
 ## 1. 部署拓扑
