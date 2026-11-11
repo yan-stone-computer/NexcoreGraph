@@ -60,7 +60,7 @@ export struct AiWorkbench {
     const inputs: TwinItemInput[] = [];
     store.libraries.forEach((lib: Library): void => {
       lib.items.forEach((item: Item): void => {
-        inputs.push(itemToTwinInput(item));
+        inputs.push(itemToTwinInput(item, lib.name));
       });
     });
     const scenario = new TwinScenario();
@@ -110,10 +110,25 @@ export struct AiWorkbench {
   /** 今天要处理的一句话结论（代码计算，非模型生成） */
   private todayLine(): string {
     const exp = this.expiringItems();
-    if (exp.length === 0) {
-      return '没有临期，库存健康';
+    const domains: string[] = [];
+    store.libraries.forEach((lib: Library): void => {
+      lib.items.forEach((item: Item): void => {
+        const domain: string = item.domain;
+        if (domain !== '' && domains.indexOf(domain) < 0) {
+          domains.push(domain);
+        }
+      });
+    });
+    if (this.twinResult.risks.length > 0) {
+      return this.twinResult.risks[0].message;
     }
-    return `先消耗 ${exp[0].name}，还有 ${exp[0].expDays} 天`;
+    if (this.itemCount() === 0) {
+      return '食品、药品、健身、工具都可入库';
+    }
+    if (exp.length === 0) {
+      return `已覆盖 ${Math.max(1, domains.length)} 个资源域，暂无风险`;
+    }
+    return `先处理 ${exp[0].name}，还有 ${exp[0].expDays} 天`;
   }
 
   /* ---------- 动作（预览 → 确认才写） ---------- */
@@ -236,9 +251,15 @@ export struct AiWorkbench {
       Text('今晚吃什么').fontSize(13).fontColor(T.c('text-secondary'))
         .padding({ top: S2, bottom: S2 })
         .onClick((): void => this.ask('今晚吃什么'))
-      Text('牛奶还能放几天').fontSize(13).fontColor(T.c('text-secondary'))
+      Text('退烧药还剩几天').fontSize(13).fontColor(T.c('text-secondary'))
         .padding({ top: S2, bottom: S2 })
-        .onClick((): void => this.ask('牛奶还能放几天'))
+        .onClick((): void => this.ask('退烧药还剩几天'))
+      Text('根据身体数据生成训练计划').fontSize(13).fontColor(T.c('text-secondary'))
+        .padding({ top: S2, bottom: S2 })
+        .onClick((): void => this.ask('根据身体数据生成训练计划'))
+      Text('螺丝刀放在哪').fontSize(13).fontColor(T.c('text-secondary'))
+        .padding({ top: S2, bottom: S2 })
+        .onClick((): void => this.ask('螺丝刀放在哪'))
       TBtn({ label: '问 AI', icon: 'sparkles', kind: 'primary', small: true, tap: (): void => this.ask('') })
         .margin({ top: S2 })
     }
@@ -259,6 +280,9 @@ export struct AiWorkbench {
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
+      TBtn({ label: '训练', kind: 'ghost', small: true, tap: (): void => {
+        store.overlay = 'bodyprofile';
+      } })
       TBtn({ label: '推演', kind: 'soft', small: true, tap: (): void => {
         store.overlay = 'twin';
       } })
@@ -289,9 +313,9 @@ export struct AiWorkbench {
           TBtn({ label: '稍后', kind: 'ghost', small: true, tap: (): void => this.dismissGuide() })
         }
         .width('100%')
-        this.GuideStep('01', '扫码或拍照建库', '原生扫码提供精确识别码，AI 补全名称、数量和位置。')
-        this.GuideStep('02', '确认识别结果', '字段来源可见，冲突项由你最后确认。')
-        this.GuideStep('03', '看未来 7 天', '数字孪生推演耗尽与临期风险，再生成可撤销处置方案。')
+        this.GuideStep('01', '建立多域资源库', '食品、药品、健身器材和工具都能扫码或拍照入库。')
+        this.GuideStep('02', '补全关键规则', '药品填每日用量，器材填维护天数，身体档案只存本机。')
+        this.GuideStep('03', '推演与生成方案', '各资源域按自己的规则推演；训练计划只用现有器材。')
         Row({ space: 12 }) {
           TBtn({ label: '从扫码开始', icon: 'scan', kind: 'primary', small: true, tap: (): void => {
             this.dismissGuide();
@@ -339,7 +363,7 @@ export struct AiWorkbench {
             Text(store.libraries.length === 0 ? '还没有资源库' : '库建好了，但里面还没有物品')
               .fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
             Text((store.libraries.length === 0
-              ? '拍一张照片让 AI 识别入库（冰箱、衣柜、工具箱、购物袋都可以），或者在资源库里手动建一个库（如冰箱、衣柜、药盒、工具箱）。'
+              ? '拍一张照片让 AI 识别入库（冰箱、药盒、健身角、工具箱都可以），或者在资源库里手动建一个库。'
               : '打开「' + (store.libraries.length > 0 ? store.libraries[0].name : '') +
                 '」手动添加，或拍照让 AI 识别后确认入库。') +
               '入库后这里会出现临期提醒、可执行方案和数据分析。')
@@ -415,7 +439,7 @@ export struct AiWorkbench {
     this.InfoRow('库存知识图谱', this.graphSize)
       // 空库时图里只有内置的概念层，直接甩"19 节点"容易被当成假数据，这里说清楚
       if (this.itemCount() === 0) {
-        Text('当前图里只有内置的食材/菜谱知识层。你入库的物品（食材、衣物、工具、厨具都算）会作为实体进入这张图')
+        Text('当前图里只有内置概念层。食品、药品、健身器材和工具入库后会作为独立资源实体进入图谱')
           .fontSize(11).fontColor(T.c('text-muted')).width('100%')
           .margin({ bottom: S1 })
       }
@@ -427,10 +451,12 @@ export struct AiWorkbench {
   AskBar() {
     /* 底部：单一对话入口（克制，不再并排两个入口） */
     Row({ space: S3 }) {
-        Text('今晚吃什么').fontSize(13).fontColor(T.c('text-secondary'))
-          .onClick((): void => this.ask('今晚吃什么'))
-        Text('牛奶还能放几天').fontSize(13).fontColor(T.c('text-secondary'))
-          .onClick((): void => this.ask('牛奶还能放几天'))
+        Text('退烧药还剩几天').fontSize(13).fontColor(T.c('text-secondary'))
+          .onClick((): void => this.ask('退烧药还剩几天'))
+        Text('生成训练计划').fontSize(13).fontColor(T.c('text-secondary'))
+          .onClick((): void => this.ask('根据身体数据生成训练计划'))
+        Text('螺丝刀放在哪').fontSize(13).fontColor(T.c('text-secondary'))
+          .onClick((): void => this.ask('螺丝刀放在哪'))
         Blank()
         TBtn({ label: '问 AI', icon: 'sparkles', kind: 'primary', small: true, tap: (): void => this.ask('') })
     }

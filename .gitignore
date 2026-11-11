@@ -40,6 +40,7 @@ desktop.ini
 *.db-wal
 .env
 *.env.local
+.ai-config.json
 __pycache__/
 # 本机密钥 / 配置：.env 一律不进仓库，模板用 .env.example
 .env

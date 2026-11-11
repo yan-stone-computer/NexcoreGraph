@@ -13,6 +13,7 @@ function milk(qty: number, dailyUse: number): TwinItemInput {
   item.expDays = 5;
   item.dailyUse = dailyUse;
   item.hasPosition = true;
+  item.domain = 'food';
   return item;
 }
 
@@ -66,6 +67,45 @@ export default function resourceTwinTest() {
       const input = itemToTwinInput(item);
       expect(input.dailyUse).assertEqual(estimateDailyUse(item));
       expect(input.hasPosition).assertTrue();
+    });
+
+    it('does not scale medicine by guest meals', 0, () => {
+      const med = new TwinItemInput();
+      med.id = 'med';
+      med.name = '退烧药';
+      med.domain = 'medicine';
+      med.qty = 4;
+      med.unit = '片';
+      med.dosePerDay = 1;
+      med.hasPosition = true;
+      const normal = simulateTwin([med], scenario(0));
+      const guests = simulateTwin([med], scenario(3));
+      expect(normal.risks[0].day).assertEqual(guests.risks[0].day);
+    });
+
+    it('does not create daily shortage risk for a screwdriver', 0, () => {
+      const tool = new TwinItemInput();
+      tool.id = 'tool';
+      tool.name = '十字螺丝刀';
+      tool.domain = 'tool';
+      tool.qty = 1;
+      tool.unit = '把';
+      tool.hasPosition = true;
+      const result = simulateTwin([tool], scenario());
+      expect(result.shortageCount).assertEqual(0);
+    });
+
+    it('surfaces tool maintenance within the horizon', 0, () => {
+      const tool = new TwinItemInput();
+      tool.id = 'tool-maintenance';
+      tool.name = '电钻';
+      tool.domain = 'tool';
+      tool.qty = 1;
+      tool.unit = '台';
+      tool.maintenanceDays = 3;
+      tool.hasPosition = true;
+      const result = simulateTwin([tool], scenario());
+      expect(result.risks.some((risk: TwinRisk): boolean => risk.type === 'maintenance')).assertTrue();
     });
   });
 }

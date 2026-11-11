@@ -7,6 +7,7 @@ import {
   IntakeResult, Workbench, Snap, Profile
 } from './Db';
 import { T } from './Tokens';
+import { isConsumableDomain, inferResourceDomain, domainIcon } from './ResourceDomain';
 
 export class ToastMsg {
   id: number = 0;
@@ -217,6 +218,10 @@ export class Store {
     if (item.qty > 1 || item.name === '') {
       return;
     }
+    const domain: string = item.domain === '' ? inferResourceDomain(item.name) : item.domain;
+    if (!isConsumableDomain(domain)) {
+      return;
+    }
     const text = `${item.name} 只剩 ${item.qty}${item.unit}，建议补货`;
     const dup = this.alerts.some((a: AlertItem): boolean => a.type === 'low' && a.text.indexOf(item.name) === 0);
     if (dup) {
@@ -273,6 +278,27 @@ export class Store {
       });
     });
     this.noSeq = max;
+  }
+
+  /** Migrate old saved data that predates resource domains and domain-specific icons. */
+  repairResourceDomains(): void {
+    this.libraries.forEach((lib: Library): void => {
+      const libDomain: string = lib.domain === '' || lib.domain === 'other'
+        ? inferResourceDomain('', lib.name) : lib.domain;
+      lib.domain = libDomain;
+      if (lib.icon === '' || lib.icon === 'package') {
+        const icon: string = domainIcon(libDomain);
+        if (icon !== 'package') {
+          lib.icon = icon;
+        }
+      }
+      lib.items.forEach((item: Item): void => {
+        if (item.domain === '' || item.domain === 'other') {
+          item.domain = inferResourceDomain(item.name, lib.name);
+        }
+      });
+    });
+    this.libraries = this.libraries.slice();
   }
 }
 

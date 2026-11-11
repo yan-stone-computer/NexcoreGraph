@@ -1,4 +1,5 @@
 import { Item } from './Db';
+import { DOMAIN_FITNESS, DOMAIN_MEDICINE, DOMAIN_TOOL, inferResourceDomain } from './ResourceDomain';
 
 export class ReminderCandidate {
   dedupeKey: string = '';
@@ -17,8 +18,19 @@ export function planReminders(items: Item[], dayKey: number, enabled: boolean,
   if (!enabled) {
     return [];
   }
-  const due: Item[] = items.filter((item: Item): boolean =>
-    !item.isPrivate && item.expDays > 0 && item.expDays <= 3);
+  const due: Item[] = items.filter((item: Item): boolean => {
+    if (item.isPrivate) {
+      return false;
+    }
+    const domain: string = item.domain === '' ? inferResourceDomain(item.name) : item.domain;
+    if (domain === DOMAIN_MEDICINE && item.dosePerDay > 0) {
+      return Math.ceil(item.qty / item.dosePerDay) <= 3;
+    }
+    if (domain === DOMAIN_TOOL || domain === DOMAIN_FITNESS) {
+      return item.maintenanceDays > 0 && item.maintenanceDays <= 3;
+    }
+    return item.expDays > 0 && item.expDays <= 3;
+  });
   if (due.length === 0) {
     return [];
   }
@@ -33,8 +45,16 @@ export function planReminders(items: Item[], dayKey: number, enabled: boolean,
   candidate.dedupeKey = dedupeKey;
   candidate.itemId = due[0].id;
   candidate.dayKey = dayKey;
-  candidate.title = `${due.length} 项资源即将临期`;
-  candidate.text = due.slice(0, 3).map((item: Item): string =>
-    `${item.name}还剩${item.expDays}天`).join(' · ');
+  candidate.title = `${due.length} 项资源需要处理`;
+  candidate.text = due.slice(0, 3).map((item: Item): string => {
+    const domain: string = item.domain === '' ? inferResourceDomain(item.name) : item.domain;
+    if (domain === DOMAIN_MEDICINE && item.dosePerDay > 0) {
+      return `${item.name}约${Math.ceil(item.qty / item.dosePerDay)}天用完`;
+    }
+    if (domain === DOMAIN_TOOL || domain === DOMAIN_FITNESS) {
+      return `${item.name}${item.maintenanceDays}天后维护`;
+    }
+    return `${item.name}还剩${item.expDays}天`;
+  }).join(' · ');
   return [candidate];
 }

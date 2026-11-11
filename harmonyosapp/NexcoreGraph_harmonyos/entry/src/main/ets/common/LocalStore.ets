@@ -35,6 +35,7 @@ function loadAll(): void {
   const dataJson = prefs.getSync('userData', '') as string;
   if (dataJson !== '') {
     applyDataSnapshot(dataJson);
+    store.repairResourceDomains();
   }
   // 对话
   const chatJson = prefs.getSync('chat', '[]') as string;
@@ -51,6 +52,14 @@ function loadAll(): void {
       store.profile.dislike = p.dislike ?? '';
       store.profile.goal = p.goal ?? '均衡';
       store.profile.inject = p.inject ?? true;
+      store.profile.heightCm = p.heightCm ?? 0;
+      store.profile.weightKg = p.weightKg ?? 0;
+      store.profile.age = p.age ?? 0;
+      store.profile.trainingGoal = p.trainingGoal ?? 'general';
+      store.profile.trainingLevel = p.trainingLevel ?? 'beginner';
+      store.profile.weeklyDays = p.weeklyDays ?? 3;
+      store.profile.limitations = p.limitations ?? '';
+      store.profile.trainingEnabled = p.trainingEnabled ?? false;
     } catch (_e) {
       // 坏数据忽略，用默认
     }
@@ -358,7 +367,20 @@ export function saveProfile(): void {
     return;
   }
   const p = store.profile;
-  const r: Record<string, Object> = { 'people': p.people, 'dislike': p.dislike, 'goal': p.goal, 'inject': p.inject };
+  const r: Record<string, Object> = {
+    'people': p.people,
+    'dislike': p.dislike,
+    'goal': p.goal,
+    'inject': p.inject,
+    'heightCm': p.heightCm,
+    'weightKg': p.weightKg,
+    'age': p.age,
+    'trainingGoal': p.trainingGoal,
+    'trainingLevel': p.trainingLevel,
+    'weeklyDays': p.weeklyDays,
+    'limitations': p.limitations,
+    'trainingEnabled': p.trainingEnabled
+  };
   prefs.putSync('profile', JSON.stringify(r));
   prefsFlush();
 }

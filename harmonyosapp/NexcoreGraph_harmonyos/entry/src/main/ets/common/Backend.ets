@@ -74,9 +74,13 @@ export function currentBase(): string {
 
 /** 单次 JSON 请求（调用方自行决定超时；失败时 reject 网络层错误） */
 export function requestJson(url: string, method: http.RequestMethod, body: string,
-  connectTimeout: number, readTimeout: number): Promise<HttpResult> {
+  connectTimeout: number, readTimeout: number,
+  extraHeader: Record<string, string> = {}): Promise<HttpResult> {
   const req = http.createHttp();
   const header: Record<string, string> = { 'Content-Type': 'application/json' };
+  Object.keys(extraHeader).forEach((key: string): void => {
+    header[key] = extraHeader[key];
+  });
   const opts: http.HttpRequestOptions = {
     method: method,
     header: header,
@@ -151,6 +155,23 @@ export function callJson(path: string, method: http.RequestMethod, body: string,
   connectTimeout: number, readTimeout: number): Promise<string> {
   return resolveBase().then((base: string): Promise<HttpResult> => {
     return requestJson(base + path, method, body, connectTimeout, readTimeout);
+  }).then((r: HttpResult): string => {
+    lastStatus = r.code;
+    lastBody = r.text;
+    if (r.code !== 200) {
+      throw new Error(errorOf(r.text, r.code));
+    }
+    lastStatus = 0;
+    lastBody = '';
+    return r.text;
+  });
+}
+
+export function callJsonWithHeaders(path: string, method: http.RequestMethod, body: string,
+  connectTimeout: number, readTimeout: number,
+  extraHeader: Record<string, string>): Promise<string> {
+  return resolveBase().then((base: string): Promise<HttpResult> => {
+    return requestJson(base + path, method, body, connectTimeout, readTimeout, extraHeader);
   }).then((r: HttpResult): string => {
     lastStatus = r.code;
     lastBody = r.text;

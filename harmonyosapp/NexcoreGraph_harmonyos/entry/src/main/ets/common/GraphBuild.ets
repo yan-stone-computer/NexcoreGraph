@@ -7,6 +7,7 @@ import { store, LogRow } from './Store';
 import { Library, Item, Plan, Consume, AlertItem, ShoppingItem, Activity } from './Db';
 import { GraphDoc, GraphNode, GraphEdge, GraphCommunity, GraphBuildStat, hash12, numOf } from './GraphModel';
 import { allFoods, foodByKey, normName, FoodRow } from './KnowledgeIndex';
+import { domainLabel, inferResourceDomain } from './ResourceDomain';
 import { RECIPES, RecipeTpl } from './Knowledge';
 import { setGraphDoc, markGraphDirty } from './GraphStore';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -107,6 +108,11 @@ class Builder {
 /** 库 → 场景（三级社区），与后端 sceneOf 同口径 */
 function sceneOf(lib: Library): string {
   const s = `${lib.name}${lib.id}`;
+  const domain: string = lib.domain === '' ? inferResourceDomain('', lib.name) : lib.domain;
+  if (domain === 'medicine') return '药品';
+  if (domain === 'fitness') return '健身';
+  if (domain === 'tool') return '家电工具';
+  if (domain === 'daily') return '清洁日用';
   // 先判"宠物/衣物"等强特征，避免"宠物食品"被"食品"关键字误判为食材场景
   if (hasAny(s, ['宠物', '猫', '狗'])) return '宠物';
   if (hasAny(s, ['母婴', '婴儿', '宝宝', '儿童', '童装'])) return '母婴';
@@ -236,6 +242,9 @@ export function rebuildGraph(): GraphBuildStat {
 
     lib.items.forEach((it: Item) => {
       const itemId = `item:${it.id}`;
+      const domain: string = it.domain === '' ? inferResourceDomain(it.name, lib.name) : it.domain;
+      const domainName: string = domainLabel(domain);
+      const domainId = `domain:${domain}`;
       const isExp = it.expDays > 0 && it.expDays <= 7;
       itemCount += 1;
       libItems += 1;
@@ -249,9 +258,13 @@ export function rebuildGraph(): GraphBuildStat {
       b.node(itemId, 'ItemInstance', it.name, {
         'id': it.id, 'no': it.no, 'name': it.name, 'qty': it.qty, 'unit': it.unit,
         'price': it.price, 'priceSrc': it.priceSrc, 'expDays': it.expDays, 'pos': it.pos,
-        'isPrivate': it.isPrivate, 'kbKey': it.kbKey
+        'isPrivate': it.isPrivate, 'kbKey': it.kbKey, 'domain': domain,
+        'dosePerDay': it.dosePerDay, 'maintenanceDays': it.maintenanceDays
       }, [libId, `scene:${scene}`]);
       b.edge(libId, itemId, 'contains', {});
+      b.node(domainId, 'CategoryConcept', domainName, { 'level': 2 }, [domainId]);
+      b.edge(itemId, domainId, 'inDomain', {});
+      b.addCat(domainName, isExp, it.price);
 
       const food = resolveByName(it.name, it.kbKey);
       if (food !== null) {
@@ -267,9 +280,7 @@ export function rebuildGraph(): GraphBuildStat {
         b.addCat(food.category, isExp, it.price);
       } else {
         b.unlinked += 1;
-        b.node('cat:未归类', 'CategoryConcept', '未归类', { 'level': 2 }, ['cat:未归类']);
-        b.edge(itemId, 'cat:未归类', 'inCategory', { 'confidence': 'unlinked' });
-        b.addCat('未归类', isExp, it.price);
+        b.edge(itemId, domainId, 'classifiedByRule', { 'confidence': 'deterministic' });
       }
     });
 

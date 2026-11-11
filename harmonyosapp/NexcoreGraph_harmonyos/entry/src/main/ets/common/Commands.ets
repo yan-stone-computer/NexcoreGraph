@@ -13,7 +13,7 @@ import { T } from './Tokens';
 import {
   createLibrary, renameLibrary, deleteLibrary, addItem, deleteItem, moveItemToLib, ItemForm,
   setItemQtyByName, addShoppingByAI, generatePlans, executePlan, resolveAlert, createCoop, joinCoop,
-  search, SearchHit
+  search, SearchHit, setMedicineDoseByName
 } from './Api';
 import { forceUploadSync, downloadSync } from './SyncApi';
 import { saveThemePrefs } from './LocalStore';
@@ -53,6 +53,7 @@ export const CMD_HELP: CmdSpec[] = [
 
   new CmdSpec('物品增减与移动', '往工具箱加一把螺丝刀', '数量单位都能带：两瓶、三袋、五盒'),
   new CmdSpec('物品增减与移动', '鸡蛋还剩 5 个', '直接改数量（消耗、补货都这么说）'),
+  new CmdSpec('物品增减与移动', '退烧药每天吃 2 片', '药品每日用量由用户明确填写'),
   new CmdSpec('物品增减与移动', '把炒锅移到厨具柜', '跨库搬家，数量位置一起带走'),
   new CmdSpec('物品增减与移动', '删掉炒锅', '删物品前先确认，删完还有撤销'),
 
@@ -298,6 +299,11 @@ export function matchCommand(q: string): CmdMatch | null {
   if (m !== null) {
     return new CmdMatch('qty', m[1], m[3], parseInt(m[2], 10), q);
   }
+  // 药品每日用量：“退烧药每天吃 2 片”
+  m = /^(.{1,12}?)(?:每天|每日|一天)(?:吃|用|服用|需要)?(\d+(?:\.\d+)?)(.{0,3})$/.exec(s);
+  if (m !== null) {
+    return new CmdMatch('dose', m[1], m[3], parseFloat(m[2]), q);
+  }
   // 加进采购清单
   m = /^(?:把|给)?(.{1,12}?)(?:加|写|放)(?:进|到|入)(?:采购|购物|购买)?清单$/.exec(s);
   if (m !== null) {
@@ -464,6 +470,11 @@ function policyForCommand(kind: string, arg: string): AgentAction {
     const parts = arg.split('|');
     action.target = parts.length > 0 ? parts[0] : '';
     action.qty = parts.length > 1 ? Number(parts[1]) : -1;
+  } else if (kind === 'dose') {
+    action.kind = 'set_medicine_dose';
+    const parts = arg.split('|');
+    action.target = parts.length > 0 ? parts[0] : '';
+    action.qty = parts.length > 1 ? Number(parts[1]) : -1;
   } else if (kind === 'shopadd') {
     action.kind = 'add_shopping';
     const parts = arg.split('|');
@@ -556,6 +567,14 @@ export async function runCommand(m: CmdMatch): Promise<CmdReply> {
     const unit = it.unit;
     return previewReply(`要把「${name}」从 ${it.qty}${unit} 调整为 ${m.n}${unit}？`,
       'qty', `${it.id}|${m.n}`, `调整「${name}」到 ${m.n}${unit}`, note);
+  }
+  if (m.id === 'dose') {
+    const it = findItemLoose(m.a);
+    if (it === null) {
+      return new CmdReply(`库存里没有「${m.a}」。先入库，再设置每日用量。`, 'cmd:dose', note);
+    }
+    return previewReply(`要把「${it.name}」的每日用量设为 ${m.n}${it.unit}？`,
+      'dose', `${it.id}|${m.n}`, `设置「${it.name}」每日 ${m.n}${it.unit}`, note);
   }
   if (m.id === 'shopadd') {
     const it = findItemLoose(m.a);
@@ -704,6 +723,19 @@ export function applyCmdOp(kind: string, arg: string, executionKey: string = '')
     const n = Number(parts[1]);
     return setItemQtyByName(hit[1].name, n).then((): string =>
       `已把「${hit[1].name}」调整为 ${n}${hit[1].unit}。`);
+  }
+  if (kind === 'dose') {
+    const parts = arg.split('|');
+    if (parts.length < 2) {
+      return Promise.resolve('这条每日用量指令我读错了，换个说法再试一次。');
+    }
+    const hit = store.findItemHit(parts[0]);
+    if (hit === null) {
+      return Promise.resolve('这件药品已经不在了。');
+    }
+    const n = Number(parts[1]);
+    return setMedicineDoseByName(hit[1].name, n).then((): string =>
+      `已把「${hit[1].name}」每日用量设为 ${n}${hit[1].unit}。`);
   }
   if (kind === 'shopadd') {
     const parts = arg.split('|');

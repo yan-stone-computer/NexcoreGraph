@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@ohos/hypium';
-import { applyDataSnapshot } from '../main/ets/common/Continuation';
+import { applyDataSnapshot, buildDataSnapshot } from '../main/ets/common/Continuation';
 import { store } from '../main/ets/common/Store';
+import { Item, Library } from '../main/ets/common/Db';
 
 class ChatFixture {
   who: string = 'me';
@@ -39,6 +40,27 @@ export default function localRestoreTest() {
       store.aiOpen = false;
       applyDataSnapshot(snapshot, true);
       expect(store.aiOpen).assertTrue();
+    });
+
+    it('preserves resource domain and medicine fields across snapshots', 0, () => {
+      const lib = new Library('med-lib', '药盒', 'package', 'teal', 1, '1 件', [], 'medicine');
+      const item = new Item('med', '退烧药', '💊', '', '', 8, '片', 0, '手动', 90, '药盒',
+        false, 'medicine', 2, 30);
+      lib.items = [item];
+      store.libraries = [lib];
+      const raw = buildDataSnapshot();
+      store.libraries = [];
+      applyDataSnapshot(raw, false);
+      expect(store.libraries[0].domain).assertEqual('medicine');
+      expect(store.libraries[0].items[0].domain).assertEqual('medicine');
+      expect(store.libraries[0].items[0].dosePerDay).assertEqual(2);
+      expect(store.libraries[0].items[0].maintenanceDays).assertEqual(30);
+    });
+
+    it('upgrades legacy package icons from restored resource domains', 0, () => {
+      store.libraries = [new Library('med-icon', '药盒', 'package', 'teal', 0, '0 件', [], 'medicine')];
+      store.repairResourceDomains();
+      expect(store.libraries[0].icon).assertEqual('pill');
     });
   });
 }

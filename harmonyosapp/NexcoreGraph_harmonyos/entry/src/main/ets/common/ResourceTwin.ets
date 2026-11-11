@@ -2,6 +2,9 @@
    所有数字由本文件确定性计算，模型不得参与。 */
 
 import { Item } from './Db';
+import {
+  DOMAIN_FOOD, DOMAIN_MEDICINE, DOMAIN_TOOL, DOMAIN_FITNESS, inferResourceDomain
+} from './ResourceDomain';
 
 export class TwinItemInput {
   id: string = '';
@@ -11,6 +14,9 @@ export class TwinItemInput {
   expDays: number = 0;
   dailyUse: number = 0;
   hasPosition: boolean = false;
+  domain: string = 'other';
+  dosePerDay: number = 0;
+  maintenanceDays: number = 0;
 }
 
 export class TwinScenario {
@@ -82,6 +88,13 @@ function addHint(result: TwinResult, hint: string): void {
 
 /** 无逐物品消耗日志时，按保质期给出保守的参考日耗。 */
 export function estimateDailyUse(item: Item): number {
+  const domain: string = item.domain !== '' ? item.domain : inferResourceDomain(item.name);
+  if (domain === DOMAIN_MEDICINE) {
+    return Math.max(0, item.dosePerDay);
+  }
+  if (domain !== DOMAIN_FOOD) {
+    return 0;
+  }
   if (item.qty <= 0) {
     return 0;
   }
@@ -100,7 +113,7 @@ export function estimateDailyUse(item: Item): number {
   return 0.05;
 }
 
-export function itemToTwinInput(item: Item): TwinItemInput {
+export function itemToTwinInput(item: Item, libraryName: string = ''): TwinItemInput {
   const input = new TwinItemInput();
   input.id = item.id;
   input.name = item.name;
@@ -109,6 +122,10 @@ export function itemToTwinInput(item: Item): TwinItemInput {
   input.expDays = item.expDays;
   input.dailyUse = estimateDailyUse(item);
   input.hasPosition = item.pos !== '' && item.pos !== '未设置';
+  input.domain = item.domain !== '' ? item.domain :
+    inferResourceDomain(item.name, libraryName);
+  input.dosePerDay = Math.max(0, item.dosePerDay);
+  input.maintenanceDays = Math.max(0, item.maintenanceDays);
   return input;
 }
 
@@ -124,7 +141,7 @@ export function simulateTwin(items: TwinItemInput[], scenario: TwinScenario): Tw
   }
 
   const horizon: number = Math.max(1, Math.min(90, Math.round(scenario.horizonDays)));
-  const useFactor: number = familyFactor(scenario) * mealFactor(scenario);
+  const foodUseFactor: number = familyFactor(scenario) * mealFactor(scenario);
   let incomplete: number = 0;
 
   items.forEach((item: TwinItemInput): void => {
@@ -133,7 +150,10 @@ export function simulateTwin(items: TwinItemInput[], scenario: TwinScenario): Tw
     }
 
     const startQty: number = Math.max(0, item.qty);
-    const daily: number = Math.max(0, item.dailyUse) * useFactor;
+    const domain: string = item.domain === '' ? inferResourceDomain(item.name) : item.domain;
+    const useFactor: number = domain === DOMAIN_FOOD ? foodUseFactor : 1;
+    const baseDaily: number = domain === DOMAIN_MEDICINE ? item.dosePerDay : item.dailyUse;
+    const daily: number = Math.max(0, baseDaily) * useFactor;
     const projection = new TwinProjection();
     projection.itemId = item.id;
     projection.itemName = item.name;
@@ -151,7 +171,7 @@ export function simulateTwin(items: TwinItemInput[], scenario: TwinScenario): Tw
         const risk = new TwinRisk();
         risk.itemId = item.id;
         risk.itemName = item.name;
-        risk.type = 'shortage';
+        risk.type = domain === DOMAIN_MEDICINE ? 'refill' : 'shortage';
         risk.day = shortageDay;
         risk.qty = Math.ceil(daily * shortageDay - startQty);
         risk.unit = item.unit;
@@ -160,11 +180,11 @@ export function simulateTwin(items: TwinItemInput[], scenario: TwinScenario): Tw
         result.shortageCount += 1;
         addHint(result, `建议第 ${Math.max(1, shortageDay - 1)} 天前补货「${item.name}」`);
       }
-    } else if (startQty <= 0) {
+    } else if (startQty <= 0 && domain !== DOMAIN_TOOL && domain !== DOMAIN_FITNESS) {
       const risk = new TwinRisk();
       risk.itemId = item.id;
       risk.itemName = item.name;
-      risk.type = 'shortage';
+      risk.type = domain === DOMAIN_MEDICINE ? 'refill' : 'shortage';
       risk.day = 0;
       risk.unit = item.unit;
       risk.message = `「${item.name}」当前已无库存`;
@@ -173,7 +193,7 @@ export function simulateTwin(items: TwinItemInput[], scenario: TwinScenario): Tw
       addHint(result, `优先补充「${item.name}」`);
     }
 
-    if (item.expDays > 0 && item.expDays <= horizon) {
+    if (domain === DOMAIN_FOOD && item.expDays > 0 && item.expDays <= horizon) {
       const remaining: number = Math.max(0, startQty - daily * item.expDays);
       if (remaining > 0) {
         const risk = new TwinRisk();
@@ -188,6 +208,32 @@ export function simulateTwin(items: TwinItemInput[], scenario: TwinScenario): Tw
         result.wasteRiskCount += 1;
         addHint(result, `把「${item.name}」安排进 ${risk.day} 天内的优先消耗计划`);
       }
+    }
+
+    if ((domain === DOMAIN_TOOL || domain === DOMAIN_FITNESS) && item.maintenanceDays > 0 &&
+      item.maintenanceDays <= horizon) {
+      const risk = new TwinRisk();
+      risk.itemId = item.id;
+      risk.itemName = item.name;
+      risk.type = 'maintenance';
+      risk.day = Math.round(item.maintenanceDays);
+      risk.qty = 1;
+      risk.unit = item.unit;
+      risk.message = `第 ${risk.day} 天「${item.name}」需要检查或维护`;
+      result.risks.push(risk);
+      addHint(result, `安排「${item.name}」维护检查`);
+    }
+
+    if ((domain === DOMAIN_TOOL || domain === DOMAIN_FITNESS) && startQty <= 0) {
+      const risk = new TwinRisk();
+      risk.itemId = item.id;
+      risk.itemName = item.name;
+      risk.type = 'unavailable';
+      risk.day = 0;
+      risk.unit = item.unit;
+      risk.message = `「${item.name}」当前不可用`;
+      result.risks.push(risk);
+      addHint(result, `确认「${item.name}」是否借用、维修或补购`);
     }
   });
 

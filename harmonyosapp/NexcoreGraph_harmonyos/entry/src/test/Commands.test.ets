@@ -36,5 +36,18 @@ export default function commandsTest() {
       await applyCmdOp(preview.opKind, preview.opArg, 'test:qty');
       expect(carrot.qty).assertEqual(2);
     });
+
+    it('previews and applies a medicine daily dose', 0, async () => {
+      const med = new Item('med', '退烧药', '💊', '', '', 8, '片', 0, '手动', 90,
+        '药盒', false, 'medicine', 0, 0);
+      store.libraries = [new Library('med-lib', '药盒', 'pill', 'teal', 1, '1 件', [med], 'medicine')];
+      const match: CmdMatch | null = matchCommand('退烧药每天吃2片');
+      expect(match !== null).assertTrue();
+      const preview: CmdReply = await runCommand(match as CmdMatch);
+      expect(preview.opKind).assertEqual('dose');
+      expect(med.dosePerDay).assertEqual(0);
+      await applyCmdOp(preview.opKind, preview.opArg, 'test:dose');
+      expect(med.dosePerDay).assertEqual(2);
+    });
   });
 }

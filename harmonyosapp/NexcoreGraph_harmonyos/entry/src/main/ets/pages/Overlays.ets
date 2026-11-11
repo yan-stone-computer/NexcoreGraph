@@ -16,6 +16,7 @@ import { AiPanel } from './AiPanel';
 import { GraphPanel } from './GraphPanel';
 import { AnalyticsBoard } from './AnalyticsBoard';
 import { TwinPanel } from './TwinPanel';
+import { BodyProfilePanel } from './BodyProfilePanel';
 import { buildFlowState, applyFlowState, buildDataSnapshot, applyDataSnapshot } from '../common/Continuation';
 import { publishFlow, pullFlow, deviceLabel, FlowHandoff } from '../common/FlowBridge';
 import { markSyncedRev } from '../common/LiveSync';
@@ -23,11 +24,17 @@ import { recognizeImage, gatewayUsage, UsageSummary, UsageRow } from '../common/
 import { tryUploadSync, forceUploadSync, downloadSync, SyncConflict } from '../common/SyncApi';
 import { saveProfile, saveFormSnapshot, saveThemePrefs, saveServerUrl } from '../common/LocalStore';
 import { currentBase, manualBaseUrl, currentServerMode, setManualBase, resolveBase } from '../common/Backend';
+import {
+  GatewayModelConfig, ProviderOption, loadAiModelConfig, saveAiModelConfig
+} from '../common/AiModelConfig';
 import { currentGraphSize, currentGraphVersion } from '../common/GraphQuery';
 import { rebuildGraph } from '../common/GraphBuild';
 import { pageContentWidth, pageInset } from '../common/Breakpoints';
 import { GraphBuildStat } from '../common/GraphModel';
 import { attachScanEvidence, ScanEvidence } from '../common/BarcodeIntake';
+import {
+  DOMAIN_DAILY, DOMAIN_FITNESS, DOMAIN_FOOD, DOMAIN_MEDICINE, DOMAIN_OTHER, DOMAIN_TOOL,
+} from '../common/ResourceDomain';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { cameraPicker, camera } from '@kit.CameraKit';
 import { scanBarcode, scanCore } from '@kit.ScanKit';
@@ -169,6 +176,8 @@ export struct SheetContent {
               GraphPanel()
             } else if (store.overlay === 'twin') {
               TwinPanel()
+            } else if (store.overlay === 'bodyprofile') {
+              BodyProfilePanel()
             } else if (store.overlay === 'analytics') {
               AnalyticsBoard()
             } else if (store.overlay === 'flow') {
@@ -799,6 +808,23 @@ struct ItemAddPanel {
           this.form.name = v;
         },
         submit: (): void => this.doAdd() })
+      Text('资源类型').fontSize(11).fontWeight(600).fontColor(T.c('text-muted'))
+      Row({ space: 8 }) {
+        Chip({ text: '食品', active: this.form.domain === DOMAIN_FOOD,
+          tap: (): void => { this.form.domain = DOMAIN_FOOD; } })
+        Chip({ text: '药品', active: this.form.domain === DOMAIN_MEDICINE,
+          tap: (): void => { this.form.domain = DOMAIN_MEDICINE; } })
+        Chip({ text: '健身', active: this.form.domain === DOMAIN_FITNESS,
+          tap: (): void => { this.form.domain = DOMAIN_FITNESS; } })
+      }
+      Row({ space: 8 }) {
+        Chip({ text: '工具', active: this.form.domain === DOMAIN_TOOL,
+          tap: (): void => { this.form.domain = DOMAIN_TOOL; } })
+        Chip({ text: '日用', active: this.form.domain === DOMAIN_DAILY,
+          tap: (): void => { this.form.domain = DOMAIN_DAILY; } })
+        Chip({ text: '自动判断', active: this.form.domain === '' || this.form.domain === DOMAIN_OTHER,
+          tap: (): void => { this.form.domain = ''; } })
+      }
       Row({ space: 12 }) {
         Field({ label: '数量', text: this.form.qty, num: true,
           change: (v: string): void => {
@@ -807,6 +833,16 @@ struct ItemAddPanel {
         Field({ label: '单位', text: this.form.unit,
           change: (v: string): void => {
             this.form.unit = v;
+          } }).layoutWeight(1)
+      }
+      Row({ space: 12 }) {
+        Field({ label: '每日用量（药品）', text: this.form.dosePerDay, num: true, placeholder: '如：2 片 / 天',
+          change: (v: string): void => {
+            this.form.dosePerDay = v;
+          } }).layoutWeight(1)
+        Field({ label: '维护倒计时（天）', text: this.form.maintenanceDays, num: true, placeholder: '工具 / 器材可选',
+          change: (v: string): void => {
+            this.form.maintenanceDays = v;
           } }).layoutWeight(1)
       }
       Row({ space: 12 }) {
@@ -886,6 +922,9 @@ struct ItemEditPanel {
       this.form.expDays = String(target.expDays);
       this.form.pos = target.pos;
       this.form.isPrivate = target.isPrivate;
+      this.form.domain = target.domain;
+      this.form.dosePerDay = target.dosePerDay > 0 ? String(target.dosePerDay) : '';
+      this.form.maintenanceDays = target.maintenanceDays > 0 ? String(target.maintenanceDays) : '';
     }
   }
 
@@ -897,6 +936,23 @@ struct ItemEditPanel {
         change: (v: string): void => {
           this.form.name = v;
         } })
+      Text('资源类型').fontSize(11).fontWeight(600).fontColor(T.c('text-muted'))
+      Row({ space: 8 }) {
+        Chip({ text: '食品', active: this.form.domain === DOMAIN_FOOD,
+          tap: (): void => { this.form.domain = DOMAIN_FOOD; } })
+        Chip({ text: '药品', active: this.form.domain === DOMAIN_MEDICINE,
+          tap: (): void => { this.form.domain = DOMAIN_MEDICINE; } })
+        Chip({ text: '健身', active: this.form.domain === DOMAIN_FITNESS,
+          tap: (): void => { this.form.domain = DOMAIN_FITNESS; } })
+      }
+      Row({ space: 8 }) {
+        Chip({ text: '工具', active: this.form.domain === DOMAIN_TOOL,
+          tap: (): void => { this.form.domain = DOMAIN_TOOL; } })
+        Chip({ text: '日用', active: this.form.domain === DOMAIN_DAILY,
+          tap: (): void => { this.form.domain = DOMAIN_DAILY; } })
+        Chip({ text: '自动判断', active: this.form.domain === '' || this.form.domain === DOMAIN_OTHER,
+          tap: (): void => { this.form.domain = ''; } })
+      }
       Field({ label: '编号', text: this.form.no,
         change: (_v: string): void => {} })
       Row({ space: 12 }) {
@@ -907,6 +963,16 @@ struct ItemEditPanel {
         Field({ label: '单位', text: this.form.unit,
           change: (v: string): void => {
             this.form.unit = v;
+          } }).layoutWeight(1)
+      }
+      Row({ space: 12 }) {
+        Field({ label: '每日用量（药品）', text: this.form.dosePerDay, num: true, placeholder: '如：2 片 / 天',
+          change: (v: string): void => {
+            this.form.dosePerDay = v;
+          } }).layoutWeight(1)
+        Field({ label: '维护倒计时（天）', text: this.form.maintenanceDays, num: true, placeholder: '工具 / 器材可选',
+          change: (v: string): void => {
+            this.form.maintenanceDays = v;
           } }).layoutWeight(1)
       }
       Row({ space: 12 }) {
@@ -1763,6 +1829,8 @@ export struct SettingsView {
   @Local serverInput: string = '';
   @Local serverNow: string = '';
   @Local serverModeText: string = '';
+  @Local modelCfg: GatewayModelConfig = new GatewayModelConfig();
+  @Local modelNote: string = '';
 
   aboutToAppear(): void {
     this.refreshGraphInfo();
@@ -1771,6 +1839,31 @@ export struct SettingsView {
     this.serverModeText = currentServerMode() === 'lan-self-hosted'
       ? '局域网自建服务器（数据不出局域网，不需要域名与备案）'
       : '自建后端服务';
+    this.refreshModelConfig();
+  }
+
+  private refreshModelConfig(): void {
+    loadAiModelConfig().then((cfg: GatewayModelConfig): void => {
+      this.modelCfg = cfg;
+      this.modelNote = cfg.hasApiKey
+        ? `已配置 ${cfg.providerLabel || cfg.provider} · ${cfg.model} · ${cfg.maskedKey}`
+        : '尚未配置模型 Key；本地快答、图谱与孪生仍可离线使用';
+    }).catch((e: Error): void => {
+      this.modelNote = '读取模型配置失败：' + e.message;
+    });
+  }
+
+  private saveModelConfig(): void {
+    runBusy('ai:config', (): Promise<void> => saveAiModelConfig(this.modelCfg)
+      .then((cfg: GatewayModelConfig): void => {
+        this.modelCfg = cfg;
+        this.modelCfg.adminToken = '';
+        this.modelCfg.apiKey = '';
+        this.modelNote = `已切换 ${cfg.providerLabel || cfg.provider} · ${cfg.model} · ${cfg.maskedKey}`;
+        store.toast('模型配置已保存到服务端');
+      }), (): void => {
+        store.toast('模型配置已更新');
+      });
   }
 
   private refreshGraphInfo(): void {
@@ -1976,6 +2069,55 @@ export struct SettingsView {
             }
             .width('100%')
           }
+        }
+
+        // 模型平台：OpenAI-compatible 预设 + 自定义地址，Key 只保存到服务端。
+        Card() {
+          Column({ space: 12 }) {
+            CardHead({ title: '模型平台', sub: 'OpenAI-compatible · Key 仅服务端保存' })
+            Text(this.modelNote).fontSize(12).lineHeight(18).fontColor(T.c('text-muted'))
+            Scroll() {
+              Row({ space: 8 }) {
+                ForEach(this.modelCfg.providers, (provider: ProviderOption) => {
+                  Chip({ text: provider.label, active: this.modelCfg.provider === provider.id,
+                    tap: (): void => {
+                      this.modelCfg.provider = provider.id;
+                      this.modelCfg.baseUrl = '';
+                      this.modelCfg.model = '';
+                      this.modelCfg.modelAlt = '';
+                      this.modelCfg.visionModels = '';
+                    } })
+                }, (provider: ProviderOption) => provider.id)
+              }
+            }
+            .width('100%')
+            .scrollable(ScrollDirection.Horizontal)
+            .scrollBar(BarState.Off)
+            Field({ label: 'Base URL', text: this.modelCfg.baseUrl,
+              placeholder: 'https://provider.example/v1',
+              change: (v: string): void => { this.modelCfg.baseUrl = v; } })
+            Row({ space: 12 }) {
+              Field({ label: '主模型', text: this.modelCfg.model, placeholder: '如 deepseek-chat',
+                change: (v: string): void => { this.modelCfg.model = v; } }).layoutWeight(1)
+              Field({ label: '备用模型', text: this.modelCfg.modelAlt, placeholder: '可留空',
+                change: (v: string): void => { this.modelCfg.modelAlt = v; } }).layoutWeight(1)
+            }
+            Field({ label: '视觉模型链', text: this.modelCfg.visionModels,
+              placeholder: 'vision-a,vision-b，可留空',
+              change: (v: string): void => { this.modelCfg.visionModels = v; } })
+            Field({ label: 'API Key', text: this.modelCfg.apiKey, password: true,
+              placeholder: this.modelCfg.hasApiKey ? '留空保留现有 Key' : '输入服务端上游 Key',
+              change: (v: string): void => { this.modelCfg.apiKey = v; } })
+            Field({ label: '配置管理员令牌', text: this.modelCfg.adminToken, password: true,
+              placeholder: 'AI_CONFIG_ADMIN_TOKEN',
+              change: (v: string): void => { this.modelCfg.adminToken = v; } })
+            Text('Key 不会保存在鸿蒙端，只写入后端 .ai-config.json（已 gitignore）。' +
+              '跨设备或公网修改配置时必须使用 HTTPS。')
+              .fontSize(11).lineHeight(17).fontColor(T.c('text-muted'))
+            TBtn({ label: '保存模型配置', icon: 'check', kind: 'primary', small: true,
+              busyKey: 'ai:config', tap: (): void => this.saveModelConfig() })
+          }
+          .alignItems(HorizontalAlign.Start)
         }
 
         // 账号

@@ -82,6 +82,12 @@
 
 图谱物品节点增加资源域属性；同一物品可以连接域类别、药品方案、训练动作或工具维护概念。
 
+## 模型平台开放层
+
+后端以 OpenAI-compatible 协议提供统一适配面。内置 Agnes、DeepSeek、通义千问、智谱、Moonshot、OpenAI 和 Ollama 预设，同时允许自定义 Base URL、主模型、备用模型和视觉模型链。
+
+API Key 只保存到服务端；App 仅显示脱敏尾号。运行时修改配置必须提供 `AI_CONFIG_ADMIN_TOKEN`，配置写入已 gitignore 的服务端文件。非本机部署修改配置必须使用 HTTPS。
+
 ## 验收
 
 - 非食品资源域不再受餐次因子影响；

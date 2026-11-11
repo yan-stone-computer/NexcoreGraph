@@ -33,6 +33,17 @@ const { buildEvidence, matchEntity } = require('./graphQuery');
 const { sendMail } = require('./mailer');
 const { sanitizeModelReply } = require('./replySanitizer');
 const { findUngroundedNumbers } = require('./groundedness');
+const {
+  PRESETS: AI_PROVIDER_PRESETS,
+  buildChatRequest,
+  buildVisionRequest,
+  normalizeProviderConfig,
+  parseChatResponse,
+  providerFromRequest,
+  sanitizedConfig
+} = require('./aiProviders');
+const { governMessages } = require('./contextGovernor');
+const providerConfig = require('./aiProviderConfig');
 
 /**
  * 可选：读取同目录 gitignore 的 backend/.env（AGNES_API_KEY=sk-xxx 等），
@@ -68,33 +79,96 @@ const DB = {
   charset: 'utf8mb4'
 };
 
-/* AI 网关配置：Key 只从服务端环境变量读取，任何情况下都不下发给端侧（D6/M-7） */
-const AI = {
-  baseUrl: process.env.AGNES_BASE_URL || 'https://api.agnes-ai.cn/v1',
-  apiKey: process.env.AGNES_API_KEY || '',
-  model: process.env.AGNES_MODEL || 'agnes-2.0-flash',
-  // 备用模型必须是账号可用清单里的（GET /v1/models）；旧默认 agnes-1.5-flash 已下架，
-  // 导致主模型失败后降级必然再失败，端侧只能回退演示数据（看着像"识别是假的"）
-  modelAlt: process.env.AGNES_MODEL_ALT || 'agnes-3.0-flash',
-  // 视觉识别（带图片）在免费上游通常要 15-25s，15s 会把正常请求误判成超时；
-  // 文本快答仍由端侧 15s 目标时间约束，这里给足余量
-  timeoutMs: Number(process.env.AI_TIMEOUT_MS || 30000),
-  rpm: Number(process.env.AI_RPM || 20),
+/* AI 网关配置：平台、地址与模型可运行时切换；Key 永远不下发给端侧（D6/M-7）。 */
+const AI_CONFIG_FILE = path.join(__dirname, '.ai-config.json');
+
+function envProviderInput() {
+  return {
+    provider: process.env.AI_PROVIDER || 'agnes',
+    baseUrl: process.env.AI_BASE_URL || process.env.AGNES_BASE_URL,
+    apiKey: process.env.AI_API_KEY || process.env.AGNES_API_KEY || '',
+    model: process.env.AI_MODEL || process.env.AGNES_MODEL,
+    modelAlt: process.env.AI_MODEL_ALT || process.env.AGNES_MODEL_ALT,
+    visionModels: process.env.AI_VISION_MODELS || process.env.AGNES_VISION_MODELS,
+    timeoutMs: process.env.AI_TIMEOUT_MS,
+    rpm: process.env.AI_RPM,
+    visionBudgetMs: process.env.AI_VISION_BUDGET_MS,
+    visionMaxTokens: process.env.AI_VISION_MAX_TOKENS,
+  };
+}
+
+function loadPersistedProviderConfig(base) {
+  try {
+    if (!fs.existsSync(AI_CONFIG_FILE)) {
+      return base;
+    }
+    const saved = JSON.parse(fs.readFileSync(AI_CONFIG_FILE, 'utf8'));
+    return providerConfig.mergeProviderConfig(base, saved);
+  } catch (e) {
+    console.warn('[ai-config] 忽略无法读取的模型配置: ' + e.message);
+    return base;
+  }
+}
+
+const AI = loadPersistedProviderConfig(providerConfig.createProviderConfig(envProviderInput()));
+Object.assign(AI, {
   ttsEndpoint: process.env.TTS_ENDPOINT || '',
   ttsKey: process.env.TTS_API_KEY || '',
-  // 短信通道（可选）：配置后 /api/auth/code 会把验证码发出去；不配置则只打服务端日志
   smsEndpoint: process.env.SMS_ENDPOINT || '',
   smsKey: process.env.SMS_API_KEY || '',
-  // 视觉识别模型链：实测 agnes-2.0-flash 连续调用第二次起就持续 429（免费额度按模型限流），
-  // 而 agnes-2.5-flash 连测 3 次全部 200 且只要 0.6–2.8s；agnes-2.5-pro 在本 Key 上是 403
-  // （无权限），不能放进链里。顺序 = 先快且稳的，再兜底。
-  visionModels: String(process.env.AGNES_VISION_MODELS ||
-    'agnes-2.5-flash,agnes-3.0-flash,agnes-2.0-flash')
-    .split(',').map((s) => s.trim()).filter((s) => s !== ''),
-  // 端到端硬预算：超预算立刻返回"识别超时"，不让端侧一直转圈（旧逻辑最坏可跑到 3 分钟）
-  visionBudgetMs: Number(process.env.AI_VISION_BUDGET_MS || 25000),
-  visionMaxTokens: Number(process.env.AI_VISION_MAX_TOKENS || 900)
-};
+});
+
+function runtimeProviderConfig() {
+  return normalizeProviderConfig({
+    providerId: AI.provider,
+    baseUrl: AI.baseUrl,
+    apiKey: AI.apiKey,
+    model: AI.model,
+    visionModel: Array.isArray(AI.visionModels) ? AI.visionModels.join(',') : AI.visionModels,
+    fallbackModel: AI.modelAlt,
+    timeoutMs: AI.timeoutMs,
+    contextWindow: AI.contextWindow
+  });
+}
+
+const AI_OVERRIDE_HEADERS = [
+  'x-ai-provider', 'x-ai-protocol', 'x-ai-base-url', 'x-ai-model',
+  'x-ai-vision-model', 'x-ai-fallback-model', 'x-ai-context-window',
+  'x-ai-max-tokens', 'x-ai-key', 'x-agnes-key'
+];
+
+function selectedProvider(req) {
+  const hasOverride = AI_OVERRIDE_HEADERS.some((name) => String(req.get(name) || '').trim() !== '');
+  if (!hasOverride) return runtimeProviderConfig();
+  if (process.env.ALLOW_CLIENT_AI_OVERRIDE === '0') {
+    throw new Error('服务端已禁用客户端模型覆盖，请在后端 .env 或管理端配置模型');
+  }
+  const provider = providerFromRequest(req);
+  // Never send the configured provider's secret to a different provider.
+  if (!provider.apiKey && provider.providerId === AI.provider) provider.apiKey = AI.apiKey;
+  return provider;
+}
+
+function saveProviderConfig() {
+  const persisted = {
+    provider: AI.provider,
+    baseUrl: AI.baseUrl,
+    apiKey: AI.apiKey,
+    model: AI.model,
+    modelAlt: AI.modelAlt,
+    visionModels: AI.visionModels,
+    timeoutMs: AI.timeoutMs,
+    rpm: AI.rpm,
+    visionBudgetMs: AI.visionBudgetMs,
+    visionMaxTokens: AI.visionMaxTokens,
+  };
+  fs.writeFileSync(AI_CONFIG_FILE, JSON.stringify(persisted, null, 2), { mode: 0o600 });
+  try {
+    fs.chmodSync(AI_CONFIG_FILE, 0o600);
+  } catch (_e) {
+    /* Windows 文件权限由 ACL 管理；保留 best-effort */
+  }
+}
 
 const pool = mysql.createPool(Object.assign({ connectionLimit: 8 }, DB));
 const graph = new GraphService(pool);
@@ -109,7 +183,8 @@ app.use('/tts', express.static(TTS_DIR, { maxAge: '1d', fallthrough: false }));
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Auth-Token');
+  res.setHeader('Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-Auth-Token, X-AI-Admin-Token, X-AI-Provider, X-AI-Protocol, X-AI-Base-URL, X-AI-Model, X-AI-Vision-Model, X-AI-Fallback-Model, X-AI-Context-Window, X-AI-Max-Tokens, X-AI-Key, X-Agnes-Key');
   res.setHeader('Access-Control-Max-Age', '600');
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -311,8 +386,39 @@ app.get('/api/health', (_req, res) => {
     // 明确标注部署形态：端侧据此在界面上显示"局域网自建服务器"，避免被当成云端服务
     mode: 'lan-self-hosted',
     lanIps: lanAddresses().map((a) => a.ip),
-    ai: AI.apiKey ? 'ready' : 'no-key'
+    ai: AI.apiKey ? 'ready' : 'no-key',
+    aiProvider: AI.provider,
+    aiModel: AI.model
   });
+});
+
+/* ---------- 模型平台配置：预设 + 自定义 OpenAI-compatible ---------- */
+app.get('/api/ai/config', (_req, res) => {
+  res.json(Object.assign({ ok: true }, providerConfig.publicProviderConfig(AI)));
+});
+
+app.post('/api/ai/config', (req, res) => {
+  const expected = String(process.env.AI_CONFIG_ADMIN_TOKEN || '').trim();
+  const supplied = String(req.get('x-ai-admin-token') || '').trim();
+  if (expected === '') {
+    return res.status(503).json({
+      ok: false,
+      error: '未启用运行时模型配置：请先在服务端设置 AI_CONFIG_ADMIN_TOKEN',
+    });
+  }
+  if (supplied === '' || supplied !== expected) {
+    return res.status(403).json({ ok: false, error: '模型配置管理员令牌无效' });
+  }
+  try {
+    const next = providerConfig.mergeProviderConfig(AI, req.body || {});
+    Object.assign(AI, next);
+    saveProviderConfig();
+    console.log('[ai-config] provider=' + AI.provider + ' base=' + AI.baseUrl +
+      ' model=' + AI.model + ' key=' + (AI.apiKey ? providerConfig.publicProviderConfig(AI).maskedKey : 'none'));
+    res.json(Object.assign({ ok: true }, providerConfig.publicProviderConfig(AI)));
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
 });
 
 /* ---------- 账号（F9.1/F9.2）：邮箱/手机号 + 随机验证码 + TTL + 真 token ----------
@@ -1169,20 +1275,30 @@ function buildChatSystemPrompt(intent, evidence, graphEvidence) {
 }
 
 /** 单次上游调用（失败抛错，由上层决定重试/降级）；timeoutMs 缺省用全局 AI.timeoutMs */
-async function callAgnesOnce(messages, maxTokens, model, timeoutMs, apiKey) {
-  const res = await fetch(AI.baseUrl + '/chat/completions', {
+async function callAgnesOnce(messages, maxTokens, model, timeoutMs, apiKey, providerConfig) {
+  const baseProvider = providerConfig || runtimeProviderConfig();
+  const provider = normalizeProviderConfig({
+    ...baseProvider,
+    apiKey: apiKey || baseProvider.apiKey || AI.apiKey,
+    model: model || baseProvider.model || AI.model,
+    timeoutMs: timeoutMs || baseProvider.timeoutMs || AI.timeoutMs
+  });
+  const governed = governMessages(messages, {
+    contextWindow: provider.contextWindow,
+    maxOutputTokens: maxTokens
+  });
+  if (!governed.ok) {
+    const error = new Error(governed.report.reason || '上下文超过模型预算');
+    error.code = governed.code;
+    error.report = governed.report;
+    throw error;
+  }
+  const providerRequest = buildChatRequest(provider, governed.messages, { maxTokens });
+  const res = await fetch(providerRequest.url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + (apiKey || AI.apiKey)
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: messages,
-      max_tokens: maxTokens,
-      temperature: 0.6
-    }),
-    signal: AbortSignal.timeout(Number(timeoutMs) > 0 ? Number(timeoutMs) : AI.timeoutMs)
+    headers: providerRequest.headers,
+    body: JSON.stringify(providerRequest.body),
+    signal: AbortSignal.timeout(provider.timeoutMs)
   });
   if (!res.ok) {
     const err = new Error('上游返回 ' + res.status);
@@ -1190,13 +1306,18 @@ async function callAgnesOnce(messages, maxTokens, model, timeoutMs, apiKey) {
     throw err;
   }
   const data = await res.json();
-  const text = data && data.choices && data.choices[0] && data.choices[0].message
-    ? String(data.choices[0].message.content || '') : '';
-  if (text === '') {
+  const parsed = parseChatResponse(provider, data);
+  if (parsed.text === '') {
     throw new Error('上游返回为空');
   }
-  const tokens = data && data.usage ? Number(data.usage.total_tokens || 0) : 0;
-  return { text, tokens, model };
+  return {
+    text: parsed.text,
+    tokens: parsed.tokens,
+    model: parsed.model,
+    provider: provider.providerId,
+    protocol: provider.protocol,
+    context: governed.report
+  };
 }
 
 /**
@@ -1204,13 +1325,17 @@ async function callAgnesOnce(messages, maxTokens, model, timeoutMs, apiKey) {
  * 免费上游偶发 429/503（限流/排队）很常见，不重试会直接失败到端侧（端侧只能回退演示数据，
  * 看起来就像"识别是假的"）。
  */
-async function callAgnes(messages, maxTokens, model, apiKey) {
-  const attempts = [model, AI.modelAlt];
+async function callAgnes(messages, maxTokens, model, apiKey, providerConfig) {
+  const baseProvider = providerConfig || runtimeProviderConfig();
+  const attempts = [...new Set([
+    model || baseProvider.model || AI.model,
+    baseProvider.fallbackModel || AI.modelAlt
+  ].filter(Boolean))];
   let lastErr = null;
   for (let m = 0; m < attempts.length; m++) {
     for (let i = 0; i < 3; i++) {
       try {
-        return await callAgnesOnce(messages, maxTokens, attempts[m], undefined, apiKey);
+        return await callAgnesOnce(messages, maxTokens, attempts[m], undefined, apiKey, baseProvider);
       } catch (e) {
         lastErr = e;
         const retryable = e.status === 429 || (e.status >= 500 && e.status < 600) ||
@@ -1228,8 +1353,9 @@ async function callAgnes(messages, maxTokens, model, apiKey) {
   throw lastErr || new Error('上游调用失败');
 }
 
-async function agnesChat(messages, maxTokens, apiKey) {
-  return await callAgnes(messages, maxTokens, AI.model, apiKey);
+async function agnesChat(messages, maxTokens, apiKey, providerConfig) {
+  const provider = providerConfig || runtimeProviderConfig();
+  return await callAgnes(messages, maxTokens, provider.model || AI.model, apiKey, provider);
 }
 
 /**
@@ -1243,12 +1369,17 @@ async function agnesChat(messages, maxTokens, apiKey) {
  *   - 全程受 AI.visionBudgetMs 硬预算约束，超预算直接抛 deadline 错误，端侧立刻给出"识别超时"。
  * 每次尝试的耗时都会进 trail，便于复盘到底卡在哪个模型（返回体里也带一份）。
  */
-async function callAgnesVision(messages, maxTokens, apiKey) {
+async function callAgnesVision(messages, maxTokens, apiKey, providerConfig) {
+  const baseProvider = providerConfig || runtimeProviderConfig();
   const deadline = Date.now() + AI.visionBudgetMs;
   const trail = [];
   let lastErr = null;
-  for (let m = 0; m < AI.visionModels.length; m++) {
-    const model = AI.visionModels[m];
+  const models = [...new Set([
+    ...(String(baseProvider.visionModel || '').split(',').map((v) => v.trim()).filter(Boolean)),
+    ...AI.visionModels
+  ])];
+  for (let m = 0; m < models.length; m++) {
+    const model = models[m];
     for (let i = 0; i < 2; i++) {
       const left = deadline - Date.now();
       if (left < 1500) {
@@ -1260,7 +1391,14 @@ async function callAgnesVision(messages, maxTokens, apiKey) {
       }
       const t = Date.now();
       try {
-        const out = await callAgnesOnce(messages, maxTokens, model, Math.min(AI.timeoutMs, left), apiKey);
+        const out = await callAgnesOnce(
+          messages,
+          maxTokens,
+          model,
+          Math.min(baseProvider.timeoutMs || AI.timeoutMs, left),
+          apiKey,
+          baseProvider
+        );
         trail.push(model + ':' + (Date.now() - t) + 'ms:ok');
         console.log('[ai-gateway] vision ' + trail.join(' → '));
         return Object.assign({}, out, { trail });
@@ -1377,13 +1515,70 @@ function normalizeVisionItems(raw) {
 }
 
 /** 网关未配置 Key 时返回 503，端侧据此回退到本地快答 / 演示回复 */
-function ensureKey(res) {
-  if (!AI.apiKey) {
-    res.status(503).json({ ok: false, error: 'AI 网关未配置：请在后端设置环境变量 AGNES_API_KEY' });
+function ensureKey(res, provider) {
+  const key = provider ? provider.apiKey : AI.apiKey;
+  if (!key) {
+    res.status(503).json({
+      ok: false,
+      error: 'AI 网关未配置：请在后端设置 AI_API_KEY，或在「我的 → 模型平台」填写 Key',
+    });
     return false;
   }
   return true;
 }
+
+app.get('/api/ai/providers', (_req, res) => {
+  res.json({
+    ok: true,
+    providers: AI_PROVIDER_PRESETS.map((item) => ({
+      id: item.id,
+      label: item.label,
+      protocol: item.protocol,
+      baseUrl: item.baseUrl,
+      model: item.model,
+      visionModel: item.visionModel,
+      contextWindow: item.contextWindow
+    }))
+  });
+});
+
+/* 连接测试只发送一条很短的消息，返回脱敏后的配置信息。 */
+app.post('/api/ai/test', async (req, res) => {
+  let provider;
+  try {
+    provider = selectedProvider(req);
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
+  if (!ensureKey(res, provider)) return;
+  const t0 = Date.now();
+  try {
+    const out = await agnesChat(
+      [{ role: 'user', content: '只回复 OK。' }],
+      16,
+      provider.apiKey,
+      provider
+    );
+    res.json({
+      ok: true,
+      provider: provider.providerId,
+      protocol: provider.protocol,
+      model: out.model,
+      ms: Date.now() - t0,
+      context: out.context,
+      config: sanitizedConfig(provider)
+    });
+  } catch (e) {
+    res.status(e.code === 'CONTEXT_OVERFLOW' ? 413 : 502).json({
+      ok: false,
+      provider: provider.providerId,
+      protocol: provider.protocol,
+      error: e.message,
+      code: e.code || 'PROVIDER_ERROR',
+      config: sanitizedConfig(provider)
+    });
+  }
+});
 
 /* AI 对话：intent + evidence 由端侧装配（红线 1），模型只做措辞与工具行输出 */
 /* 微信内容安全（可选）：端侧发消息前调用。未配置 WX_APPID / WX_SECRET 时返回
@@ -1435,11 +1630,16 @@ app.post('/api/security/check', async (req, res) => {
 
 app.post('/api/ai/chat', async (req, res) => {
   const { familyId, user, intent, evidence, question, history, maxTokens, graphEvidence } = req.body || {};
-  const clientKey = String(req.get('x-agnes-key') || '').trim();
+  let provider;
+  try {
+    provider = selectedProvider(req);
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
   if (!question && intent !== 'community-summary') {
     return res.status(400).json({ ok: false, error: '缺少 question' });
   }
-  if (!clientKey && !ensureKey(res)) {
+  if (!ensureKey(res, provider)) {
     return;
   }
   if (rateLimited(familyId)) {
@@ -1468,7 +1668,7 @@ app.post('/api/ai/chat', async (req, res) => {
   const t0 = Date.now();
   const traceId = 'ai-' + t0 + '-' + Math.random().toString(16).substring(2, 6);
   try {
-    const out = await agnesChat(messages, Number(maxTokens) || 600, clientKey);
+    const out = await agnesChat(messages, Number(maxTokens) || 600, provider.apiKey, provider);
     const ms = Date.now() - t0;
     out.text = sanitizeModelReply(out.text);
     if (out.text === '') {
@@ -1511,11 +1711,22 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     res.json({
       ok: true, text: out.text, model: out.model, ms, tokens: out.tokens,
-      traceId, evidenceUsed, warnings, ungroundedNumbers
+      traceId, evidenceUsed, warnings, ungroundedNumbers,
+      provider: out.provider || provider.providerId,
+      protocol: out.protocol || provider.protocol,
+      context: out.context
     });
   } catch (e) {
     await logAiUsage({ familyId, user, route: intent || 'other', model: 'failed', ms: Date.now() - t0, tokens: 0 });
-    res.status(502).json({ ok: false, error: '模型调用失败：' + e.message });
+    const status = e.code === 'CONTEXT_OVERFLOW' ? 413 : e.status === 429 ? 429 : 502;
+    res.status(status).json({
+      ok: false,
+      error: e.code === 'CONTEXT_OVERFLOW'
+        ? '当前上下文超过所选模型预算：' + e.message
+        : '模型调用失败：' + e.message,
+      code: e.code || 'PROVIDER_ERROR',
+      report: e.report
+    });
   }
 });
 
@@ -1543,11 +1754,16 @@ const VISION_RULES = '你是「启核图策」家庭库存识别引擎。只输�
 /* 视觉识别：端侧压缩后的 base64 JPEG → 结构化物品数组（F1.1/F1.5） */
 app.post('/api/ai/vision', async (req, res) => {
   const { familyId, user, imageBase64, hints } = req.body || {};
-  const clientKey = String(req.get('x-agnes-key') || '').trim();
+  let provider;
+  try {
+    provider = selectedProvider(req);
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
   if (!imageBase64) {
     return res.status(400).json({ ok: false, error: '缺少 imageBase64' });
   }
-  if (!clientKey && !ensureKey(res)) {
+  if (!ensureKey(res, provider)) {
     return;
   }
   if (rateLimited(familyId)) {
@@ -1561,7 +1777,7 @@ app.post('/api/ai/vision', async (req, res) => {
   ];
   const t0 = Date.now();
   try {
-    const out = await callAgnesVision(messages, AI.visionMaxTokens, clientKey);
+    const out = await callAgnesVision(messages, AI.visionMaxTokens, provider.apiKey, provider);
     const raw = extractVisionJson(out.text);
     const ms = Date.now() - t0;
     if (raw === null) {
@@ -1576,7 +1792,9 @@ app.post('/api/ai/vision', async (req, res) => {
       ' trail=' + out.trail.join(' → '));
     res.json({
       ok: true, items, model: out.model, ms, tokens: out.tokens,
-      trail: out.trail, noHouseholdItems: items.length === 0
+      trail: out.trail, noHouseholdItems: items.length === 0,
+      provider: provider.providerId, protocol: provider.protocol,
+      context: out.context
     });
   } catch (e) {
     const ms = Date.now() - t0;
@@ -1898,11 +2116,9 @@ initDb().then(() => {
 }).finally(() => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log('[nexcoregraph-backend] listening on http://0.0.0.0:' + PORT);
-        // 打 Key 前缀便于排查"用的哪把 Key"（曾出现：系统里残留失效旧 Key → 一直 401 → 端侧静默回退演示数据）
-        const keyTag = AI.apiKey
-          ? ('已配置 Key (' + AI.apiKey.slice(0, 7) + '****' + AI.apiKey.slice(-4) + ')')
-          : '未配置 AGNES_API_KEY（仅本地快答可用）';
-        console.log('[nexcoregraph-backend] AI 网关: ' + keyTag + ' | model=' + AI.model + ' alt=' + AI.modelAlt +
+        const keyTag = AI.apiKey ? '已配置 Key（已脱敏）' : '未配置 Key（仅本地快答可用）';
+        console.log('[nexcoregraph-backend] AI 网关: ' + keyTag + ' | provider=' + AI.provider +
+          ' | model=' + AI.model + ' alt=' + AI.modelAlt +
           ' | vision=' + AI.visionModels.join('>') + ' budget=' + AI.visionBudgetMs + 'ms maxTok=' + AI.visionMaxTokens);
         // 验证码下发通道：邮箱账号是否有授权码、短信通道是否配好（只打账号，不打密码）
         const mailTag = process.env.MAIL_USER

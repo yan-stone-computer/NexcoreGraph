@@ -4,6 +4,8 @@
      这里不再有任何预置样例数据（seed* 已全部删除）。
    - KNOWLEDGE 是产品内置的食材保质期知识（有公开来源），属于内容而非用户数据。 */
 
+import { inferResourceDomain } from './ResourceDomain';
+
 export class KbEntry {
   name: string = '';
   days: number = 0;
@@ -48,9 +50,13 @@ export class Item {
   @Trace barcode: string = '';
   @Trace isPrivate: boolean = false;
   @Trace expiring: boolean = false;
+  @Trace domain: string = 'other';
+  @Trace dosePerDay: number = 0;
+  @Trace maintenanceDays: number = 0;
 
   constructor(id: string, name: string, emoji: string, img: ResourceStr, kbKey: string,
-    qty: number, unit: string, price: number, priceSrc: string, expDays: number, pos: string, expiring: boolean) {
+    qty: number, unit: string, price: number, priceSrc: string, expDays: number, pos: string, expiring: boolean,
+    domain: string = '', dosePerDay: number = 0, maintenanceDays: number = 0) {
     this.id = id;
     this.name = name;
     this.emoji = emoji;
@@ -63,6 +69,9 @@ export class Item {
     this.expDays = expDays;
     this.pos = pos;
     this.expiring = expiring;
+    this.domain = domain === '' ? inferResourceDomain(name) : domain;
+    this.dosePerDay = Math.max(0, dosePerDay);
+    this.maintenanceDays = Math.max(0, maintenanceDays);
   }
 }
 
@@ -80,8 +89,10 @@ export class Library {
   @Trace coopAddOnly: boolean = false;
   @Trace of: string = '';
   @Trace tag: string = '';
+  @Trace domain: string = 'other';
 
-  constructor(id: string, name: string, icon: string, tone: string, count: number, desc: string, items: Item[]) {
+  constructor(id: string, name: string, icon: string, tone: string, count: number, desc: string, items: Item[],
+    domain: string = '') {
     this.id = id;
     this.name = name;
     this.icon = icon;
@@ -89,6 +100,7 @@ export class Library {
     this.count = count;
     this.desc = desc;
     this.items = items;
+    this.domain = domain === '' ? inferResourceDomain('', name) : domain;
   }
 }
 
@@ -265,6 +277,14 @@ export class Profile {
   @Trace dislike: string = '';      // 忌口/过敏，如"不吃香菜"
   @Trace goal: string = '均衡';     // 均衡 | 控糖 | 减脂 | 高蛋白
   @Trace inject: boolean = true;    // 是否注入偏好到菜谱/营养类意图
+  @Trace heightCm: number = 0;
+  @Trace weightKg: number = 0;
+  @Trace age: number = 0;
+  @Trace trainingGoal: string = 'general';
+  @Trace trainingLevel: string = 'beginner';
+  @Trace weeklyDays: number = 3;
+  @Trace limitations: string = '';
+  @Trace trainingEnabled: boolean = false;
 }
 
 export class IntakeResult {

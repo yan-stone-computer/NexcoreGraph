@@ -50,6 +50,9 @@ class ItemDto {
   pos: string = '未设置';
   isPrivate: boolean = false;
   expiring: boolean = false;
+  domain: string = 'other';
+  dosePerDay: number = 0;
+  maintenanceDays: number = 0;
 }
 
 class LibDto {
@@ -64,6 +67,7 @@ class LibDto {
   coopAddOnly: boolean = false;
   of: string = '';
   tag: string = '';
+  domain: string = 'other';
   items: ItemDto[] = [];
 }
 
@@ -107,6 +111,14 @@ class ProfileDto {
   dislike: string = '';
   goal: string = '均衡';
   inject: boolean = true;
+  heightCm: number = 0;
+  weightKg: number = 0;
+  age: number = 0;
+  trainingGoal: string = 'general';
+  trainingLevel: string = 'beginner';
+  weeklyDays: number = 3;
+  limitations: string = '';
+  trainingEnabled: boolean = false;
 }
 
 class TodoDto {
@@ -164,6 +176,7 @@ export function buildDataSnapshot(): string {
     d.coopAddOnly = l.coopAddOnly;
     d.of = l.of;
     d.tag = l.tag;
+    d.domain = l.domain;
     d.items = l.items.map((it: Item): ItemDto => {
       const i = new ItemDto();
       i.id = it.id;
@@ -179,6 +192,9 @@ export function buildDataSnapshot(): string {
       i.pos = it.pos;
       i.isPrivate = it.isPrivate;
       i.expiring = it.expiring;
+      i.domain = it.domain;
+      i.dosePerDay = it.dosePerDay;
+      i.maintenanceDays = it.maintenanceDays;
       return i;
     });
     return d;
@@ -228,6 +244,14 @@ export function buildDataSnapshot(): string {
   pf.dislike = store.profile.dislike;
   pf.goal = store.profile.goal;
   pf.inject = store.profile.inject;
+  pf.heightCm = store.profile.heightCm;
+  pf.weightKg = store.profile.weightKg;
+  pf.age = store.profile.age;
+  pf.trainingGoal = store.profile.trainingGoal;
+  pf.trainingLevel = store.profile.trainingLevel;
+  pf.weeklyDays = store.profile.weeklyDays;
+  pf.limitations = store.profile.limitations;
+  pf.trainingEnabled = store.profile.trainingEnabled;
   p.profile = pf;
   p.daily = store.daily.map((t: Todo): TodoDto => {
     const d = new TodoDto();
@@ -278,7 +302,7 @@ export function applyDataSnapshot(raw: string, openAiOnNewChat: boolean = false)
       const existed = store.findLib(l.id);
       let lib: Library;
       if (existed === null) {
-        lib = new Library(l.id, l.name, l.icon, l.tone, l.count, l.desc, []);
+        lib = new Library(l.id, l.name, l.icon, l.tone, l.count, l.desc, [], l.domain);
         store.libraries = store.libraries.concat([lib]);
       } else {
         lib = existed;
@@ -304,7 +328,8 @@ export function applyDataSnapshot(raw: string, openAiOnNewChat: boolean = false)
         });
         if (hit === null) {
           const ni = new Item(it.id, it.name, it.emoji, '', it.kbKey, it.qty, it.unit,
-            it.price, it.priceSrc, it.expDays, it.pos, it.expiring);
+            it.price, it.priceSrc, it.expDays, it.pos, it.expiring,
+            it.domain, it.dosePerDay, it.maintenanceDays);
           ni.no = it.no;
           ni.isPrivate = it.isPrivate;
           lib.items.push(ni);
@@ -383,6 +408,14 @@ export function applyDataSnapshot(raw: string, openAiOnNewChat: boolean = false)
       store.profile.dislike = p.profile.dislike;
       store.profile.goal = p.profile.goal;
       store.profile.inject = p.profile.inject;
+      store.profile.heightCm = p.profile.heightCm ?? 0;
+      store.profile.weightKg = p.profile.weightKg ?? 0;
+      store.profile.age = p.profile.age ?? 0;
+      store.profile.trainingGoal = p.profile.trainingGoal ?? 'general';
+      store.profile.trainingLevel = p.profile.trainingLevel ?? 'beginner';
+      store.profile.weeklyDays = p.profile.weeklyDays ?? 3;
+      store.profile.limitations = p.profile.limitations ?? '';
+      store.profile.trainingEnabled = p.profile.trainingEnabled ?? false;
     }
 
     const daily: Todo[] = [];
@@ -476,6 +509,7 @@ export function applyDataSnapshot(raw: string, openAiOnNewChat: boolean = false)
       nwb.history = his;
       store.workbench = nwb;
     }
+    store.repairResourceDomains();
     store.touch();
     let n = 0;
     store.libraries.forEach((l: Library): void => {

@@ -7,6 +7,8 @@ import reminderPlannerTest from './ReminderPlanner.test';
 import policyEngineTest from './PolicyEngine.test';
 import localRestoreTest from './LocalRestore.test';
 import commandsTest from './Commands.test';
+import resourceDomainTest from './ResourceDomain.test';
+import workoutPlannerTest from './WorkoutPlanner.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -18,4 +20,6 @@ export default function testsuite() {
   policyEngineTest();
   localRestoreTest();
   commandsTest();
+  resourceDomainTest();
+  workoutPlannerTest();
 }

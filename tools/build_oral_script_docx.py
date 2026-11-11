@@ -57,6 +57,25 @@ def set_cell_margins(cell, top=80, bottom=80, start=120, end=120):
         mar.append(node)
 
 
+def set_cell_width_dxa(cell, width):
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcW = tcPr.find(qn("w:tcW"))
+    if tcW is None:
+        tcW = OxmlElement("w:tcW")
+        tcPr.append(tcW)
+    tcW.set(qn("w:w"), str(width))
+    tcW.set(qn("w:type"), "dxa")
+
+
+def set_row_flags(row, header=False):
+    trPr = row._tr.get_or_add_trPr()
+    cant_split = OxmlElement("w:cantSplit")
+    trPr.append(cant_split)
+    if header:
+        tbl_header = OxmlElement("w:tblHeader")
+        trPr.append(tbl_header)
+
+
 def shade_cell(cell, fill):
     tcPr = cell._tc.get_or_add_tcPr()
     shd = OxmlElement("w:shd")
@@ -81,6 +100,9 @@ def set_table_geometry(table, column_widths):
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
     table.autofit = False
     tblPr = table._tbl.tblPr
+    for tag in ("w:tblW", "w:tblInd", "w:tblLayout"):
+        for node in tblPr.findall(qn(tag)):
+            tblPr.remove(node)
     tblW = OxmlElement("w:tblW")
     tblW.set(qn("w:w"), str(sum(column_widths)))
     tblW.set(qn("w:type"), "dxa")
@@ -97,7 +119,7 @@ def set_table_geometry(table, column_widths):
         col.set(qn("w:w"), str(width))
     for row in table.rows:
         for cell, width in zip(row.cells, column_widths):
-            cell.width = width
+            set_cell_width_dxa(cell, width)
 
 
 def add_page_number(paragraph):
@@ -169,12 +191,57 @@ def setup_styles(doc):
         style.paragraph_format.line_spacing = 1.25
 
 
+def add_metric_strip(doc):
+    metrics = (
+        ("05:15", "完整主口播"),
+        ("4 域", "食品 / 药品 / 健身 / 工具"),
+        ("60 秒", "答辩浓缩版"),
+    )
+    table = doc.add_table(rows=1, cols=3)
+    table.style = "Table Grid"
+    set_table_borders(table)
+    widths = [3120, 3120, 3120]
+    set_table_geometry(table, widths)
+    set_row_flags(table.rows[0], header=True)
+    for cell, (value, label) in zip(table.rows[0].cells, metrics):
+        shade_cell(cell, "F4F6F9")
+        set_cell_margins(cell, 105, 105, 120, 120)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_after = Pt(1)
+        run = p.add_run(value)
+        set_run_font(run, size=13, bold=True, color=RGBColor.from_string(HEADING_DARK))
+        p2 = cell.add_paragraph()
+        p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p2.paragraph_format.space_after = Pt(0)
+        run = p2.add_run(label)
+        set_run_font(run, size=8.5, color=MUTED)
+    doc.add_paragraph().paragraph_format.space_after = Pt(0)
+
+
 def add_title_block(doc, title, metadata):
+    product = "启核图策"
+    subtitle = "全资源路演口播与镜头插入方案"
+    if "·" in title:
+        product, subtitle = [part.strip() for part in title.split("·", 1)]
+
     p = doc.add_paragraph()
     p.paragraph_format.space_before = Pt(0)
-    p.paragraph_format.space_after = Pt(8)
-    run = p.add_run(title)
-    set_run_font(run, size=24, bold=True, color=RGBColor.from_string(HEADING_DARK))
+    p.paragraph_format.space_after = Pt(3)
+    run = p.add_run("第九届传智杯 · AI 鸿蒙赛道 · 多域资源路演制作包")
+    set_run_font(run, size=9, bold=True, color=RGBColor(86, 99, 115))
+
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_after = Pt(3)
+    run = p.add_run(product)
+    set_run_font(run, size=30, bold=True, color=RGBColor.from_string(HEADING_DARK))
+
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(12)
+    run = p.add_run(subtitle)
+    set_run_font(run, size=14, bold=False, color=RGBColor.from_string(HEADING_BLUE))
 
     for line in metadata:
         p = doc.add_paragraph()
@@ -183,26 +250,26 @@ def add_title_block(doc, title, metadata):
         for run in p.runs:
             run.font.color.rgb = MUTED
 
+    add_metric_strip(doc)
+
     callout = doc.add_table(rows=1, cols=1)
+    callout.style = "Table Grid"
     set_table_geometry(callout, [USB])
+    set_row_flags(callout.rows[0], header=True)
     cell = callout.cell(0, 0)
     shade_cell(cell, "F4F6F9")
-    set_cell_margins(cell, 140, 140, 160, 160)
+    set_cell_margins(cell, 140, 140, 120, 120)
     p = cell.paragraphs[0]
     p.paragraph_format.space_after = Pt(0)
     run = p.add_run("主叙事：别人记录家庭资源，我们推演家庭资源，并让 AI 的动作可约束、可验证、可追溯。")
     set_run_font(run, size=11, bold=True, color=RGBColor.from_string(HEADING_DARK))
-    callout.style = "Table Grid"
-    for row in callout.rows:
-        for c in row.cells:
-            set_cell_margins(c)
 
     doc.add_paragraph().add_run().add_break()
     doc.add_page_break()
 
 
 def parse_title_and_meta(lines):
-    title = "启核图策 · 评委冲击版口播稿与镜头插入方案"
+    title = "启核图策 · 全资源路演口播稿"
     meta = []
     for line in lines[:12]:
         if line.startswith("# "):
@@ -246,6 +313,9 @@ def add_table(doc, rows):
     table.style = "Table Grid"
     set_table_borders(table)
     set_table_geometry(table, width_weights(normalized, cols))
+    set_row_flags(table.rows[0], header=True)
+    for row in table.rows[1:]:
+        set_row_flags(row)
     for ri, row in enumerate(normalized):
         for ci, value in enumerate(row):
             cell = table.cell(ri, ci)
@@ -264,17 +334,52 @@ def add_table(doc, rows):
 
 
 def add_quote(doc, lines):
-    table = doc.add_table(rows=1, cols=1)
-    set_table_geometry(table, [USB])
-    cell = table.cell(0, 0)
-    shade_cell(cell, "F4F6F9")
-    set_cell_margins(cell, 120, 120, 160, 160)
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(8)
+    p.paragraph_format.left_indent = Inches(0.14)
+    p.paragraph_format.right_indent = Inches(0.08)
+    p.paragraph_format.line_spacing = 1.25
+    p.paragraph_format.keep_together = len(lines) <= 4
+
+    pPr = p._p.get_or_add_pPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:fill"), "F4F6F9")
+    pPr.append(shd)
+    pBdr = OxmlElement("w:pBdr")
+    left = OxmlElement("w:left")
+    left.set(qn("w:val"), "single")
+    left.set(qn("w:sz"), "14")
+    left.set(qn("w:space"), "10")
+    left.set(qn("w:color"), "AFC1D6")
+    pBdr.append(left)
+    pPr.append(pBdr)
+
     for idx, line in enumerate(lines):
-        p = cell.paragraphs[0] if idx == 0 else cell.add_paragraph()
+        add_inline_runs(p, line, size=10.5)
+        if idx < len(lines) - 1:
+            br = p.add_run()
+            br.add_break()
+
+
+def add_bullet_group(doc, items):
+    for idx, text in enumerate(items):
+        p = doc.add_paragraph(style="List Bullet")
+        add_inline_runs(p, text, size=11)
         p.paragraph_format.space_after = Pt(4)
         p.paragraph_format.line_spacing = 1.25
-        add_inline_runs(p, line, size=11)
-    doc.add_paragraph().paragraph_format.space_after = Pt(2)
+        p.paragraph_format.keep_together = True
+        p.paragraph_format.keep_with_next = idx < len(items) - 1
+
+
+def add_numbered_group(doc, items):
+    for idx, text in enumerate(items):
+        p = doc.add_paragraph(style="List Number")
+        add_inline_runs(p, re.sub(r"^\d+\.\s+", "", text), size=11)
+        p.paragraph_format.space_after = Pt(4)
+        p.paragraph_format.line_spacing = 1.25
+        p.paragraph_format.keep_together = True
+        p.paragraph_format.keep_with_next = idx < len(items) - 1
 
 
 def build(md_path: Path, out_path: Path):
@@ -317,8 +422,9 @@ def build(md_path: Path, out_path: Path):
             i += 1
             continue
         if line.startswith("## "):
+            heading_text = line[3:].strip()
             p = doc.add_paragraph(style="Heading 1")
-            p.add_run(line[3:].strip())
+            p.add_run(heading_text)
             set_heading(p, 16, HEADING_BLUE, 18, 10)
             i += 1
             continue
@@ -338,30 +444,37 @@ def build(md_path: Path, out_path: Path):
             rows, i = parse_table(lines, i)
             add_table(doc, rows)
             continue
-        if line.startswith("> "):
+        if line.lstrip().startswith(">"):
             quote_lines = []
-            while i < len(lines) and lines[i].startswith("> "):
-                quote_lines.append(lines[i][2:].strip())
+            while i < len(lines) and lines[i].lstrip().startswith(">"):
+                text = lines[i].lstrip()[1:].strip()
+                if text:
+                    quote_lines.append(text)
                 i += 1
-            add_quote(doc, quote_lines)
+            if quote_lines:
+                add_quote(doc, quote_lines)
             continue
         if line.startswith("- "):
-            p = doc.add_paragraph(style="List Bullet")
-            add_inline_runs(p, line[2:].strip(), size=11)
-            p.paragraph_format.space_after = Pt(4)
-            p.paragraph_format.line_spacing = 1.25
-            i += 1
+            items = []
+            while i < len(lines) and lines[i].startswith("- "):
+                items.append(lines[i][2:].strip())
+                i += 1
+            add_bullet_group(doc, items)
             continue
         if re.match(r"^\d+\.\s+", line):
-            p = doc.add_paragraph(style="List Number")
-            add_inline_runs(p, re.sub(r"^\d+\.\s+", "", line), size=11)
-            p.paragraph_format.space_after = Pt(4)
-            p.paragraph_format.line_spacing = 1.25
-            i += 1
+            items = []
+            while i < len(lines) and re.match(r"^\d+\.\s+", lines[i]):
+                items.append(lines[i])
+                i += 1
+            add_numbered_group(doc, items)
             continue
         if line.strip():
             p = doc.add_paragraph()
             add_inline_runs(p, line.strip(), size=11)
+            plain_label = re.sub(r"\*\*([^*]+)\*\*", r"\1", line).strip()
+            if plain_label in {"画面", "口播", "字幕"}:
+                p.paragraph_format.keep_with_next = True
+                p.paragraph_format.keep_together = True
         i += 1
 
     doc.save(out_path)

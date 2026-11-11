@@ -42,5 +42,21 @@ export default function reminderPlannerTest() {
       expect(result[0].text.indexOf('牛奶') >= 0).assertTrue();
       expect(result[0].text.indexOf('鸡蛋') >= 0).assertTrue();
     });
+
+    it('includes medicine that will run out within three days', 0, () => {
+      const med = new Item('med', '退烧药', '💊', '', '', 2, '片', 0, '手动', 90,
+        '药盒', false, 'medicine', 1, 0);
+      const result = planReminders([med], 20261110, true, []);
+      expect(result.length).assertEqual(1);
+      expect(result[0].text.indexOf('退烧药') >= 0).assertTrue();
+    });
+
+    it('includes tool maintenance due within three days', 0, () => {
+      const tool = new Item('tool', '电钻', '🛠️', '', '', 1, '台', 0, '手动', 0,
+        '工具箱', false, 'tool', 0, 2);
+      const result = planReminders([tool], 20261110, true, []);
+      expect(result.length).assertEqual(1);
+      expect(result[0].text.indexOf('电钻') >= 0).assertTrue();
+    });
   });
 }

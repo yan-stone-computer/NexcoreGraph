@@ -2,6 +2,7 @@ import { AgentAction, PolicyDecision } from './AgentTypes';
 
 const ALLOWED_KINDS: string[] = [
   'adjust_inventory',
+  'set_medicine_dose',
   'add_shopping',
   'create_meal_plan',
   'execute_meal_plan',

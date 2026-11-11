@@ -14,6 +14,7 @@ import { pullMyData } from './SyncApi';
 import { http } from '@kit.NetworkKit';
 import { T } from './Tokens';
 import { kcalGuess } from './Knowledge';
+import { domainIcon, inferResourceDomain } from './ResourceDomain';
 
 const LATENCY = 220;
 
@@ -250,7 +251,8 @@ function placeItems(lib: Library, named: IntakeResult[]): void {
     const expDays = r.expDays > 0 ? r.expDays : 0;
     const item = new Item(r.id, r.name, r.emoji, r.img, r.kbKey,
       parseFloat(r.qty) || 1, r.unit || '个', parseFloat(r.price) || 0, r.priceSrc || '手动',
-      expDays, r.pos === '' ? '未设置' : r.pos, expDays > 0 && expDays <= 3);
+      expDays, r.pos === '' ? '未设置' : r.pos, expDays > 0 && expDays <= 3,
+      inferResourceDomain(r.name, lib.name, r.category));
     item.barcode = r.barcode;
     lib.items.push(item);
     newItems.push(item);
@@ -300,10 +302,34 @@ export function setItemQtyByName(name: string, qty: number): Promise<void> {
   });
 }
 
+/** 药品每日用量由用户明确填写；模型和规则都不得猜剂量。 */
+export function setMedicineDoseByName(name: string, dosePerDay: number): Promise<void> {
+  return sleep().then((): void => {
+    const hit = store.findItemHit(name);
+    if (hit === null) {
+      throw new Error('库存中没有「' + name + '」');
+    }
+    const domain: string = hit[1].domain === '' ? inferResourceDomain(hit[1].name, hit[0].name) : hit[1].domain;
+    if (domain !== 'medicine') {
+      throw new Error('只有药品可以设置每日用量');
+    }
+    if (!isFinite(dosePerDay) || dosePerDay <= 0) {
+      throw new Error('每日用量必须大于 0');
+    }
+    hit[1].dosePerDay = dosePerDay;
+    store.pushLog('medicine', `设置「${hit[1].name}」每日用量为 ${dosePerDay}${hit[1].unit}`);
+  });
+}
+
 /* ---------- 资源库管理（F2.1） ---------- */
 export function createLibrary(name: string, icon: string, tone: string): Promise<Library> {
   return sleep().then((): Library => {
-    const lib = new Library(nid('lib'), name || '新库', icon || 'package', tone || 'teal', 0, '0 件 · 空库', []);
+    const safeName: string = name || '新库';
+    const domain: string = inferResourceDomain('', safeName);
+    const pickedIcon: string = icon === '' || (icon === 'package' && domain !== 'other')
+      ? domainIcon(domain) : icon;
+    const lib = new Library(nid('lib'), safeName, pickedIcon, tone || 'teal',
+      0, '0 件 · 空库', [], domain);
     store.libraries = store.libraries.concat([lib]);
     store.pushLog('library', `新建库「${lib.name}」`);
     return lib;
@@ -547,7 +573,9 @@ export function addItem(libId: string, data: ItemForm): Promise<void> {
     const expDays = parseExpDays(data.expDays);
     const item = new Item(nid('it'), data.name, data.emoji, data.img, '',
       parseFloat(data.qty) || 1, data.unit || '个', parseFloat(data.price) || 0, data.priceSrc || '手动',
-      expDays, data.pos === '' ? '未设置' : data.pos, expDays > 0 && expDays <= 3);
+      expDays, data.pos === '' ? '未设置' : data.pos, expDays > 0 && expDays <= 3,
+      data.domain === '' ? inferResourceDomain(data.name, lib.name) : data.domain,
+      parseFloat(data.dosePerDay) || 0, parseFloat(data.maintenanceDays) || 0);
     item.no = data.no === '' ? store.nextNo() : data.no;
     item.isPrivate = data.isPrivate;
     lib.items.push(item);
@@ -556,18 +584,22 @@ export function addItem(libId: string, data: ItemForm): Promise<void> {
   });
 }
 
+@ObservedV2
 export class ItemForm {
-  name: string = '';
-  no: string = '';
-  qty: string = '1';
-  unit: string = '个';
-  price: string = '0';
-  expDays: string = '';
-  pos: string = '';
-  isPrivate: boolean = false;
-  emoji: string = '📦';
-  img: ResourceStr = '';
-  priceSrc: string = '手动';
+  @Trace name: string = '';
+  @Trace no: string = '';
+  @Trace qty: string = '1';
+  @Trace unit: string = '个';
+  @Trace price: string = '0';
+  @Trace expDays: string = '';
+  @Trace pos: string = '';
+  @Trace isPrivate: boolean = false;
+  @Trace emoji: string = '📦';
+  @Trace img: ResourceStr = '';
+  @Trace priceSrc: string = '手动';
+  @Trace domain: string = '';
+  @Trace dosePerDay: string = '';
+  @Trace maintenanceDays: string = '';
 }
 
 export function updateItem(libId: string, itemId: string, data: ItemForm): Promise<void> {
@@ -597,6 +629,9 @@ export function updateItem(libId: string, itemId: string, data: ItemForm): Promi
     target.expiring = target.expDays > 0 && target.expDays <= 3;
     target.pos = data.pos;
     target.isPrivate = data.isPrivate;
+    target.domain = data.domain === '' ? inferResourceDomain(data.name, lib.name) : data.domain;
+    target.dosePerDay = Math.max(0, parseFloat(data.dosePerDay) || 0);
+    target.maintenanceDays = Math.max(0, parseFloat(data.maintenanceDays) || 0);
     store.pushLog('item', `编辑物品「${target.name}」`);
   });
 }

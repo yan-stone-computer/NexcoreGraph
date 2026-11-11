@@ -7,11 +7,15 @@ import { Item, Library } from '../common/Db';
 import {
   itemToTwinInput, simulateTwin, TwinItemInput, TwinProjection, TwinResult, TwinRisk, TwinScenario
 } from '../common/ResourceTwin';
+import {
+  DOMAIN_FITNESS, DOMAIN_FOOD, DOMAIN_MEDICINE, DOMAIN_TOOL, domainLabel
+} from '../common/ResourceDomain';
 
 @ComponentV2
 export struct TwinPanel {
   @Local scenarioIndex: number = 0;
   @Local result: TwinResult = new TwinResult();
+  @Local selectedDomain: string = 'all';
 
   aboutToAppear(): void {
     this.recalc();
@@ -34,7 +38,10 @@ export struct TwinPanel {
     const inputs: TwinItemInput[] = [];
     store.libraries.forEach((lib: Library): void => {
       lib.items.forEach((item: Item): void => {
-        inputs.push(itemToTwinInput(item));
+        const input = itemToTwinInput(item, lib.name);
+        if (this.selectedDomain === 'all' || input.domain === this.selectedDomain) {
+          inputs.push(input);
+        }
       });
     });
     this.result = simulateTwin(inputs, this.scenario());
@@ -43,6 +50,40 @@ export struct TwinPanel {
   private selectScenario(index: number): void {
     this.scenarioIndex = index;
     this.recalc();
+  }
+
+  private selectDomain(domain: string): void {
+    this.selectedDomain = domain;
+    this.recalc();
+  }
+
+  private riskLabel(type: string): string {
+    if (type === 'waste') {
+      return '临期';
+    }
+    if (type === 'maintenance') {
+      return '维护';
+    }
+    if (type === 'unavailable') {
+      return '不可用';
+    }
+    if (type === 'refill' || this.selectedDomain === DOMAIN_MEDICINE) {
+      return '余量';
+    }
+    return '缺货';
+  }
+
+  private freshnessLabel(): string {
+    if (this.selectedDomain === DOMAIN_MEDICINE) {
+      return '有效期';
+    }
+    if (this.selectedDomain === DOMAIN_FITNESS) {
+      return '可用性';
+    }
+    if (this.selectedDomain === DOMAIN_TOOL) {
+      return '维护度';
+    }
+    return '新鲜度';
   }
 
   private grade(): string {
@@ -91,7 +132,7 @@ export struct TwinPanel {
         .width('100%')
 
         Row({ space: S2 }) {
-          this.ScorePart('新鲜度', this.result.breakdown.freshness, 40)
+          this.ScorePart(this.freshnessLabel(), this.result.breakdown.freshness, 40)
           this.ScorePart('充足度', this.result.breakdown.supply, 25)
           this.ScorePart('完整度', this.result.breakdown.completeness, 20)
           this.ScorePart('及时度', this.result.breakdown.response, 15)
@@ -116,17 +157,54 @@ export struct TwinPanel {
   }
 
   @Builder
-  ScenarioBar() {
+  DomainBar() {
     Column({ space: S2 }) {
-      Text('情景推演').fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
-      Text('所有轨迹由端侧确定性模拟器计算，用于比较未来 7 天风险。')
-        .fontSize(11).fontColor(T.c('text-muted'))
+      Text('资源域').fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
       Row({ space: 8 }) {
-        Chip({ text: '正常', active: this.scenarioIndex === 0, tap: (): void => this.selectScenario(0) })
-        Chip({ text: '来客 +2', active: this.scenarioIndex === 1, tap: (): void => this.selectScenario(1) })
-        Chip({ text: '少做 2 餐', active: this.scenarioIndex === 2, tap: (): void => this.selectScenario(2) })
+        Chip({ text: '全部', active: this.selectedDomain === 'all',
+          tap: (): void => this.selectDomain('all') })
+        Chip({ text: '食品', active: this.selectedDomain === DOMAIN_FOOD,
+          tap: (): void => this.selectDomain(DOMAIN_FOOD) })
+        Chip({ text: '药品', active: this.selectedDomain === DOMAIN_MEDICINE,
+          tap: (): void => this.selectDomain(DOMAIN_MEDICINE) })
       }
       .width('100%')
+      Row({ space: 8 }) {
+        Chip({ text: '健身', active: this.selectedDomain === DOMAIN_FITNESS,
+          tap: (): void => this.selectDomain(DOMAIN_FITNESS) })
+        Chip({ text: '工具', active: this.selectedDomain === DOMAIN_TOOL,
+          tap: (): void => this.selectDomain(DOMAIN_TOOL) })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  ScenarioBar() {
+    Column({ space: S2 }) {
+      Text(this.selectedDomain === 'all' || this.selectedDomain === DOMAIN_FOOD ? '食品情景' : '域规则')
+        .fontSize(16).fontWeight(700).fontColor(T.c('text-primary'))
+      if (this.selectedDomain === 'all' || this.selectedDomain === DOMAIN_FOOD) {
+        Text('食品按人数和餐次推演，其他资源域不会被餐次错误放大。')
+          .fontSize(11).fontColor(T.c('text-muted'))
+        Row({ space: 8 }) {
+          Chip({ text: '正常', active: this.scenarioIndex === 0, tap: (): void => this.selectScenario(0) })
+          Chip({ text: '来客 +2', active: this.scenarioIndex === 1, tap: (): void => this.selectScenario(1) })
+          Chip({ text: '少做 2 餐', active: this.scenarioIndex === 2, tap: (): void => this.selectScenario(2) })
+        }
+        .width('100%')
+      } else if (this.selectedDomain === DOMAIN_MEDICINE) {
+        Text('按用户填写的每日用量计算余量天数；系统不生成剂量建议。')
+          .fontSize(11).fontColor(T.c('text-muted'))
+      } else if (this.selectedDomain === DOMAIN_FITNESS) {
+        Text('器材数量决定是否可用，训练计划会根据目标、水平和现有器材生成。')
+          .fontSize(11).fontColor(T.c('text-muted'))
+      } else if (this.selectedDomain === DOMAIN_TOOL) {
+        Text('工具默认不按日耗扣减；仅提示维护、保修和当前不可用状态。')
+          .fontSize(11).fontColor(T.c('text-muted'))
+      }
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
@@ -143,13 +221,15 @@ export struct TwinPanel {
       .width('100%')
 
       if (this.result.risks.length === 0) {
-        Text('未来 7 天没有预测到耗尽或到期浪费。')
+        Text(this.selectedDomain === DOMAIN_TOOL || this.selectedDomain === DOMAIN_FITNESS
+          ? '未来 7 天没有预测到不可用或维护风险。'
+          : '未来 7 天没有预测到耗尽或到期浪费。')
           .fontSize(13).fontColor(T.c('primary-ink'))
           .width('100%').padding(S3).borderRadius(R_M).backgroundColor(T.c('primary-container'))
       } else {
         ForEach(this.result.risks.slice(0, 6), (risk: TwinRisk) => {
           Row({ space: 10 }) {
-            Text(risk.type === 'waste' ? '临期' : '缺货')
+            Text(this.riskLabel(risk.type))
               .fontSize(10).fontWeight(700)
               .fontColor(risk.type === 'waste' ? T.c('warning') : T.c('danger'))
               .padding({ left: 8, right: 8, top: 4, bottom: 4 })
@@ -202,8 +282,13 @@ export struct TwinPanel {
         }
         .width('100%').alignItems(VerticalAlign.Top)
       }, (hint: string, index: number) => `${index}-${hint}`)
-      TBtn({ label: '让 AI 生成处置方案', icon: 'sparkles', kind: 'primary', tap: (): void => this.openAI() })
-        .width('100%').margin({ top: S2 })
+      Row({ space: 12 }) {
+        TBtn({ label: '身体档案与训练', icon: 'users', kind: 'soft', small: true,
+          tap: (): void => { store.overlay = 'bodyprofile'; } }).layoutWeight(1)
+        TBtn({ label: '让 AI 解释', icon: 'sparkles', kind: 'primary', small: true,
+          tap: (): void => this.openAI() }).layoutWeight(1)
+      }
+      .width('100%').margin({ top: S2 })
     }
     .width('100%').alignItems(HorizontalAlign.Start)
   }
@@ -216,16 +301,16 @@ export struct TwinPanel {
           Text('不是记账，而是推演未来 7 天会发生什么').fontSize(12).fontColor(T.c('text-muted'))
         }
         .alignItems(HorizontalAlign.Start).layoutWeight(1)
-        TBtn({ label: '关闭', kind: 'ghost', small: true, tap: (): void => { store.overlay = ''; } })
       }
       .width('100%').alignItems(VerticalAlign.Top)
 
       this.ScoreCard()
+      this.DomainBar()
       this.ScenarioBar()
       this.RiskList()
       this.ProjectionList()
       this.Actions()
-      Text('数据口径：参考日耗由保质期与家庭人数估算；可在后续接入真实消耗日志提高精度。')
+      Text('数据口径：食品按保质期与家庭情景；药品按用户填写用量；工具和器材只看可用性与维护。')
         .fontSize(10).lineHeight(16).fontColor(T.c('text-muted'))
     }
     .width('100%')

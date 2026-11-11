@@ -5,6 +5,10 @@
 import { store, nowTime, LogRow } from './Store';
 import { Item, Library, Plan } from './Db';
 import { lookup, rulesFor, evidenceLine, FoodRow, RuleRow } from './KnowledgeIndex';
+import { buildWorkoutPlan, WorkoutInput } from './WorkoutPlanner';
+import {
+  DOMAIN_FITNESS, DOMAIN_MEDICINE, inferResourceDomain, isConsumableDomain
+} from './ResourceDomain';
 
 /** AI 一次回复的结构化结果（含工具行解析结果与来源标注） */
 export class AIReply {
@@ -28,7 +32,7 @@ export class AIReply {
 }
 
 export type Intent = 'greet' | 'where' | 'qty' | 'expiry' | 'cook' | 'creative'
-  | 'adjust' | 'shopping' | 'nutrition' | 'summary' | 'other';
+  | 'adjust' | 'shopping' | 'nutrition' | 'summary' | 'training' | 'medicine' | 'other';
 
 const GREET_WORDS: string[] = ['你好', '您好', '嗨', '哈喽', 'hello', 'hi', '谢谢', '感谢', '在吗', '早上好', '晚上好'];
 const WHERE_WORDS: string[] = ['放哪', '在哪', '哪里', '位置', '放在'];
@@ -39,6 +43,7 @@ const CREATIVE_WORDS: string[] = ['创新', '新花样', '创意', '特别点的
 const ADJUST_WORDS: string[] = ['剩', '用了', '吃完了', '喝完了', '只剩', '还剩', '买了几', '吃光了'];
 const SHOP_WORDS: string[] = ['购物清单', '采购清单', '加购物', '加采购', '要买了', '买什么', '补货'];
 const NUTRI_WORDS: string[] = ['营养', '热量', '卡路里', '减脂', '增肌', '控糖', '减肥', '健康餐', '多少卡'];
+const TRAINING_WORDS: string[] = ['训练计划', '健身计划', '怎么练', '动作安排', '身体数据', '训练方案'];
 
 export function routeIntent(q: string): Intent {
   const s = q.trim().toLowerCase();
@@ -50,6 +55,13 @@ export function routeIntent(q: string): Intent {
   }
   if (CREATIVE_WORDS.some((w: string): boolean => s.includes(w))) {
     return 'creative';
+  }
+  if (TRAINING_WORDS.some((w: string): boolean => s.includes(w))) {
+    return 'training';
+  }
+  if (s.includes('药') && (s.includes('剩') || s.includes('几天') || s.includes('余量') ||
+    s.includes('用完') || s.includes('够不够'))) {
+    return 'medicine';
   }
   if (NUTRI_WORDS.some((w: string): boolean => s.includes(w))) {
     return 'nutrition';
@@ -115,7 +127,10 @@ function libOfItem(it: Item): Library | null {
 function itemLine(lib: Library, it: Item): string {
   // expDays = 0 表示这类物品没有保质期（衣物/工具/厨具等），证据里如实写，不让模型看到"0 天后到期"
   const exp = it.expDays > 0 ? `约${it.expDays}天后到期` : '无保质期';
-  return `${lib.name}·${it.pos}｜${it.name} ${it.qty}${it.unit}｜${exp}｜¥${it.price}（${it.priceSrc}）`;
+  const domain: string = it.domain === '' ? inferResourceDomain(it.name, lib.name) : it.domain;
+  const daily: string = domain === DOMAIN_MEDICINE && it.dosePerDay > 0
+    ? `｜每日 ${it.dosePerDay}${it.unit}` : '';
+  return `${lib.name}·${it.pos}｜${it.name} ${it.qty}${it.unit}｜${exp}${daily}｜¥${it.price}（${it.priceSrc}）`;
 }
 
 function inventoryLines(limit: number, expiringFirst: boolean): string[] {
@@ -262,6 +277,76 @@ export function directAnswer(intent: Intent, q: string): AIReply | null {
     }
     return r;
   }
+  if (intent === 'training') {
+    const r = new AIReply();
+    r.route = 'training';
+    if (!store.profile.trainingEnabled || store.profile.heightCm <= 0 || store.profile.weightKg <= 0) {
+      r.text = '先在「身体档案与训练方案」里填写身高、体重和训练目标，我会按现有器材生成确定性计划。';
+      r.srcNote = '本地训练引擎 · 0 次模型调用';
+      return r;
+    }
+    const equipment: string[] = [];
+    store.libraries.forEach((lib: Library): void => {
+      lib.items.forEach((item: Item): void => {
+        if (item.qty <= 0 || (item.domain !== '' ? item.domain :
+          inferResourceDomain(item.name, lib.name)) !== DOMAIN_FITNESS) {
+          return;
+        }
+        if (item.name.indexOf('哑铃') >= 0 || item.name.indexOf('壶铃') >= 0) {
+          if (equipment.indexOf('哑铃') < 0) {
+            equipment.push('哑铃');
+          }
+        } else if (item.name.indexOf('弹力带') >= 0 || item.name.indexOf('拉力带') >= 0) {
+          if (equipment.indexOf('弹力带') < 0) {
+            equipment.push('弹力带');
+          }
+        } else if (item.name.indexOf('跑步机') >= 0 && equipment.indexOf('跑步机') < 0) {
+          equipment.push('跑步机');
+        } else if (item.name.indexOf('瑜伽垫') >= 0 && equipment.indexOf('瑜伽垫') < 0) {
+          equipment.push('瑜伽垫');
+        }
+      });
+    });
+    const input = new WorkoutInput();
+    input.heightCm = store.profile.heightCm;
+    input.weightKg = store.profile.weightKg;
+    input.age = store.profile.age;
+    input.goal = store.profile.trainingGoal;
+    input.level = store.profile.trainingLevel;
+    input.weeklyDays = store.profile.weeklyDays;
+    input.limitations = store.profile.limitations;
+    input.equipment = equipment;
+    const plan = buildWorkoutPlan(input);
+    if (!plan.valid) {
+      r.text = plan.safetyNote;
+      r.srcNote = '本地训练引擎 · 数据校验';
+      return r;
+    }
+    const focus: string[] = plan.sessions.map((s): string => `第${s.day}天 ${s.focus}`);
+    r.text = `已按 ${plan.summary} 生成 ${plan.sessions.length} 次训练：${focus.join('、')}。` +
+      `当前器材：${equipment.length > 0 ? equipment.join('、') : '自重'}。${plan.safetyNote}`;
+    r.srcNote = '本地训练引擎 · 0 次模型调用 · 确定性规则';
+    return r;
+  }
+  if (intent === 'medicine') {
+    const it = findMentionedItem(q);
+    const r = new AIReply();
+    r.route = 'medicine';
+    if (it === null) {
+      r.text = '药品库里没有找到这件药。先扫码或手动入库，并填写每日用量。';
+      r.srcNote = '本地药品余量计算 · 库存实查';
+      return r;
+    }
+    if (it.dosePerDay <= 0) {
+      r.text = `「${it.name}」当前 ${it.qty}${it.unit}，还没有填写每日用量。请到物品详情补充，系统不会猜剂量。`;
+      r.srcNote = '本地药品余量计算 · 缺少用户输入';
+      return r;
+    }
+    const days: number = Math.ceil(it.qty / it.dosePerDay);
+    r.text = `「${it.name}」当前 ${it.qty}${it.unit}，按每日 ${it.dosePerDay}${it.unit} 计算，约 ${days} 天用完。`;
+    r.srcNote = '本地药品余量计算 · 数字由代码计算';
+    return r;
+  }
   return null;
 }
 
@@ -298,10 +383,14 @@ export function statsEvidence(): string {
       }
     });
   });
-  const eggHit = store.findItemHit('鸡蛋');
-  if (eggHit !== null && eggHit[1].qty < 5) {
-    lowNames.push(`鸡蛋（${eggHit[1].qty}${eggHit[1].unit}）`);
-  }
+  store.libraries.forEach((lib: Library) => {
+    lib.items.forEach((it: Item) => {
+      const domain: string = it.domain === '' ? inferResourceDomain(it.name, lib.name) : it.domain;
+      if (isConsumableDomain(domain) && it.qty <= 1) {
+        lowNames.push(`${it.name}（${it.qty}${it.unit}）`);
+      }
+    });
+  });
   let s = `近 7 天：消耗动作 ${consume} 次，入库 ${intake} 次；`;
   s += `当前临期 ${expiring} 项${expNames.length > 0 ? '：' + expNames.slice(0, 5).join('、') : ''}；`;
   s += `低库存：${lowNames.length > 0 ? lowNames.join('、') : '无'}。`;

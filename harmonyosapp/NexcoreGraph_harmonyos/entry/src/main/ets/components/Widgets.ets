@@ -289,6 +289,7 @@ export struct Field {
   @Param placeholder: string = '';
   @Param attention: boolean = false;
   @Param num: boolean = false;
+  @Param password: boolean = false;
   @Param maxLen: number = 0;
   @Event change: (v: string) => void = (v: string): void => {};
   /** 键盘回车提交：弹层里的表单底部按钮会被软键盘挡住（实测"新建资源库"点不到创建库），
@@ -307,7 +308,7 @@ export struct Field {
         .fontColor(T.c('text-primary'))
         .placeholderColor(T.c('text-muted'))
         .maxLength(this.maxLen > 0 ? this.maxLen : 999)
-        .type(this.num ? InputType.Number : InputType.Normal)
+        .type(this.password ? InputType.Password : (this.num ? InputType.Number : InputType.Normal))
         .onChange((v: string) => this.change(v))
         .enterKeyType(EnterKeyType.Done)
         .onSubmit((_e: EnterKeyType) => this.submit(this.text))
