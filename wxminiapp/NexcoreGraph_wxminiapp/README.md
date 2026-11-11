@@ -48,6 +48,21 @@ npm run typecheck
 npm run verify:weapp
 ```
 
+真实模拟器自动化冒烟需要先启动开发者工具自动化端口：
+
+```powershell
+& 'C:\Program Files (x86)\Tencent\微信web开发者工具\cli.bat' auto `
+  --project 'D:\ProjectFiles\GithubPackage\NexcoreGraph\wxminiapp\NexcoreGraph_wxminiapp' `
+  --trust-project --auto-port 9422 --lang zh
+
+$env:WEAPP_AUTOMATOR_WS='ws://127.0.0.1:9422'
+node ..\..\tools\test_weapp_runtime.js
+```
+
+多轮真实复核结果见 `docs/qa/启核图策-微信小程序端多轮复核报告.md`。
+
+完整部署流程见 `docs/启核图策-微信小程序端部署与运行指南.md`。
+
 ## 目录
 
 ```text
