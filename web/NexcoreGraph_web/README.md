@@ -2,7 +2,9 @@
 
 启核图策 NexcoreGraph Web 端是面向家庭资源管理的 AI 原生工作台，覆盖拍照入库、资源库、临期预警、临期救援、AI 方案、协作与管理员端。当前交付采用零构建 HTML/CSS/JS，浏览器即可运行。
 
-本轮针对评审反馈新增“临期救援驾驶舱”：用确定性多目标求解器计算菜谱匹配、临期程度、缺料与时间约束，提供 Pareto 非支配候选、1–3 道菜组合编排、反事实沙盘和完整决策轨迹。家庭资源模型同时覆盖药品、健身器材、工具等内容，并新增“家庭智策”页面。
+本轮针对评审反馈新增“临期救援驾驶舱”：用确定性多目标求解器计算菜谱匹配、临期程度、缺料与时间约束，提供 Pareto 非支配候选、1–3 道菜组合编排、反事实沙盘和完整决策轨迹。
+
+“家庭智策”不再只围绕食品。当前业务覆盖食材、药箱、健身器材、维修工具、家电、衣橱、书籍、宠物用品、清洁耗材和其他资源，并提供全屋资源数、库存估值、生活资产和跨域风险汇总。药箱、训练、保修、维护、借出与归还各自使用独立规则，跨域问答由本地确定性汇总生成，不依赖模型在线。
 
 ## 一、项目文件结构
 
@@ -20,8 +22,8 @@ webapp/
 │  ├─ knowledge.js       食材保质期 25 项 / 菜谱 16 道 / 存放规则 10 条
 │  ├─ rescue.js          临期救援求解器（纯函数：排序、Pareto、组合约束）
 │  ├─ rescue-view.js     救援驾驶舱、反事实沙盘、决策回放和写操作预览
-│  ├─ domains.js         药箱、健身器材、身体画像与工具保修算法
-│  ├─ domain-view.js     家庭智策页面与训练方案交互
+│  ├─ domains.js         药箱、健身、器具借用、家电保修、生活资产与全屋风险算法
+│  ├─ domain-view.js     家庭智策全景、食材、药箱、健身、工具家电与生活资产交互
 │  ├─ mockapi.js         业务状态层：校验、日志、持久化、执行与撤销
 │  ├─ agnes.js           AI 网关/厂商直连、健康探测、超时与错误分类
 │  ├─ graph.js          个人资源图谱构图与检索算子
@@ -47,15 +49,16 @@ webapp/
 | F9 家庭协作 | 邮箱验证码登录，角色 管理员/成员/只读（只读禁写 F9.2）；成员移除；限时邀请码生成/复制/撤销（F9.3）；牌桌协作传库/合并/结束清理（F9.6-F9.9）；同步：全量快照 + 版本号，可演示 409 冲突二选一（F9.10/D1/G2） |
 | F10 管理员端 | 独立入口 `admin.html`（管理员角色鉴权）：用户管理（禁用/启用）、家庭管理（容量/成员/邀请码）、数据审计（日志 + 云端快照）、AI 用量（次数/费用/限流）、系统配置（模型/联网开关/识别阈值/推送模板）、知识库管理（编辑 + 保存草稿 + 版本发布） |
 | F11 临期救援 | 确定性多目标评分、Pareto 非支配集、1–3 道菜约束组合、1/15/30/60 分钟沙盘、反事实排除、推荐依据、步骤与替代建议、预览确认、执行撤销和累计救回统计 |
-| F12 家庭智策 | 药箱有效期与低库存、健身器材识别、身高体重/年龄/目标/水平/周频次输入、BMI 与目标心率、器材约束训练计划、工具保修与维护周期、药品和工具专项 AI 回答 |
+| F12 家庭智策 | 全屋全景显示总资源、估值、生活资产与跨域风险；食材进入 Pareto 救援；药箱扫描有效期、过期与低库存；健身根据身高体重/年龄/目标/水平/周频次和现有器材生成 BMI、目标心率与训练日；工具家电扫描保修、维护、借用人和归还期限；衣橱、书籍、宠物用品、清洁耗材提供数量、估值、临期与低库存汇总；跨域 AI 回答覆盖资产、借出和风险 |
 
 ## 三、部署运行步骤
 
 1. 环境要求：现代浏览器（Chrome / Edge 优先）、Python 3.10+（仅用于启动静态服务），以及可选的自建 AI 后端。
 2. 直接双击 `index.html` 可查看界面；登录与邮箱验证码需要启动后端。
-3. **推荐用本地静态服务**（摄像头 `getUserMedia` 需要 HTTPS 或 localhost）：
-   - `python -m http.server 8080`
-   - 浏览器访问 `http://localhost:8080`
+3. **推荐用仓库内置安全静态服务**（摄像头 `getUserMedia` 需要 HTTPS 或 localhost）：
+   - 在仓库根目录执行 `python tools/serve_web.py --root web/NexcoreGraph_web --port 8080`
+   - 浏览器访问 `http://127.0.0.1:8080`
+   - 服务会拒绝 `.env`、点文件、目录列表和路径穿越；不要改用会公开目录的临时服务器
    - VS Code：安装 Live Server 插件 → 右键 index.html → Open with Live Server
 4. 不要将 `.env` 放进 Web 静态目录。推荐在自建后端配置真实 AI Key，或在设置页为单台本机临时填写；浏览器不会下载 dotenv 文件。
 5. 登录使用邮箱和真实邮件验证码。评审账号在后端数据库中创建，不在前端硬编码固定验证码。
@@ -66,21 +69,22 @@ webapp/
 
 ```powershell
 cd web/NexcoreGraph_web
-node --test tests/rescue.test.js
-node --check js/rescue.js
-node --check js/rescue-view.js
+node --check js/domains.js
+node --check js/domain-view.js
 node --check js/mockapi.js
 node --check js/ai.js
 node --check js/app.js
+node --test tests/*.test.js
 
 cd ../..
 python tools/verify_rescue_web.py `
-  --url "file:///D:/ProjectFiles/GithubPackage/NexcoreGraph/web/NexcoreGraph_web/index.html#/rescue" `
-  --desktop-shot "web/NexcoreGraph_web/qa/shots/13-rescue-desktop.png" `
-  --mobile-shot "web/NexcoreGraph_web/qa/shots/15-rescue-mobile.png"
+  --url "http://127.0.0.1:8080/index.html#/rescue" `
+  --domain-shot "web/NexcoreGraph_web/qa/shots/17-family-domains.png" `
+  --overview-shot "web/NexcoreGraph_web/qa/shots/18-household-overview.png" `
+  --assets-shot "web/NexcoreGraph_web/qa/shots/19-life-assets.png"
 ```
 
-端到端脚本会在临时浏览器中注入评审数据，验证导航、筛选、决策抽屉、预览、执行、撤销和移动端溢出；不会污染本机浏览器数据。
+端到端脚本会在临时浏览器中注入九个生活域的评审数据，验证导航、筛选、决策抽屉、预览、执行、撤销、库存 CRUD、搜索、药箱、健身身体数据、工具借用、生活资产、跨域 AI 和移动端溢出；不会污染本机浏览器数据。
 
 ## 五、团队信息
 
@@ -104,6 +108,7 @@ python tools/verify_rescue_web.py `
 
 - **数据存储**：业务状态使用 `nexcore_web_db_v3` 持久化；初始业务库为空，登录后由后端快照恢复。聊天/库存刷新不丢，图片以压缩缩略图存储。
 - **AI 说明**：文本链路支持“自建网关优先 + 厂商直连回落”，视觉走 `/api/ai/vision`。临期救援的库存匹配、排序、缺料和估值均为确定性代码计算，模型只解释；失败时仍保留规则结果，不冒充模型输出。
+- **多域说明**：全屋资源数、估值、生活资产、风险域、药箱临期、训练指标、保修与借出倒计时均由 `domains.js` 计算。药品只做库存、有效期、存放和安全提醒，不提供处方或诊断。
 - **AI 行为红线自查**：数量/位置/日期一律本地查询产出；`[调整]`/`shopping_add` 均为预览确认制；简报数字与看板同源（`computeStats`）。
 - **HTTPS**：生产部署必须 HTTPS（摄像头 / Web Push / Service Worker 依赖）。
 - **技术栈说明**：当前交付采用免构建原生 HTML/CSS/JS，模块边界为“纯算法 / 状态层 / 证据层 / 视图层”。Vue 3 + Vite + Pinia 是后续工程化方向，不计入当前已实现能力。

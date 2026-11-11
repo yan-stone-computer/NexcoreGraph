@@ -27,9 +27,39 @@ function libraries() {
       name: "维修工具箱",
       icon: "wrench",
       items: [
-        { id: "t1", name: "电钻", qty: 1, unit: "把", expDays: 9000, warrantyDays: 12, pos: "储物间" },
+        { id: "t1", name: "电钻", qty: 1, unit: "把", expDays: 9000, warrantyDays: 12, borrower: "邻居", loanDueDays: 1, pos: "储物间" },
         { id: "t2", name: "螺丝刀套装", qty: 1, unit: "套", expDays: 9000, pos: "工具箱" }
       ]
+    },
+    {
+      id: "wardrobe",
+      name: "衣橱",
+      icon: "shirt",
+      items: [{ id: "w1", name: "冬季大衣", qty: 1, unit: "件", price: 699, expDays: 9000, pos: "衣柜右侧" }]
+    },
+    {
+      id: "appliances",
+      name: "家电",
+      icon: "plug",
+      items: [{ id: "a1", name: "净水器", qty: 1, unit: "台", price: 1699, expDays: 9000, warrantyDays: 20, maintenanceDays: 10, pos: "厨房" }]
+    },
+    {
+      id: "books",
+      name: "书架",
+      icon: "book",
+      items: [{ id: "b1", name: "分布式系统", qty: 1, unit: "本", price: 89, expDays: 9000, pos: "书房" }]
+    },
+    {
+      id: "pet",
+      name: "宠物用品",
+      icon: "paw",
+      items: [{ id: "p1", name: "猫粮", qty: 1, unit: "袋", price: 129, expDays: 120, lowAt: 1, pos: "储藏柜" }]
+    },
+    {
+      id: "cleaning",
+      name: "清洁耗材",
+      icon: "package",
+      items: [{ id: "c1", name: "垃圾袋", qty: 1, unit: "卷", price: 12.9, expDays: 9000, lowAt: 2, pos: "清洁柜" }]
     }
   ];
 }
@@ -40,6 +70,25 @@ test("识别药箱、健身器材和工具箱三个生活域", () => {
   assert.equal(result.medicine.expiringItems.length, 1);
   assert.equal(result.fitness.equipment.length, 2);
   assert.equal(result.tools.warrantySoon.length, 1);
+  assert.equal(result.tools.activeLoans.length, 1);
+  assert.equal(result.tools.loanDueSoon.length, 1);
+  assert.equal(result.inventory.food.count >= 0, true);
+  assert.equal(result.inventory.appliance.count, 1);
+  assert.equal(result.inventory.wardrobe.count, 1);
+  assert.equal(result.inventory.books.count, 1);
+});
+
+test("汇总全屋资源、生活资产和跨域风险", () => {
+  const result = analyze(libraries(), {});
+  assert.equal(result.household.totalItems, 11);
+  assert.equal(result.household.totalValue, 2628.9);
+  assert.equal(result.household.activeDomains, 8);
+  assert.equal(result.household.assetItems, 5);
+  assert.equal(result.household.riskCount, 5);
+  assert.deepEqual(
+    result.household.riskDomains.map((domain) => domain.key),
+    ["medicine", "tools", "appliance", "pet", "cleaning"]
+  );
 });
 
 test("药品临期优先排序并生成补货提示", () => {

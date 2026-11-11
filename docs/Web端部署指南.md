@@ -402,6 +402,17 @@ python tools/verify_rescue_web.py \
   "inventoryStep": true,
   "manualAdd": true,
   "search": true,
+  "domains": {
+    "medicine": true,
+    "fitness": true,
+    "tools": true,
+    "assets": true,
+    "householdReply": true,
+    "toolsLoanReply": true,
+    "medicineAlert": true,
+    "warrantyAlert": true,
+    "loanAlert": true
+  },
   "consoleErrors": [],
   "tabletOverflowX": 0,
   "mobileOverflowX": 0
@@ -417,8 +428,11 @@ python tools/verify_rescue_web.py \
 5. 增加数量，再执行方案。
 6. 撤销方案并核对数量。
 7. 全局搜索刚添加的物品。
-8. 打开管理员端。
-9. 检查移动端和横屏。
+8. 打开“家庭智策 → 全景”，核对全屋资源、估值、生活资产与跨域风险。
+9. 依次打开药箱、健身、工具家电和生活资产，核对身体数据、训练方案、借用人和资产汇总。
+10. 询问“全屋生活资产和借出情况怎么样”，确认返回本地确定性回答。
+11. 打开管理员端。
+12. 检查移动端和横屏。
 
 ## 12. 日志、备份与监控
 

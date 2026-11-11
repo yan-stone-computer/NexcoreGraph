@@ -55,6 +55,7 @@
     var t = text || "";
     if (/^(hi|hello|你好|您好|在吗|嗨)/i.test(t) || t === "在么") return "greet";
     if (/先吃什么|今晚吃什么|临期.*做|快过期.*做|救哪|清库存.*做/.test(t)) return "rescue";
+    if (/全屋|生活资产|家庭资产|衣橱|衣柜|家电|书籍|宠物|清洁耗材|借出情况|借用情况|归还情况/.test(t)) return "household";
     if (/健身|训练方案|训练计划|锻炼.*器材|器材.*训练/.test(t)) return "fitness";
     if (/药箱|药品.*风险|药品.*管理|药快没了/.test(t)) return "medicine";
     if (/工具箱|工具.*保修|工具.*维护|保修.*工具/.test(t)) return "tools";
@@ -171,15 +172,30 @@
           src: "药箱有效期与库存规则 · 0 次模型调用"
         };
       }
+      if (kind === "household") {
+        var house = result.household;
+        var riskText = house.riskDomains.length
+          ? house.riskDomains.map(function (domain) { return domain.label + " " + domain.count + " 项"; }).join("、")
+          : "暂无待处理风险";
+        return {
+          text: "全屋当前 " + house.totalItems + " 件资源，覆盖 " + house.activeDomains +
+            " 个生活域，估值约 ¥" + house.totalValue + "。其中生活资产 " + house.assetItems +
+            " 件；跨域风险 " + house.riskCount + " 项：" + riskText + "。",
+          domain: "household",
+          model: false,
+          src: "全屋资产与跨域风险汇总 · 0 次模型调用"
+        };
+      }
       var tools = result.tools;
       return {
         text: tools.totalItems
           ? "工具箱当前 " + tools.totalItems + " 件，临近保修 " + tools.warrantySoon.length +
-            " 项、待维护 " + tools.maintenanceSoon.length + " 项。" + tools.notes.join(" ")
+            " 项、待维护 " + tools.maintenanceSoon.length + " 项、借出中 " +
+            tools.activeLoans.length + " 件。" + tools.notes.join(" ")
           : "还没有工具箱数据。可以先创建“维修工具箱”资源库。",
         domain: "tools",
         model: false,
-        src: "工具保修与维护规则 · 0 次模型调用"
+        src: "工具保修、维护与借用规则 · 0 次模型调用"
       };
     });
   }
@@ -317,7 +333,7 @@
     }
     var intent = route(text);
     if (intent === "rescue") return rescueReply();
-    if (intent === "fitness" || intent === "medicine" || intent === "tools") return domainReply(intent);
+    if (intent === "fitness" || intent === "medicine" || intent === "tools" || intent === "household") return domainReply(intent);
     var fast = fastReply(intent, text);
     if (fast) {
       window.API.logAiUsage("/api/ai/chat", 0, "本地快答");

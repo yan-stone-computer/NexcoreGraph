@@ -21,9 +21,15 @@
   function domainOf(library) {
     var name = String(library.name || "");
     var icon = String(library.icon || "");
+    if (icon === "fridge" || /冰箱|食品柜|食材|零食/.test(name)) return "food";
     if (icon === "pill" || /药箱|药品|药柜/.test(name)) return "medicine";
     if (icon === "dumbbell" || /健身|运动|训练/.test(name)) return "fitness";
-    if (icon === "wrench" || icon === "plug" || /工具|维修|五金/.test(name)) return "tools";
+    if (icon === "wrench" || /工具|维修|五金/.test(name)) return "tools";
+    if (icon === "plug" || /家电|电器|保修设备/.test(name)) return "appliance";
+    if (icon === "shirt" || /衣橱|衣柜|衣物|鞋柜/.test(name)) return "wardrobe";
+    if (icon === "book" || /书架|图书|书籍/.test(name)) return "books";
+    if (icon === "paw" || /宠物|猫粮|狗粮/.test(name)) return "pet";
+    if (/清洁|耗材|日化/.test(name)) return "cleaning";
     return "general";
   }
 
@@ -73,15 +79,89 @@
     var maintenanceSoon = items.filter(function (item) {
       return item.maintenanceDays != null && item.maintenanceDays >= 0 && item.maintenanceDays <= 14;
     }).sort(function (a, b) { return a.maintenanceDays - b.maintenanceDays; });
+    var activeLoans = items.filter(function (item) { return String(item.borrower || "").trim() !== ""; });
+    var loanDueSoon = activeLoans.filter(function (item) {
+      return item.loanDueDays != null && item.loanDueDays <= 2;
+    }).sort(function (a, b) { return a.loanDueDays - b.loanDueDays; });
     var notes = [];
     if (warrantySoon.length) notes.push("临近保修截止的设备先检查功能并保留购买凭证。");
     if (maintenanceSoon.length) notes.push("维护周期临近：清洁、润滑或更换耗材前先断电。");
+    if (loanDueSoon.length) notes.push("有工具临近归还期限，请先确认借用人和使用状态。");
     if (!items.length) notes.push("尚未建立工具箱，可创建“维修工具箱”资源库。");
     return {
       totalItems: items.length,
       warrantySoon: warrantySoon,
       maintenanceSoon: maintenanceSoon,
+      activeLoans: activeLoans,
+      loanDueSoon: loanDueSoon,
       notes: notes
+    };
+  }
+
+  function inventorySummary(libraries, domain, label) {
+    var librariesInDomain = (libraries || []).filter(function (library) {
+      return domainOf(library) === domain;
+    });
+    var items = allItems(libraries, domain);
+    var value = items.reduce(function (sum, item) {
+      return sum + (Number(item.price) || 0);
+    }, 0);
+    var lowStock = items.filter(function (item) {
+      return Number(item.lowAt) > 0 && Number(item.qty) <= Number(item.lowAt);
+    });
+    var expiring = items.filter(function (item) {
+      return item.expDays > 0 && item.expDays <= 7 && item.expDays < 9000;
+    });
+    return {
+      key: domain,
+      label: label,
+      libraries: librariesInDomain.length,
+      count: items.length,
+      value: Math.round(value * 100) / 100,
+      lowStock: lowStock,
+      expiring: expiring,
+      items: items
+    };
+  }
+
+  function householdSummary(inventory, medicine, tools) {
+    var keys = Object.keys(inventory);
+    var totalItems = keys.reduce(function (sum, key) { return sum + inventory[key].count; }, 0);
+    var totalValue = keys.reduce(function (sum, key) { return sum + inventory[key].value; }, 0);
+    var activeDomains = keys.filter(function (key) { return inventory[key].count > 0; }).length;
+    var assetItems = ["wardrobe", "appliance", "books", "pet", "cleaning"].reduce(function (sum, key) {
+      return sum + inventory[key].count;
+    }, 0);
+    var riskOrder = ["food", "medicine", "tools", "fitness", "appliance", "wardrobe", "books", "pet", "cleaning", "general"];
+    var riskDomains = riskOrder.map(function (key) {
+      var data = inventory[key];
+      var riskIds = {};
+      data.expiring.concat(data.lowStock).forEach(function (item) { riskIds[item.id] = true; });
+      if (key === "medicine") {
+        medicine.expiredItems.concat(medicine.lowStock).forEach(function (item) { riskIds[item.id] = true; });
+      }
+      if (key === "tools") {
+        tools.warrantySoon.concat(tools.maintenanceSoon, tools.loanDueSoon).forEach(function (item) {
+          riskIds[item.id] = true;
+        });
+      }
+      if (key === "appliance") {
+        data.items.forEach(function (item) {
+          if ((item.warrantyDays != null && item.warrantyDays <= 30) ||
+              (item.maintenanceDays != null && item.maintenanceDays <= 14)) {
+            riskIds[item.id] = true;
+          }
+        });
+      }
+      return { key: key, label: data.label, count: Object.keys(riskIds).length };
+    }).filter(function (domain) { return domain.count > 0; });
+    return {
+      totalItems: totalItems,
+      totalValue: Math.round(totalValue * 100) / 100,
+      activeDomains: activeDomains,
+      assetItems: assetItems,
+      riskCount: riskDomains.reduce(function (sum, domain) { return sum + domain.count; }, 0),
+      riskDomains: riskDomains
     };
   }
 
@@ -215,14 +295,30 @@
     var fitnessItems = allItems(libraries, "fitness");
     var equipment = equipmentNames(fitnessItems);
     var body = profile && profile.body ? profile.body : {};
+    var inventory = {
+      food: inventorySummary(libraries, "food", "食材"),
+      medicine: inventorySummary(libraries, "medicine", "药品"),
+      fitness: inventorySummary(libraries, "fitness", "健身器材"),
+      tools: inventorySummary(libraries, "tools", "维修工具"),
+      appliance: inventorySummary(libraries, "appliance", "家电"),
+      wardrobe: inventorySummary(libraries, "wardrobe", "衣橱"),
+      books: inventorySummary(libraries, "books", "书籍"),
+      pet: inventorySummary(libraries, "pet", "宠物用品"),
+      cleaning: inventorySummary(libraries, "cleaning", "清洁耗材"),
+      general: inventorySummary(libraries, "general", "其他资源")
+    };
+    var medicine = medicineSummary(libraries, soon);
+    var tools = toolSummary(libraries);
     return {
-      medicine: medicineSummary(libraries, soon),
+      household: householdSummary(inventory, medicine, tools),
+      inventory: inventory,
+      medicine: medicine,
       fitness: {
         equipment: fitnessItems,
         equipmentUsed: equipment,
         plan: fitnessPlan(body, equipment)
       },
-      tools: toolSummary(libraries)
+      tools: tools
     };
   }
 

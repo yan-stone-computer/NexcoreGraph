@@ -1723,6 +1723,8 @@
       '<div class="field"><label for="it-exp">有效期 / 保质期（天）</label><input id="it-exp" class="num" value="7"/></div></div>' +
       '<div class="grid-2"><div class="field"><label for="it-warranty">剩余保修（天，可选）</label><input id="it-warranty" class="num" placeholder="如 30"/></div>' +
       '<div class="field"><label for="it-maint">距维护周期（天，可选）</label><input id="it-maint" class="num" placeholder="如 14"/></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="it-borrower">借出给（可选）</label><input id="it-borrower" placeholder="如：邻居"/></div>' +
+      '<div class="field"><label for="it-loan-days">距归还（天）</label><input id="it-loan-days" class="num" placeholder="如 1"/></div></div>' +
       '<div class="field"><label for="it-pos">存放位置</label><input id="it-pos" placeholder="如：冷藏区底层"/></div>' +
       '<label class="setting-row"><div><div class="setting-title">按药品管理</div><div class="setting-desc">药箱默认开启；参与药品有效期与补货预警</div></div><input id="it-med" type="checkbox"' + (lib.icon === "pill" ? " checked" : "") + '/></label>' +
       '<div class="setting-row"><div><div class="setting-title">仅自己可见</div><div class="setting-desc">共享库与协作中不展示（F2.5）</div></div><button class="switch" type="button" data-action="switch:toggle" aria-label="切换私有" role="switch" aria-checked="false"></button></div>' +
@@ -1742,6 +1744,8 @@
       '<div class="field"><label for="it-exp">有效期 / 保质期（天）</label><input id="it-exp" class="num" value="' + it.expDays + '"/></div></div>' +
       '<div class="grid-2"><div class="field"><label for="it-warranty">剩余保修（天）</label><input id="it-warranty" class="num" value="' + (it.warrantyDays == null ? "" : it.warrantyDays) + '"/></div>' +
       '<div class="field"><label for="it-maint">距维护周期（天）</label><input id="it-maint" class="num" value="' + (it.maintenanceDays == null ? "" : it.maintenanceDays) + '"/></div></div>' +
+      '<div class="grid-2"><div class="field"><label for="it-borrower">借出给</label><input id="it-borrower" value="' + esc(it.borrower || "") + '"/></div>' +
+      '<div class="field"><label for="it-loan-days">距归还（天）</label><input id="it-loan-days" class="num" value="' + (it.loanDueDays == null ? "" : it.loanDueDays) + '"/></div></div>' +
       '<div class="field"><label for="it-pos">存放位置</label><input id="it-pos" value="' + esc(it.pos) + '"/></div>' +
       '<label class="setting-row"><div><div class="setting-title">按药品管理</div><div class="setting-desc">参与药品有效期与补货预警</div></div><input id="it-med" type="checkbox"' + (it.med ? " checked" : "") + '/></label>' +
       '<div class="setting-row"><div><div class="setting-title">仅自己可见</div><div class="setting-desc">共享库与协作中不展示（F2.5）</div></div><button class="switch' + (it.private ? " on" : "") + '" type="button" data-action="switch:toggle" aria-label="切换私有" role="switch" aria-checked="' + !!it.private + '"></button></div>' +
@@ -2456,6 +2460,8 @@
           expDays: document.getElementById("it-exp").value,
           warrantyDays: document.getElementById("it-warranty").value,
           maintenanceDays: document.getElementById("it-maint").value,
+          borrower: document.getElementById("it-borrower").value,
+          loanDueDays: document.getElementById("it-loan-days").value,
           med: document.getElementById("it-med").checked,
           pos: document.getElementById("it-pos").value,
           private: sw ? sw.classList.contains("on") : false

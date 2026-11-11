@@ -12,7 +12,7 @@
 |---|---|---|---|
 | `website/` | 官方展示站 | 零依赖 HTML / CSS / JS | 已完成响应式官网、真实界面切换、GraphRAG 可视化与工程证据页 |
 | `harmonyosapp/NexcoreGraph_harmonyos` | 鸿蒙（主力端） | ArkTS + ArkUI（HarmonyOS NEXT / API 23）+ Node 后端 + MySQL | 原生 UI、AI 网关、GraphRAG、应用接续、多端同步、4 张服务卡片、Codelabs 00–08 已实现；待补：签名 HAP 与双机实测证据 |
-| `web/NexcoreGraph_web` | Web 用户端 + 管理员端 | 当前：免构建原生 HTML/CSS/JS；Node 24 仅用于测试 | 已实现 AI 网关/厂商直连、GraphRAG、视觉识别、临期救援 Pareto、药箱、健身器材与身体数据训练计划、工具保修、管理员端和浏览器验收 |
+| `web/NexcoreGraph_web` | Web 用户端 + 管理员端 | 当前：免构建原生 HTML/CSS/JS；Node 24 仅用于测试 | 已实现 AI 网关/厂商直连、GraphRAG、视觉识别、临期救援 Pareto、全屋多域智策、管理员端和浏览器验收。多域覆盖药箱、健身、工具借用、家电保修、衣橱、书籍、宠物用品与清洁耗材 |
 | `wxminiapp/NexcoreGraph_wxminiapp` | 微信小程序 | Taro 4.1.9 + React 18 + TypeScript + Sass + zustand | 10 页可编译（0.55MB）、AppID 已配置；待补：接真实模型与流式、协作工作台页、订阅消息/分享、隐私与内容安全合规 |
 | `androidapp/` | 安卓 | Kotlin + Jetpack Compose（规划） | **空目录**，待迁入 |
 | `desktopapp/` | Qt 桌面 | C++ + Qt 6 + QML（规划） | **空目录**，待迁入 |
@@ -42,8 +42,9 @@ cd backend && npm install && start.bat      # 默认 0.0.0.0:3000，需本机 My
 
 ```bash
 cd web/NexcoreGraph_web
-python -m http.server 8080      # 推荐：摄像头 getUserMedia 需要 localhost 或 HTTPS
-# 浏览器打开 http://localhost:8080 （用户端）与 http://localhost:8080/admin.html （管理员端）
+cd ../..
+python tools/serve_web.py --root web/NexcoreGraph_web --port 8080
+# 浏览器打开 http://127.0.0.1:8080 （用户端）与 http://127.0.0.1:8080/admin.html （管理员端）
 # 登录使用邮箱 + 后端真实邮件验证码；新版不再使用固定演示码
 ```
 
@@ -53,13 +54,14 @@ python -m http.server 8080      # 推荐：摄像头 getUserMedia 需要 localho
 
 ```powershell
 cd web/NexcoreGraph_web
-node --test tests/rescue.test.js
+node --test tests/*.test.js
 cd ../..
-python tools/verify_rescue_web.py --url "file:///D:/ProjectFiles/GithubPackage/NexcoreGraph/web/NexcoreGraph_web/index.html#/rescue"
+python tools/verify_rescue_web.py --url "http://127.0.0.1:8080/index.html#/rescue"
 ```
 
 部署、公网 HTTPS、Nginx 与管理端配置见 [docs/Web端部署指南.md](docs/Web端部署指南.md)。
 正式演示、60 秒救场版、全功能操作分镜和评委问答见 [docs/submission/启核图策-Web端-评委冲击版全功能口播稿.md](docs/submission/启核图策-Web端-评委冲击版全功能口播稿.md)。
+Web 多域业务、训练安全边界、全屋资产和借用规则见 [web/NexcoreGraph_web/README.md](web/NexcoreGraph_web/README.md)。
 
 ### 微信小程序
 

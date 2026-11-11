@@ -1317,6 +1317,59 @@
   gap: 14px;
 }
 
+.domain-total-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--border);
+}
+
+.domain-total-bar .domain-metric {
+  min-height: 100px;
+  border: 0;
+  border-radius: 0;
+}
+
+.domain-risk-map {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -2px 0 14px;
+}
+
+.domain-risk-chip {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: 500 11px/1.2 var(--font-sans);
+}
+
+.domain-risk-chip strong {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.domain-risk-chip:hover {
+  border-color: var(--border-strong);
+}
+
+.domain-risk-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .domain-domain-card {
   position: relative;
   display: flex;
@@ -1349,6 +1402,8 @@
 .domain-domain-card.medicine::after { background: var(--danger-container); }
 .domain-domain-card.fitness::after { background: var(--primary-container); }
 .domain-domain-card.tools::after { background: var(--warning-container); }
+.domain-domain-card.food::after { background: var(--success-container); }
+.domain-domain-card.assets::after { background: var(--tone-indigo-bg); }
 
 .domain-domain-card span,
 .domain-muted {
@@ -1371,6 +1426,50 @@
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(260px, 0.7fr);
   gap: 14px;
+}
+
+.domain-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.domain-assets {
+  padding: 22px;
+}
+
+.domain-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.domain-asset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface-sunken);
+}
+
+.domain-asset-card div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.domain-asset-card span,
+.domain-asset-card small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.domain-asset-card strong {
+  font: 700 20px/1.2 var(--font-display);
 }
 
 .domain-panel-main,
@@ -1595,6 +1694,9 @@
 }
 
 @media (max-width: 1100px) {
+  .domain-total-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .domain-form-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1612,10 +1714,12 @@
     flex: 0 0 auto;
   }
   .domain-overview,
+  .domain-total-bar,
   .domain-panel-grid,
   .domain-plan-metrics,
   .domain-session-list,
-  .domain-form-grid {
+  .domain-form-grid,
+  .domain-asset-grid {
     grid-template-columns: 1fr;
   }
   .domain-plan-hero {

@@ -101,6 +101,20 @@ def test_db():
     ]
     tools[0]["warrantyDays"] = 12
     tools[0]["maintenanceDays"] = 20
+    tools[0]["borrower"] = "邻居"
+    tools[0]["loanDueDays"] = 1
+    wardrobe = [
+        item("wardrobe-coat", "冬季大衣", "", 1, "件", 699, 9000, "衣柜右侧"),
+        item("wardrobe-shirt", "白衬衫", "", 2, "件", 199, 9000, "衣柜左侧"),
+    ]
+    appliances = [
+        item("appliance-purifier", "净水器", "", 1, "台", 1699, 9000, "厨房"),
+    ]
+    appliances[0]["warrantyDays"] = 20
+    appliances[0]["maintenanceDays"] = 10
+    books = [item("book-distributed", "分布式系统", "", 1, "本", 89, 9000, "书房")]
+    pets = [item("pet-food", "猫粮", "", 1, "袋", 129, 120, "储藏柜")]
+    cleaning = [item("clean-bags", "垃圾袋", "", 1, "卷", 12.9, 9000, "清洁柜")]
     return {
         "user": {"name": "验收员", "phone": "reviewer@example.com", "role": "管理员", "initial": "验"},
         "family": {"id": "fam-review-local", "name": "评审体验家庭"},
@@ -149,6 +163,51 @@ def test_db():
                 "count": len(tools),
                 "desc": "维修工具与保修",
                 "items": tools,
+            },
+            {
+                "id": "wardrobe",
+                "name": "衣橱",
+                "icon": "shirt",
+                "tone": "brown",
+                "count": len(wardrobe),
+                "desc": "衣物与季节收纳",
+                "items": wardrobe,
+            },
+            {
+                "id": "appliances",
+                "name": "家电",
+                "icon": "plug",
+                "tone": "indigo",
+                "count": len(appliances),
+                "desc": "家电保修与维护",
+                "items": appliances,
+            },
+            {
+                "id": "books",
+                "name": "书架",
+                "icon": "book",
+                "tone": "violet",
+                "count": len(books),
+                "desc": "图书与学习资料",
+                "items": books,
+            },
+            {
+                "id": "pet",
+                "name": "宠物用品",
+                "icon": "paw",
+                "tone": "orange",
+                "count": len(pets),
+                "desc": "宠物粮与用品",
+                "items": pets,
+            },
+            {
+                "id": "cleaning",
+                "name": "清洁耗材",
+                "icon": "package",
+                "tone": "slate",
+                "count": len(cleaning),
+                "desc": "清洁与家庭耗材",
+                "items": cleaning,
             }
         ],
         "alerts": [],
@@ -199,6 +258,8 @@ const workbenchShot = process.argv[6] || "";
 const drawerShot = process.argv[7] || "";
 const testModelFallback = process.argv[8] === "1";
 const domainShot = process.argv[9] || "";
+const overviewShot = process.argv[10] || "";
+const assetsShot = process.argv[11] || "";
 const fs = require("fs");
 let id = 0;
 const pending = new Map();
@@ -349,7 +410,8 @@ ws.onopen = async () => {
     const search = document.body.innerText.includes("测试酸奶");
 
     document.querySelector('[data-action="nav:go"][data-view="domains"]').click();
-    await waitFor(() => document.querySelectorAll(".domain-domain-card").length === 3);
+    await waitFor(() => document.querySelectorAll(".domain-domain-card").length >= 5);
+    const overviewChips = document.querySelectorAll(".domain-risk-chip").length;
     document.querySelector('[data-domain-action="tab"][data-value="fitness"]').click();
     const bodyForm = await waitFor(() => document.getElementById("body-profile-form"));
     document.getElementById("body-height").value = "175";
@@ -376,11 +438,22 @@ ws.onopen = async () => {
     await sleep(250);
     const toolsText = document.body.innerText;
     const tools = toolsText.includes("电钻") &&
-      toolsText.includes("工具健康与保修");
+      toolsText.includes("工具健康与保修") &&
+      toolsText.includes("借给 邻居");
+    document.querySelector('[data-domain-action="tab"][data-value="assets"]').click();
+    await sleep(250);
+    const assetsText = document.body.innerText;
+    const assets = ["冬季大衣", "净水器", "分布式系统", "猫粮", "垃圾袋"].every(function (name) {
+      return assetsText.includes(name);
+    });
+    document.querySelector('[data-domain-action="tab"][data-value="food"]').click();
+    await sleep(200);
+    const foodDomain = document.body.innerText.includes("打开临期救援");
     const domainData = await window.API.domainAnalysis();
     const fitnessReply = await window.AI.reply("根据我的身体数据推荐训练方案");
     const medicineReply = await window.AI.reply("药箱有哪些风险");
     const toolsReply = await window.AI.reply("工具箱什么时候保修");
+    const householdReply = await window.AI.reply("全屋生活资产和借出情况怎么样");
 
     return {
       navigation: rescueTitleVisible,
@@ -400,14 +473,24 @@ ws.onopen = async () => {
         medicine,
         fitness,
         tools,
+        assets,
+        overviewChips,
+        foodDomain,
         medicineItems: domainData.medicine.totalItems,
         fitnessEquipment: domainData.fitness.equipment.length,
         toolItems: domainData.tools.totalItems,
+        householdTotal: domainData.household.totalItems,
+        householdAssets: domainData.household.assetItems,
+        householdRisk: domainData.household.riskCount,
         fitnessReply: fitnessReply.domain === "fitness" && fitnessReply.model === false,
         medicineReply: medicineReply.domain === "medicine" && medicineReply.model === false,
         toolsReply: toolsReply.domain === "tools" && toolsReply.model === false,
+        householdReply: householdReply.domain === "household" &&
+          householdReply.model === false && householdReply.text.includes("生活资产"),
+        toolsLoanReply: toolsReply.text.includes("借出"),
         medicineAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "medicine"; }),
         warrantyAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "warranty"; }),
+        loanAlert: window.API.getState().alerts.some(function (alert) { return alert.type === "loan"; }),
         libraryDebug: window.API.getState().libraries.map(function (lib) {
           return { id: lib.id, icon: lib.icon, count: (lib.items || []).length };
         }),
@@ -467,6 +550,16 @@ ws.onopen = async () => {
   if (domainShot) {
     await send("Runtime.evaluate", { expression: `location.hash = "#/domains"` });
     await sleep(700);
+    if (overviewShot) {
+      await send("Runtime.evaluate", {
+        expression: `document.querySelector('[data-domain-action="tab"][data-value="overview"]')?.click()`
+      });
+      await sleep(250);
+      const overviewImage = await send("Page.captureScreenshot", {
+        format: "png", captureBeyondViewport: false
+      });
+      fs.writeFileSync(overviewShot, Buffer.from(overviewImage.result.data, "base64"));
+    }
     await send("Runtime.evaluate", {
       expression: `document.querySelector('[data-domain-action="tab"][data-value="fitness"]')?.click()`
     });
@@ -475,6 +568,16 @@ ws.onopen = async () => {
       format: "png", captureBeyondViewport: false
     });
     fs.writeFileSync(domainShot, Buffer.from(domainImage.result.data, "base64"));
+    if (assetsShot) {
+      await send("Runtime.evaluate", {
+        expression: `document.querySelector('[data-domain-action="tab"][data-value="assets"]')?.click()`
+      });
+      await sleep(350);
+      const assetsImage = await send("Page.captureScreenshot", {
+        format: "png", captureBeyondViewport: false
+      });
+      fs.writeFileSync(assetsShot, Buffer.from(assetsImage.result.data, "base64"));
+    }
   }
   await send("Runtime.evaluate", { expression: `location.hash = "#/rescue"` });
   await sleep(900);
@@ -534,6 +637,8 @@ def main():
     parser.add_argument("--drawer-shot", default="")
     parser.add_argument("--test-model-fallback", action="store_true")
     parser.add_argument("--domain-shot", default="")
+    parser.add_argument("--overview-shot", default="")
+    parser.add_argument("--assets-shot", default="")
     args = parser.parse_args()
     edge = find_edge()
     port = free_port()
@@ -569,6 +674,8 @@ def main():
                 args.drawer_shot,
                 "1" if args.test_model_fallback else "0",
                 args.domain_shot,
+                args.overview_shot,
+                args.assets_shot,
             ],
             capture_output=True,
             text=True,

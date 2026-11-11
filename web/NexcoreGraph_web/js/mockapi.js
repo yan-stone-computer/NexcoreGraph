@@ -120,6 +120,9 @@
         if (it.maintenanceDays != null && it.maintenanceDays <= 14) {
           out.push({ id: it.id + "-maint", type: "maintenance", icon: "wrench", tone: "amber", text: it.name + " " + it.maintenanceDays + " 天后进入维护周期", meta: "本周 · " + where });
         }
+        if (it.borrower && it.loanDueDays != null && it.loanDueDays <= 2) {
+          out.push({ id: it.id + "-loan", type: "loan", icon: "users", tone: it.loanDueDays < 0 ? "red" : "amber", text: it.name + " 借给 " + it.borrower + (it.loanDueDays < 0 ? "，已逾期 " + Math.abs(it.loanDueDays) + " 天" : "，" + it.loanDueDays + " 天后应归还"), meta: "借用记录 · " + where });
+        }
         if ((it.lowAt || 0) > 0 && it.qty <= it.lowAt) {
           out.push({ id: it.id + "-low", type: "low", icon: "package", tone: "teal", text: it.name + " 低于阈值（阈值 " + it.lowAt + " " + it.unit + "，当前 " + it.qty + " " + it.unit + "）", meta: "刚刚 · 规则自动化（D4 lowAt）" });
         }
@@ -458,6 +461,8 @@
           expDays: expDays, pos: data.pos || "未设置", lowAt: (window.KB.foods[kbKey] || {}).lowAt || 0,
           warrantyDays: data.warrantyDays === "" || data.warrantyDays == null ? null : Math.max(0, parseInt(data.warrantyDays, 10) || 0),
           maintenanceDays: data.maintenanceDays === "" || data.maintenanceDays == null ? null : Math.max(0, parseInt(data.maintenanceDays, 10) || 0),
+          borrower: String(data.borrower || "").trim(),
+          loanDueDays: data.loanDueDays === "" || data.loanDueDays == null ? null : parseInt(data.loanDueDays, 10),
           med: !!data.med || lib.icon === "pill",
           addedAt: new Date().getDate(), private: !!data.private
         };
@@ -481,6 +486,7 @@
           else if (k === "price") it.price = parseFloat(patch[k]) || 0;
           else if (k === "expDays") it.expDays = parseInt(patch[k], 10) || 7;
           else if (k === "warrantyDays" || k === "maintenanceDays") it[k] = patch[k] === "" || patch[k] == null ? null : Math.max(0, parseInt(patch[k], 10) || 0);
+          else if (k === "loanDueDays") it[k] = patch[k] === "" || patch[k] == null ? null : parseInt(patch[k], 10);
           else if (k === "med") it.med = !!patch[k];
           else it[k] = patch[k];
         });
