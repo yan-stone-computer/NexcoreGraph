@@ -2,6 +2,7 @@
 
 > 日期：2026-11-11
 > 分支：`codex/web-competition-submission`
+> 远端同步：`3816d9522a1d179139afe7c9a9714edb4c80174c`
 
 ## 一、启动结果
 
@@ -175,7 +176,7 @@ GET /.env 200
 
 ## 八、仍需处理
 
-1. 推送后确认远端分支 HEAD，并在 GitHub/Gitee 设为 Public 或给评审访问权限。
+1. 远端 HEAD 已与本地一致，但 GitHub 匿名 API 返回 404；须将仓库设为 Public，或给评审提供访问权限。
 2. AI 上游在本次复核时出现 500/429，需要在上游恢复后再跑一次真实模型正向测试。
 3. 微信开发者工具页面级自动化连接被关闭，需要重新开启 automation 端口。
 4. HarmonyOS HAP 当前为 unsigned，正式提交前需配置签名。
